@@ -63,7 +63,9 @@ Application identity and initial-review answers have separate Rust structures.
 
 Private tables and bounded configuration readers are in place. Runtime roles
 cannot read submission rows; the configuration function owner currently has
-access only to profiles and its authority catalog. The catalog fingerprints
+access to profiles, its authority catalog, and the record identifiers/state
+needed to check whether a submission action is open. It cannot read application
+contact fields. The catalog fingerprints
 permissions and definitions, using names rather than transient database object
 IDs so restoration can be checked without accepting fresh authority.
 
@@ -91,3 +93,23 @@ profiles, and detect extra column grants. The migration test checks rollback,
 rejects pre-existing owner authority, retains prior board content, and restores
 synthetic application records without resealing the catalog. PostgreSQL 16.15
 passes these checks locally; CI repeats them before this work can merge.
+
+
+## Submission verification
+
+Migration 0259 adds six action scopes: feedback, application creation,
+application authentication, application editing, contest submission, and contest
+deletion. Each challenge binds the anonymous session, verified peer, action,
+resource ID, and form nonce. These scopes have no board and cannot spend or grant
+posting credits. A separate private consumer prevents them from authorizing
+ordinary posts or reports. The protected submission write still needs to lock
+and recheck its campaign before consuming a proof in the same transaction.
+
+The verifier checks that the configured workflow is open before issuing or
+accepting an answer. Private consumption rechecks the workflow, session, context,
+and expiry. Direct public consumption is denied. Local integration tests cover
+six scope/target pairs, wrong context, cross-action use, closure, expiry,
+transaction rollback, and one-use replay. The domain suite passes 345 tests,
+and the original public readiness contract still passes with these scopes. Contest voting is excluded from CAPTCHA issuance;
+its Pass-only path remains to be implemented. These verification primitives do
+not yet make the public submission forms functional.

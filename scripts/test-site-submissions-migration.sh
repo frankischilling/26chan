@@ -52,6 +52,14 @@ grep -q 'Submission owner has unexpected existing authority' "$cluster/rejected.
 "${migrator[@]}" -c "DO \$\$ BEGIN IF to_regnamespace('submission_private') IS NOT NULL OR to_regnamespace('submission_api') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained submission schemas'; END IF; END \$\$;" >/dev/null
 "${migrator[@]}" --single-transaction -f migrations/0258_private_site_submissions.sql >"$cluster/accepted.log"
 "${migrator[@]}" -f scripts/test-site-submission-storage.sql >"$cluster/storage.log"
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT(email) ON submission_private.application_identity TO board_submission_owner;' \
+ -f migrations/0259_site_submission_captcha.sql >"$cluster/proof-rejected.log" 2>&1; then
+ echo 'Submission proof migration accepted private identity drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/proof-rejected.log"
+"${migrator[@]}" -c BEGIN -f migrations/0259_site_submission_captcha.sql -c ROLLBACK >"$cluster/proof-rollback.log" 2>&1 || { cat "$cluster/proof-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('submission_api.consume_captcha(bytea,bytea,bytea,text,bigint,bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained submission consumer'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0259_site_submission_captcha.sql >"$cluster/proof-accepted.log" 2>&1 || { cat "$cluster/proof-accepted.log" >&2; exit 1; }
 "${migrator[@]}" <<'SQL'
 INSERT INTO submission_private.application_campaigns(id,starts_at,ends_at,boards,questions,field_limit,answer_limit,capacity)
 VALUES(777,100,200,ARRAY['g'],ARRAY['Owned one','Owned two','Owned three','Owned four'],150,2000,100);
