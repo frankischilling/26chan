@@ -209,3 +209,26 @@ refresh behavior with JavaScript disabled/enabled at desktop/mobile sizes.
 These browser cases require a passing CI result; local HTML tests alone do not
 qualify them. Scoring/perk workflows, seasonal presentation and missing artwork
 remain part of issue #224.
+
+## Dormant scores and perk glyphs
+
+The scoring corpus executes 84 isolated cases through the original controller
+and post-score hook on an owned ledger. It records self-like refusal by peer
+or Pass identity, duplicate precedence, the exact 120-second boundary, range
+refusal, challenge decisions and the counter ceiling. The five excluded boards
+(b, qa, s4s, bant and vip) still count likes but award neither score; their
+post hook also awards nothing. Other boards award 2 for a post, 1 for giving a
+like and 10 to its recipient. The public getter still returns zero.
+
+Some source failures leave a vote-log row before rejecting a changed target
+or full counter. The Rust model returns a complete outcome and requires the
+future storage layer to commit it atomically. It does not reproduce partial
+failed writes. Synthetic target changes between the source's two reads are
+included in the corpus; no historical posts or identities are used.
+
+A second corpus executes all 231 glyph entries across the 19 active perks.
+Random pools retain duplicate entries and their source order. Negative scores
+unlock none; zero unlocks every active choice. Commented image/animation perks
+stay unavailable even at a higher score. Glyphs come only from pinned numeric
+Unicode entities. These models do not yet provide voting persistence, posting
+integration or a perk-selection UI.

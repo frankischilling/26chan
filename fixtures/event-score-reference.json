@@ -1,0 +1,2799 @@
+{
+  "source_sha256": "f62362649585ec9956cf412c8de9174ebdf6cac6c9b46f0d1a41bc4a2f835992",
+  "scope": "Run isolated dormant like-controller cases on an owned ledger, without source bootstrap.",
+  "functions": "define('LIKE_MAX_LIKES', 1048576);\ndefine('LIKE_LIKE_SCORE', 10);\ndefine('LIKE_POST_SCORE', 2);\ndefine('LIKE_GIVE_SCORE', 1);\ndefine('LIKE_COOLDOWN_SEC', 120);\n\n/**\n * April 2019\n */\nfunction like_commit() {\n  global $captcha_bypass, $passid;\n  \n  // FIXME\n  //$_POST['post_id'] = $_GET['post_id'];\n  \n  // Basic validation of inputs\n  if (!isset($_POST['post_id']) || !isset($_COOKIE['xa19'])) {\n    die(\"0\\nBad Request.\");\n  }\n\n  $post_id = (int)$_POST['post_id'];\n\n\n  if (!$post_id) {\n    die(\"0\\nBad Post ID.\");\n  }\n  \n  if ($_COOKIE['xa19'] !== $_POST['post_id']) {\n    die(\"0\\nBad Request.\");\n  }\n  \n  $is_suspicious = 0;\n  \n  $user_id = $_SERVER['REMOTE_ADDR'];\n  \n  // Check captcha\n  if ($passid || isset($_COOKIE['4chan_auser']) || !like_is_ip_known($_SERVER['REMOTE_ADDR'])) {\n    start_auth_captcha();\n    \n    \n    if (!$captcha_bypass) {\n      end_recaptcha_verify();\n      /*\n      if (like_is_ip_suspicious($ip)) {\n        $is_suspicious = 1;\n      }\n      */\n    }\n    else if ($passid) {\n      $user_id = $passid;\n    }\n  }\n  \n  // Check if post exists and not trying to like own posts\n  $target_info = like_get_target_user_id(BOARD_DIR, $post_id);\n  \n  if (!$target_info) {\n    die(\"0\\nYou can't like this post.\");\n  }\n  \n  list($target_user_id, $target_ip) = $target_info;\n  \n  if ($target_user_id == $user_id || $target_ip == $_SERVER['REMOTE_ADDR']) {\n    die(\"0\\nYou can't like your own posts.\");\n  }\n  \n  // Check if duplicate\n  if (like_is_duplicate($user_id, BOARD_DIR, $post_id)) {\n    die(\"0\\nYou already like this post.\");\n  }\n  \n  // Check cooldowns and other abuse\n  if (like_is_abusive($_SERVER['REMOTE_ADDR'], $user_id, $target_user_id, $post_id, $captcha_bypass)) {\n    die(\"0\\nYou have to wait a while before liking this post.\");\n  }\n  \n  // Update the score\n  $new_like_count = like_update_like_score($user_id, $target_user_id, BOARD_DIR, $post_id, $is_suspicious);\n  \n  if (!$new_like_count) {\n    die(\"0\\nInternal Server Error.\");\n  }\n  \n  $user_score = like_get_user_score();\n  $user_perks = implode(' ', like_get_perks_state($user_score, true));\n  \n  log_cache(0, $post_id);\n  updatelog($post_id, 1);\n  \n  echo \"1\\n$new_like_count\\n$user_score\\n$user_perks\";\n}\n\n// Called after a user makes a new post\n// Increases the user score by LIKE_POST_SCORE\nfunction like_update_post_score() {\n  global $captcha_bypass, $passid;\n  \n  $skip_boards = array('b', 'qa', 's4s', 'bant', 'vip');\n  \n  if (in_array(BOARD_DIR, $skip_boards)) {\n    return false;\n  }\n  \n  $add_score = LIKE_POST_SCORE;\n  \n  if ($captcha_bypass && $passid) {\n    $user_id = $passid;\n  }\n  else {\n    $user_id = $_SERVER['REMOTE_ADDR'];\n  }\n  \n  $query = <<<SQL\nINSERT INTO `like_user_scores` (`user_id`, `user_score`)\nVALUES ('%s', $add_score)\nON DUPLICATE KEY UPDATE user_score = user_score + $add_score\nSQL;\n  \n  $res = mysql_global_call($query, $user_id);\n  \n  if (!$res) {\n    return false;\n  }\n  \n  return true;\n}\n\nfunction like_update_like_score($user_id, $target_user_id, $board, $post_id, $is_suspicious) {\n  $add_score = LIKE_LIKE_SCORE;\n  $add_score_giver = LIKE_GIVE_SCORE;\n  \n  // Insert log entry\n  $query = <<<SQL\nINSERT INTO `like_user_log` (`user_id`, `target_user_id`, `suspicious`, `board`, `post_id`)\nVALUES ('%s', '%s', $is_suspicious, '$board', $post_id)\nSQL;\n  \n  $res = mysql_global_call($query, $user_id, $target_user_id);\n  \n  if (!$res) {\n    die(\"0\\nDatabase Error (luls2).\");\n  }\n  \n  // Update post like count\n  $query = \"SELECT email, resto, archived FROM `$board` WHERE no = $post_id LIMIT 1\";\n  \n  $res = mysql_board_call($query);\n  \n  if (!$res) {\n    die(\"0\\nDatabase Error (luls0).\");\n  }\n  \n  $post = mysql_fetch_assoc($res);\n  \n  if (!$post) {\n    die(\"0\\nThis post doesn't exist anymore.\");\n  }\n  \n  if ($post['resto'] == 0 || $post['archived']) {\n    die(\"0\\nYou can't like this post.\");\n  }\n  \n  list($user_score, $post_likes) = explode('.', $post['email']);\n  \n  $user_score = (int)$user_score;\n  $post_likes = ((int)$post_likes) + 1;\n  \n  if ($post_likes >= LIKE_MAX_LIKES) {\n    die(\"0\\nYou can't like this post anymore.\");\n  }\n  \n  $email = \"$user_score.$post_likes\";\n  \n  $query = \"UPDATE `$board` SET email = '$email' WHERE no = $post_id LIMIT 1\";\n  \n  $res = mysql_board_call($query);\n  \n  if (!$res) {\n    die(\"0\\nDatabase Error (luls1).\");\n  }\n  \n  // ---\n  \n  $skip_boards = array('b', 'qa', 's4s', 'bant', 'vip');\n  \n  if (in_array($board, $skip_boards)) {\n    return $post_likes;\n  }\n  \n  // Update user score\n  $query = <<<SQL\nINSERT INTO `like_user_scores` (`user_id`, `user_score`)\nVALUES ('%s', $add_score_giver)\nON DUPLICATE KEY UPDATE user_score = user_score + $add_score_giver\nSQL;\n  \n  $res = mysql_global_call($query, $user_id);\n  \n  if (!$res) {\n    die(\"0\\nDatabase Error (luls2).\");\n  }\n  \n  // Update target user score\n  $query = <<<SQL\nINSERT INTO `like_user_scores` (`user_id`, `user_score`)\nVALUES ('%s', $add_score)\nON DUPLICATE KEY UPDATE user_score = user_score + $add_score\nSQL;\n  \n  $res = mysql_global_call($query, $target_user_id);\n  \n  if (!$res) {\n    die(\"0\\nDatabase Error (luls3).\");\n  }\n  \n  return $post_likes;\n}\n\nfunction like_is_abusive($ip, $user_id, $target_user_id, $post_id, $pass_user = false) {\n  // Check cooldown\n  if ($user_id !== $ip) {\n    $or_clause = \"OR user_id = '%s'\";\n  }\n  else {\n    $or_clause = '';\n  }\n  \n  $cd = LIKE_COOLDOWN_SEC;\n  \n  $query = <<<SQL\nSELECT id FROM like_user_log\nWHERE (user_id = '%s' $or_clause)\nAND created_on > DATE_SUB(NOW(), INTERVAL $cd SECOND)\nLIMIT 1\nSQL;\n  \n  if ($or_clause) {\n    $res = mysql_global_call($query, $user_id, $ip);\n  }\n  else {\n    $res = mysql_global_call($query, $user_id);\n  }\n  \n  if (!$res) {\n    die(\"0\\nDabase Error (lia0)\");\n  }\n  \n  if (mysql_num_rows($res)) {\n    return true;\n  }\n  \n  // Rangebans\n  if (!$pass_user) {\n    $long_ip = ip2long($ip);\n    \n    if ($long_ip) {\n      if (isIPRangeBanned($long_ip)) {\n        return true;\n      }\n    }\n  }\n  \n  // IP cycling\n  /*\n  $user_mask = explode('.', $ip);\n  \n  $user_mask = ((int)$user_mask[0]) . '.' . ((int)$user_mask[1]);\n  \n  $query = <<<SQL\nSELECT COUNT(*) as cnt FROM like_user_log\nWHERE post_id = $post_id AND user_id LIKE '$user_mask.%%'\nAND created_on > DATE_SUB(NOW(), INTERVAL 10 MINUTE)\nSQL;\n  \n  $res = mysql_global_call($query);\n  \n  if (!$res) {\n    die(\"0\\nDabase Error (lia1)\");\n  }\n  \n  $row = mysql_fetch_row($res);\n  \n  if ($row && (int)$row[0] > 10) {\n    return true;\n  }\n  */\n  // Proxies\n  /*\n  $query = <<<SQL\nSELECT COUNT(*) as cnt FROM like_user_log\nWHERE target_user_id = '%s' AND suspicious = 1\nAND created_on > DATE_SUB(NOW(), INTERVAL 5 MINUTE)\nSQL;\n  \n  $res = mysql_global_call($query, $target_user_id);\n  \n  if (!$res) {\n    die(\"0\\nDabase Error (lia1)\");\n  }\n  \n  $row = mysql_fetch_row($res);\n  \n  if ($row && (int)$row[0] > 10) {\n    return true;\n  }\n  */\n  return false;\n}\n\nfunction like_get_target_user_id($board, $post_id) {\n  // board and post_id params should already be escaped\n  $query = \"SELECT host, 4pass_id FROM `$board` WHERE no = $post_id AND resto > 0 AND archived = 0 LIMIT 1\";\n  \n  $res = mysql_board_call($query);\n  \n  if (!$res) {\n    die(\"0\\nDabase Error (lgtu)\");\n  }\n  \n  $row = mysql_fetch_row($res);\n  \n  if (!$row) {\n    return false;\n  }\n  \n  if ($row[1]) {\n    return array($row[1], $row[0]);\n  }\n  else if ($row[0]) {\n    return array($row[0], $row[0]);\n  }\n  \n  return false;\n}\n\nfunction like_is_duplicate($user_id, $board, $post_id) {\n  // board and post_id params should already be escaped\n  $query = \"SELECT id FROM like_user_log WHERE user_id = '%s' AND board = '$board' AND post_id = $post_id LIMIT 1\";\n  \n  $res = mysql_global_call($query, $user_id);\n  \n  if (!$res) {\n    die(\"0\\nDabase Error (lid)\");\n  }\n  \n  return mysql_num_rows($res) === 1;\n}\n\nfunction like_is_ip_known($ip) {\n  $query = \"SELECT id FROM like_user_log WHERE user_id = '%s' LIMIT 1\";\n  \n  $res = mysql_global_call($query, $ip);\n  \n  if (!$res) {\n    die(\"0\\nDabase Error (lik)\");\n  }\n  \n  return mysql_num_rows($res) === 1;\n}\n\nfunction like_get_user_score($no_cache = false) {\n  global $captcha_bypass, $passid;\n  \n  // FIXME\n  return 0;\n  \n  static $current_score = -1;\n  \n  if ($current_score !== -1 && $no_cache !== true) {\n    return $current_score;\n  }\n  \n  if ($captcha_bypass && $passid) {\n    $user_id = $passid;\n  }\n  else {\n    $user_id = $_SERVER['REMOTE_ADDR'];\n  }\n  \n  $query = \"SELECT user_score FROM like_user_scores WHERE user_id = '%s'\";\n  \n  $res = mysql_global_call($query, $user_id);\n  \n  if (!$res) {\n    return 0;\n  }\n  \n  $row = mysql_fetch_row($res);\n  \n  if ($row) {\n    $current_score = (int)$row[0];\n  }\n  else {\n    $current_score = 0;\n  }\n  \n  return $current_score;\n}\n\nfunction like_decrease_user_score($ip, $passid, $multiplier) {\n  if ($passid) {\n    $user_id = $passid;\n  }\n  else {\n    $user_id = $ip;\n  }\n  \n  $query = <<<SQL\nUPDATE like_user_scores SET user_score = CEIL(user_score * $multiplier)\nWHERE user_id = '%s' LIMIT 1\nSQL;\n\n  return !!mysql_global_call($query, $user_id);\n}\n\nfunction like_get_perks_state($current_score = null, $only_unlocked = false) {\n  if ($current_score === null) {\n    $current_score = like_get_user_score();\n  }\n  \n  $req_points = array(\n    //'showscore'    => 0,\n    'smiley'       => 0,     // single emoji\n    'sad'          => 0,     // single emoji\n    //'coinflip'     => 0,\n    //'dice+1d6'     => 0,\n    'ok'           => 0,     // single emoji\n    'animal'       => 0,    // random animal emoji\n    'food'         => 0,    // random food emoji\n    'check'        => 0,\n    'cross'        => 0,\n    //'nofile'       => 0,\n    //'card'         => 0,    // random playing card emoji\n    //'wflag'        => 0,\n    //'bflag'        => 0,\n    'like'         => 0,    // red heart emoji\n    //'rabbit'       => 0,    // single emoji\n    'unlove'       => 0,    // broken heart emoji\n    'rage'         => 0,\n    'perfect'      => 0,\n    //'fortune'      => 0,\n    //'dice+1d100'   => 0,\n    //'bricks'       => 0,\n    'onsen'        => 0,\n    //'party'        => 0,    // partyhat image\n    //'verified'     => 0,\n    //'partyhat'     => 0,    // partyhat image, adjusted\n    //'pickle'       => 0,    // pickle rick image\n    //'trash'        => 0,    // trashcan image\n    'heart'        => 0,    // random heart emoji (different colors)\n    //'santa'        => 0,    // santa hat image\n    'joy'          => 0,    // single emoji\n    //'marquee'      => 0,\n    'pig'          => 0,    // single emoji\n    'dog'          => 0,    // single emoji\n    'cat'          => 0,    // single emoji\n    'rainbow'      => 0,\n    'frog'         => 0,    // single emoji\n    //'dino'         => 750,    // dinosaur gif from /fit/\n    //'spooky'       => 1000,   // random skeleton\n  );\n  \n  $perks = array();\n  \n  if ($only_unlocked) {\n    foreach ($req_points as $perk => $score) {\n      if ($current_score >= $score) {\n        $perks[] = $perk;\n      }\n    }\n  }\n  else {\n    foreach ($req_points as $perk => $score) {\n      $perks[$perk] = $current_score >= $score;\n    }\n  }\n  \n  return $perks;\n}\n\nfunction like_parse_options_field($options) {\n  $show_score = false;\n  $active_perk = null;\n  \n  if (strlen($options) > 100) {\n    return array($show_score, $active_perk);\n  }\n  \n  $user_perks = like_get_perks_state();\n  \n  $opts = explode(' ', $options);\n  \n  foreach ($opts as $opt) {\n    if ($user_perks[$opt] === true) {\n      if ($opt === 'showscore') {\n        $show_score = true;\n      }\n      else {\n        $active_perk = $opt;\n        break;\n      }\n    }\n  }\n  \n  return array($show_score, $active_perk);\n}",
+  "cases": [
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "b",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "qa",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "s4s",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "bant",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "vip",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "a",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "pol",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "test",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {},
+      "cookie": null,
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nBad Request.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {},
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nBad Request.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": null,
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nBad Request.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "0"
+      },
+      "cookie": "0",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nBad Post ID.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "abc"
+      },
+      "cookie": "abc",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nBad Post ID.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "101",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nBad Request.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "00100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nBad Request.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "00100"
+      },
+      "cookie": "00100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100tail"
+      },
+      "cookie": "100tail",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": false,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou can't like this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": true,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou can't like your own posts.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": true,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 110,
+          "owned-target": 200
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": true,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nThis post doesn't exist anymore.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": true,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou can't like this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": true,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou can't like this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": true,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou already like this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": false,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": true,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou have to wait a while before liking this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 879,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 880,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 881,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou have to wait a while before liking this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 1000,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou have to wait a while before liking this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 1001,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou have to wait a while before liking this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 1,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n2\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 2,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 1048574,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1048575\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1048575,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 1048575,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou can't like this post anymore.",
+        "likes": 1048575,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 1048576,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou can't like this post anymore.",
+        "likes": 1048576,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": false,
+      "known": false,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nOwned CAPTCHA refused.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": false,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": false,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": false,
+      "known": false,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": false,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": false,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": false,
+      "known": false,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "0\nOwned CAPTCHA refused.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": false,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": false,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "0\nOwned CAPTCHA refused.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 101,
+          "owned-pass": 100,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": false,
+      "known": false,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 101,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": false,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 101,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": false,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 101,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 101,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": true,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "0\nYou have to wait a while before liking this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": true,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "1\n1\n0\nsmiley sad ok animal food check cross like unlove rage perfect onsen heart joy pig dog cat rainbow frog",
+        "likes": 1,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 101,
+          "owned-target": 210
+        },
+        "log_count": 1,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": true,
+      "target": true,
+      "self_peer": false,
+      "self_pass": true,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "0\nYou have to wait a while before liking this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": true,
+      "target": true,
+      "self_peer": false,
+      "self_pass": true,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "expected": {
+        "response": "0\nYou can't like your own posts.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 1
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": false,
+      "self_peer": true,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 999,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou can't like this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": false,
+      "self_peer": true,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": true,
+      "likes": 0,
+      "last": 999,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou can't like this post.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": true,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 999,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou can't like your own posts.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": true,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": true,
+      "likes": 0,
+      "last": 999,
+      "now": 1000,
+      "pass": false,
+      "expected": {
+        "response": "0\nYou can't like your own posts.",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 102,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 102,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 102,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "g",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 102,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "b",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "b",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "b",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "b",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "qa",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "qa",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "qa",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "qa",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "s4s",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "s4s",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "s4s",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "s4s",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "bant",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "bant",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "bant",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "bant",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "vip",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "vip",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": false,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "vip",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": false,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    },
+    {
+      "board": "vip",
+      "fields": {
+        "post_id": "100"
+      },
+      "cookie": "100",
+      "bypass": true,
+      "captcha_ok": true,
+      "known": true,
+      "range_banned": false,
+      "target": true,
+      "self_peer": false,
+      "self_pass": false,
+      "disappeared": false,
+      "op": false,
+      "archived": false,
+      "duplicate": false,
+      "likes": 0,
+      "last": 0,
+      "now": 1000,
+      "pass": true,
+      "operation": "post",
+      "expected": {
+        "response": "posted",
+        "likes": 0,
+        "scores": {
+          "192.0.2.1": 100,
+          "owned-pass": 100,
+          "owned-target": 200
+        },
+        "log_count": 0,
+        "captcha_calls": 0
+      }
+    }
+  ]
+}

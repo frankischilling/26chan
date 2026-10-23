@@ -4,6 +4,8 @@
 pub mod credentials;
 pub mod emotes;
 pub mod market;
+pub mod perks;
+pub mod scores;
 
 pub const STOCKS: [&str; 18] = [
     "PEPE", "WOJK", "ANIME", "CHAD", "CLOWN", "LOL", "SICP", "AUTSM", "BANE", "CIA", "BOOB",
