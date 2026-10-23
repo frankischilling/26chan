@@ -1854,6 +1854,8 @@ async fn tail_counts(f: &Fixture) {
         .await
         .unwrap();
     assert!(full.posts.len() > 16);
+    assert_eq!(full.images, generic_tail.images);
+    assert_eq!(full.images, 1);
     assert_eq!(
         full.posts
             .last()
@@ -1906,6 +1908,11 @@ async fn tail_counts(f: &Fixture) {
             .unwrap()
             .file_deleted
     );
+    let full = board_store::thread_snapshot(&generic, &f.board, thread)
+        .await
+        .unwrap();
+    assert_eq!(full.images, 0);
+    assert_eq!(full.images, generic_tail.images);
     generic.close().await;
 }
 

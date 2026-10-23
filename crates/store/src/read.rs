@@ -169,15 +169,15 @@ async fn read_thread_snapshot(
     .ok_or(StoreError::NotFound)?;
     let (configured, undead): (i32, bool) = sqlx::query_as("SELECT b.json_tail_size,t.undead FROM content.boards b JOIN content.threads t ON t.board=b.slug WHERE b.slug=$1 AND t.id=$2")
         .bind(slug).bind(id).fetch_one(&mut *tx).await?;
-    // Materialize the bounded reply IDs once before the security-barrier media
-    // projection; a per-post left join can repeatedly scan that projection.
-    let (reply_count, image_count): (i64, i64) = sqlx::query_as("WITH replies AS MATERIALIZED (SELECT id FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted) SELECT (SELECT count(*) FROM replies),(SELECT count(*) FROM content.visible_post_media m WHERE NOT m.file_deleted AND m.post_id IN (SELECT id FROM replies))")
-        .bind(slug).bind(id).fetch_one(&mut *tx).await?;
-    if !(0..=1500).contains(&reply_count) || !(0..=500).contains(&configured) {
+    // Fetch a bounded identity list before loading media. Counting through a
+    // large security-barrier semi-join can select an expensive generic plan
+    // after unrelated archive/import workloads change table statistics.
+    let reply_ids: Vec<i64> = sqlx::query_scalar("SELECT id FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted ORDER BY id LIMIT 1501")
+        .bind(slug).bind(id).fetch_all(&mut *tx).await?;
+    if reply_ids.len() > 1500 || !(0..=500).contains(&configured) {
         return Err(StoreError::Invalid("Thread exceeds snapshot limits."));
     }
-    let replies = reply_count as usize;
-    let images = image_count as usize;
+    let replies = reply_ids.len();
     let tail_size =
         board_domain::thread_tail_size(configured as u16, metadata.sticky, undead, replies);
     if tail && tail_size == 0 {
@@ -205,6 +205,22 @@ async fn read_thread_snapshot(
         return Err(StoreError::Invalid("Incomplete thread snapshot."));
     }
     crate::post_media::load(&mut tx, &mut entries).await?;
+    let images = if tail {
+        crate::post_media::count_reply_images(&mut tx, &reply_ids).await?
+    } else {
+        // Full snapshots already contain every visible attachment in this
+        // repeatable-read transaction, including deleted-file markers.
+        entries
+            .iter()
+            .filter(|post| {
+                post.id != id
+                    && post
+                        .attachment
+                        .as_ref()
+                        .is_some_and(|file| !file.file_deleted)
+            })
+            .count()
+    };
     let quote_targets = if board.staff_only {
         crate::QuoteTargets::default()
     } else {
