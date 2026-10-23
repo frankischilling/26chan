@@ -9,6 +9,7 @@ mod pass;
 mod pass_checkout;
 mod pass_purchase;
 mod pass_recovery;
+mod pass_site_vote;
 mod vip;
 use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use axum::{Router, extract::DefaultBodyLimit, http::StatusCode, middleware, routing::post};

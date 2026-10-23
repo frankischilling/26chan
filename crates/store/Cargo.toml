@@ -19,6 +19,8 @@ sha2 = "0.10"
 serde.workspace = true
 serde_json = { workspace = true, features = ["float_roundtrip"] }
 
+[dev-dependencies]
+tracing-subscriber.workspace = true
 
 [lints]
 workspace = true

@@ -35,6 +35,7 @@ mod security;
 mod semantic_thread;
 mod signin;
 mod site;
+mod site_submissions;
 pub mod themes;
 pub mod transport;
 mod ui_assets;

@@ -16,6 +16,8 @@ const prerequisites = [
   'cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture',
   'cargo test -p board-store -p board-verification --all-features --locked',
   'cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture',
+  'cargo test -p board-public --all-features --locked --test site_feedback -- --ignored --nocapture',
+  'cargo test -p board-public --all-features --locked --test site_applications -- --ignored --nocapture',
   'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact',
   'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact',
   'cargo test -p board-public --all-features --locked --lib pass_auth::database_tests::public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_recovery::database_tests::public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token -- --ignored --exact',
@@ -23,6 +25,8 @@ const prerequisites = [
   'cargo test -p board-public --all-features --locked --test network_hints report_routes_keep_get_advice_and_apply_parser_hints_before_commit -- --ignored --exact',
   'cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked',
   'cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture',
+  'cargo test -p board-staff --features database-tests --test feedback --locked -- --nocapture',
+  'cargo test -p board-staff --features database-tests --test applications --locked -- --nocapture',
   'cargo test -p board-public --example deletion-fixture --features database-tests --locked',
   'cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked',
 ];
@@ -65,7 +69,7 @@ timeout 300s npm run test:math
 npm run test:math
 python3 scripts/check-windows-test-exits.py
 npm run test:settings-categories
-node --test tests/browser/upload-fixture-tag.test.mjs tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs tests/helpers/viewport-fit.test.mjs
+node --test tests/browser/upload-fixture-tag.test.mjs tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs tests/helpers/viewport-fit.test.mjs tests/helpers/application-form.test.mjs
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
@@ -75,6 +79,8 @@ cargo test -p board-public --all-features --locked --test upload_browser
 cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture
 cargo test -p board-store -p board-verification --all-features --locked
 cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture
+cargo test -p board-public --all-features --locked --test site_feedback -- --ignored --nocapture
+cargo test -p board-public --all-features --locked --test site_applications -- --ignored --nocapture
 cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact
 cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact
 cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact
@@ -84,6 +90,8 @@ cargo test -p board-public --all-features --locked --lib posting_challenge::data
 cargo test -p board-public --all-features --locked --test network_hints report_routes_keep_get_advice_and_apply_parser_hints_before_commit -- --ignored --exact
 cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked
 cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
+cargo test -p board-staff --features database-tests --test feedback --locked -- --nocapture
+cargo test -p board-staff --features database-tests --test applications --locked -- --nocapture
 cargo test -p board-public --example deletion-fixture --features database-tests --locked
 cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
 npm run test:images-core
@@ -161,7 +169,7 @@ name=\${0##*/}
 command="$name $*"
 printf '%s\\n' "$command" >> "$VERIFY_TEST_LOG"
 printf '%s\\t%s\\t%s\\t%s\\n' "$command" "\${AZURE_CONFIG_DIR-}" "\${SSH_AUTH_SOCK-}" "\${EXTRA_DATABASE_URL-}" >> "$VERIFY_TEST_ENV_LOG"
-printf '%s\\t%s\\t%s\\t%s\\n' "$command" "\${TEST_VERIFICATION_DATABASE_URL-}" "\${TEST_VERIFICATION_MAIL_DATABASE_URL-}" "\${RUN_SCORE_BROWSER-}" >> "$VERIFY_TEST_VERIFICATION_LOG"
+printf '%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' "$command" "\${TEST_VERIFICATION_DATABASE_URL-}" "\${TEST_VERIFICATION_MAIL_DATABASE_URL-}" "\${RUN_SCORE_BROWSER-}" "\${RUN_FEEDBACK_BROWSER-}" "\${RUN_STAFF_FEEDBACK_BROWSER-}" "\${RUN_APPLICATION_BROWSER-}" "\${RUN_STAFF_APPLICATION_BROWSER-}" >> "$VERIFY_TEST_VERIFICATION_LOG"
 if [[ "$command" == "$VERIFY_TEST_FAIL" ]]; then exit 73; fi
 if [[ "$name" == timeout ]]; then
   shift
@@ -394,7 +402,7 @@ test('only explicit verification tests receive isolated verification database cr
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.verificationEnvironments.length, result.commands.length);
     for (const [command, issuer, mailer] of result.verificationEnvironments) {
-      assert.deepEqual([issuer, mailer], ['cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture', 'cargo test -p board-store -p board-verification --all-features --locked', 'cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_auth::database_tests::public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_recovery::database_tests::public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact', 'cargo test -p board-public --all-features --locked --test network_hints report_routes_keep_get_advice_and_apply_parser_hints_before_commit -- --ignored --exact'].includes(command)
+      assert.deepEqual([issuer, mailer], ['cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture', 'cargo test -p board-store -p board-verification --all-features --locked', 'cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture', 'cargo test -p board-public --all-features --locked --test site_feedback -- --ignored --nocapture', 'cargo test -p board-public --all-features --locked --test site_applications -- --ignored --nocapture', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_auth::database_tests::public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_recovery::database_tests::public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact', 'cargo test -p board-public --all-features --locked --test network_hints report_routes_keep_get_advice_and_apply_parser_hints_before_commit -- --ignored --exact'].includes(command)
         ? ['owned-issuer-trace', 'owned-mail-trace'] : ['', ''], command);
     }
   }
@@ -406,6 +414,52 @@ test('the score browser gate is enabled only for its explicit verifier fixture',
     const result = runRunner(t, { args: [suite] });
     assert.equal(result.status, 0, result.stderr);
     for (const [invocation, , , flag] of result.verificationEnvironments) {
+      assert.equal(flag, invocation === command ? '1' : '', invocation);
+    }
+  }
+});
+
+
+test('the feedback browser gate is enabled only for its explicit verifier fixture', options, t => {
+  const command = 'cargo test -p board-public --all-features --locked --test site_feedback -- --ignored --nocapture';
+  for (const suite of ['all', ...suites]) {
+    const result = runRunner(t, { args: [suite] });
+    assert.equal(result.status, 0, result.stderr);
+    for (const [invocation, , , , flag] of result.verificationEnvironments) {
+      assert.equal(flag, invocation === command ? '1' : '', invocation);
+    }
+  }
+});
+
+
+test('staff feedback browser qualification runs only in its explicit staff fixture', options, t => {
+  const command = 'cargo test -p board-staff --features database-tests --test feedback --locked -- --nocapture';
+  for (const suite of ['all', ...suites]) {
+    const result = runRunner(t, { args: [suite] });
+    assert.equal(result.status, 0, result.stderr);
+    for (const [invocation, , , , , flag] of result.verificationEnvironments) {
+      assert.equal(flag, invocation === command ? '1' : '', invocation);
+    }
+  }
+});
+
+test('application browser qualification runs only in its explicit verifier fixture', options, t => {
+  const command = 'cargo test -p board-public --all-features --locked --test site_applications -- --ignored --nocapture';
+  for (const suite of ['all', ...suites]) {
+    const result = runRunner(t, { args: [suite] });
+    assert.equal(result.status, 0, result.stderr);
+    for (const [invocation, , , , , , flag] of result.verificationEnvironments) {
+      assert.equal(flag, invocation === command ? '1' : '', invocation);
+    }
+  }
+});
+
+test('staff application browser qualification runs only in its explicit staff fixture', options, t => {
+  const command = 'cargo test -p board-staff --features database-tests --test applications --locked -- --nocapture';
+  for (const suite of ['all', ...suites]) {
+    const result = runRunner(t, { args: [suite] });
+    assert.equal(result.status, 0, result.stderr);
+    for (const [invocation, , , , , , , flag] of result.verificationEnvironments) {
       assert.equal(flag, invocation === command ? '1' : '', invocation);
     }
   }

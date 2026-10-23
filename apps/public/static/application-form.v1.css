@@ -1,0 +1,58 @@
+/* Form rules recovered from the supplied janitorapp template. */
+
+    input, select, textarea {
+      height: 22px;
+      padding: 1px 2px;
+      box-sizing: border-box;
+    }
+    
+    input[type="text"], input[type="email"], select {
+      width: 255px;
+    }
+    
+    input[type="number"] {
+      width: 50px;
+    }
+    
+    textarea {
+      max-width: 100%;
+      min-width: 100%;
+      min-height: 100px;
+      height: 120px;
+    }
+    
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border: 1px solid #EEAA88;
+    }
+
+    input,
+    select,
+    textarea {
+      border: 1px solid #AAA;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-top: 15px;
+      margin-bottom: 2px;
+    }
+    
+    .closed-msg {
+      font-weight: bold;
+      color: red;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    
+    #captcha-cnt {
+      margin-bottom: 20px;
+    }
+  
+/* Native page-shell fallback: the referenced YUI/global/generic sheets are absent. */
+body{background:#ffe;color:#800000;font:13px Arial,sans-serif;margin:5px;padding:0 5px}
+#doc{max-width:750px;margin:auto}.box-outer{border:1px solid #800000;margin:15px 0}.boxbar{background:#fca;padding:4px}.boxbar h2{font-size:16px;margin:0}.boxcontent{padding:10px}.positive{color:green;font-weight:bold}.negative{color:red;font-weight:bold}.emphasis{font-weight:bold;font-style:italic}
+#success{margin-top:50px;font-size:24px;font-weight:bold;text-align:center;color:green}.success-sub{text-align:center;margin-top:25px}.success-sub a{overflow-wrap:anywhere}#captcha-cnt img{display:block;max-width:100%;height:auto}.application-error{color:red;font-weight:bold}

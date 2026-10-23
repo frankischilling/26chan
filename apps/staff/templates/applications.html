@@ -1,0 +1,9 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Application Review</title><link rel="stylesheet" href="/feedback-native.css"></head><body>
+<header><h1>Application Review</h1></header>
+<nav id="nav-links"><a href="/">Staff home</a> <a href="/applications?campaign={{ campaign }}&amp;state=0">Pending</a> <a href="/applications?campaign={{ campaign }}&amp;state=1">Declined</a> <a href="/applications?campaign={{ campaign }}&amp;state=2">Selected</a> <a href="/applications?campaign={{ campaign }}&amp;state=4">Signed</a></nav>
+<main id="content"><p>Campaign {{ campaign }}. Separate name, handle, and email fields are hidden during review.</p>
+{% if saved.is_admin %}<p>Selection does not create a staff account or sign an agreement.</p>{% endif %}
+<table class="items-table"><thead><tr><th>No.</th><th>Boards</th><th>Age</th><th>UTC offset</th><th>Hours</th><th>Revision</th></tr></thead><tbody>
+{% for row in saved.rows %}<tr><td><a href="/applications?id={{ row.id }}">{{ row.id }}</a></td><td>/{{ row.board1 }}/{% if let Some(second) = row.board2 %}, /{{ second }}/{% endif %}</td><td>{{ row.age }}</td><td>{{ row.timezone }}</td><td>{{ row.hours }}</td><td>{{ row.revision }}</td></tr>{% endfor %}
+{% if saved.rows.is_empty() %}<tr><td colspan="6">No applications in state {{ selected }}.</td></tr>{% endif %}
+</tbody></table>{% if !next.is_empty() %}<p><a href="{{ next }}">Next</a></p>{% endif %}</main></body></html>

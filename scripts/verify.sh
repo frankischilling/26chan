@@ -57,7 +57,7 @@ early_browser_checks() {
 }
 
 rust_checks() {
-  node --test tests/browser/upload-fixture-tag.test.mjs tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs tests/helpers/viewport-fit.test.mjs
+  node --test tests/browser/upload-fixture-tag.test.mjs tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs tests/helpers/viewport-fit.test.mjs tests/helpers/application-form.test.mjs
   cargo fmt --all -- --check
   cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
   python3 scripts/check-media-parser-dependencies.py
@@ -73,6 +73,8 @@ rust_checks() {
     cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture
     cargo test -p board-store -p board-verification --all-features --locked
     RUN_SCORE_BROWSER=1 cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture
+    RUN_FEEDBACK_BROWSER=1 cargo test -p board-public --all-features --locked --test site_feedback -- --ignored --nocapture
+    RUN_APPLICATION_BROWSER=1 cargo test -p board-public --all-features --locked --test site_applications -- --ignored --nocapture
     cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact
     cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact
     cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact
@@ -83,6 +85,8 @@ rust_checks() {
   )
   cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked
   cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
+  RUN_STAFF_FEEDBACK_BROWSER=1 cargo test -p board-staff --features database-tests --test feedback --locked -- --nocapture
+  RUN_STAFF_APPLICATION_BROWSER=1 cargo test -p board-staff --features database-tests --test applications --locked -- --nocapture
   cargo test -p board-public --example deletion-fixture --features database-tests --locked
   cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
 }

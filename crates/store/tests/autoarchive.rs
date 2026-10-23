@@ -17,6 +17,14 @@ fn post() -> NewPost {
 
 #[tokio::test]
 async fn automatic_archive_threshold_and_preserved_reply() {
+    // Keep SQLx's slow-query diagnostics for this owned fixture. EXPLAIN after
+    // a failure may use a different cached plan; the timed-out statement is
+    // needed to distinguish media lookup from the other snapshot reads.
+    // SQLx logs SQL text, not parameter values. Role and time limits stay intact.
+    let _ = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::WARN)
+        .with_test_writer()
+        .try_init();
     let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();

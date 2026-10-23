@@ -160,6 +160,13 @@ impl VerificationKey {
         }
         let valid = match purpose {
             "email_request" => board.is_none() && target == 0,
+            "site_feedback"
+            | "site_application"
+            | "site_application_auth"
+            | "site_application_edit"
+            | "site_contest_submit"
+            | "site_contest_delete"
+            | "site_contest_vote" => board.is_none() && target > 0,
             "thread" | "restriction_status" => board.is_some() && target == 0,
             "reply" | "report" | "like" | "warning_view" => board.is_some() && target > 0,
             "ticket" => board.is_some(),
@@ -492,6 +499,34 @@ mod tests {
         for invalid in ["", "00", &"GG".repeat(32), &"AA".repeat(32)] {
             assert!(VerificationKey::parse(invalid).is_none());
         }
+    }
+    #[test]
+    fn site_submission_contexts_bind_resource_action_and_form_without_a_board() {
+        let key = VerificationKey::parse(&"01".repeat(32)).unwrap();
+        let nonce = "ab".repeat(32);
+        let mut hashes = std::collections::BTreeSet::new();
+        for purpose in [
+            "site_feedback",
+            "site_application",
+            "site_application_auth",
+            "site_application_edit",
+            "site_contest_submit",
+            "site_contest_delete",
+            "site_contest_vote",
+        ] {
+            let hash = key.form_context(purpose, None, 42, &nonce).unwrap();
+            assert!(hashes.insert(hash));
+            assert_ne!(Some(hash), key.form_context(purpose, None, 43, &nonce));
+            assert_ne!(
+                Some(hash),
+                key.form_context(purpose, None, 42, &"cd".repeat(32))
+            );
+            assert!(key.form_context(purpose, Some("g"), 42, &nonce).is_none());
+            assert!(key.form_context(purpose, None, 0, &nonce).is_none());
+            assert!(key.form_context(purpose, None, -1, &nonce).is_none());
+        }
+        assert!(key.form_context("site_unknown", None, 42, &nonce).is_none());
+        assert!(!hashes.contains(&key.form_context("like", Some("g"), 42, &nonce).unwrap()));
     }
     #[test]
     fn form_contexts_bind_action_board_target_and_nonce_without_an_email_address() {

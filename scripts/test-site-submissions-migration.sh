@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+# Upgrade an owned 0257 database, reject drift, and preserve prior data/authority.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+pg_bin=${PG_BIN:-/usr/lib/postgresql/16/bin}
+port=${SITE_SUBMISSIONS_TEST_PORT:-15501}
+[[ $port =~ ^[0-9]+$ && $port -ge 1024 && $port -le 65535 ]] || exit 2
+cluster=$(mktemp -d /tmp/board-site-submissions.XXXXXXXX)
+as_pg=()
+pg_user=$(id -un)
+if [[ $(id -u) = 0 ]]; then
+  chown postgres:postgres "$cluster"
+  as_pg=(runuser -u postgres --)
+  pg_user=postgres
+fi
+started=0
+cleanup() {
+  if [[ $started = 1 ]]; then
+    "${as_pg[@]}" "$pg_bin/pg_ctl" -D "$cluster/data" -m fast -w stop >/dev/null
+  fi
+  [[ $cluster =~ ^/tmp/board-site-submissions\.[[:alnum:]]{8}$ && -d $cluster && ! -L $cluster ]] || exit 1
+  [[ $(readlink -f "$cluster") = "$cluster" ]] || exit 1
+  rm -rf -- "$cluster"
+}
+trap cleanup EXIT
+"${as_pg[@]}" "$pg_bin/initdb" -D "$cluster/data" --auth=trust --encoding=UTF8 --no-locale >"$cluster/init.log"
+"${as_pg[@]}" "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.log" -o "-h 127.0.0.1 -p $port -k ''" -w start >/dev/null
+started=1
+admin=("$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U "$pg_user" -d postgres)
+"${admin[@]}" -f deploy/roles.sql >"$cluster/roles.log"
+"${admin[@]}" -c 'CREATE DATABASE owned_site_submissions OWNER board_migrator;' \
+  -c 'REVOKE ALL ON DATABASE owned_site_submissions FROM PUBLIC;' \
+  -c 'GRANT CONNECT ON DATABASE owned_site_submissions TO board_migrator,board_public;' >/dev/null
+migrator=("$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U board_migrator -d owned_site_submissions)
+for file in migrations/[0-9][0-9][0-9][0-9]_*.sql; do
+  [[ $file < migrations/0258_ ]] || break
+  "${migrator[@]}" --single-transaction -f "$file" >>"$cluster/upgrade.log" 2>&1
+done
+"${migrator[@]}" -f fixtures/demo.sql >"$cluster/seed.log"
+"${migrator[@]}" <<'SQL'
+CREATE TABLE public.owned_submissions_before AS SELECT
+ (SELECT jsonb_agg(to_jsonb(b) ORDER BY slug) FROM content.boards b) AS boards,
+ (SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM content.posts p) AS posts,
+ (SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM content.threads t) AS threads;
+SQL
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT ON content.posts TO board_submission_owner;' \
+ -f migrations/0258_private_site_submissions.sql >"$cluster/rejected.log" 2>&1; then
+ echo 'Submission migration accepted existing owner authority' >&2; exit 1
+fi
+grep -q 'Submission owner has unexpected existing authority' "$cluster/rejected.log"
+"${migrator[@]}" -c BEGIN -f migrations/0258_private_site_submissions.sql -c ROLLBACK >"$cluster/rollback.log"
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regnamespace('submission_private') IS NOT NULL OR to_regnamespace('submission_api') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained submission schemas'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0258_private_site_submissions.sql >"$cluster/accepted.log"
+"${migrator[@]}" -f scripts/test-site-submission-storage.sql >"$cluster/storage.log"
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT(email) ON submission_private.application_identity TO board_submission_owner;' \
+ -f migrations/0259_site_submission_captcha.sql >"$cluster/proof-rejected.log" 2>&1; then
+ echo 'Submission proof migration accepted private identity drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/proof-rejected.log"
+"${migrator[@]}" -c BEGIN -f migrations/0259_site_submission_captcha.sql -c ROLLBACK >"$cluster/proof-rollback.log" 2>&1 || { cat "$cluster/proof-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('submission_api.consume_captcha(bytea,bytea,bytea,text,bigint,bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained submission consumer'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0259_site_submission_captcha.sql >"$cluster/proof-accepted.log" 2>&1 || { cat "$cluster/proof-accepted.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'SET LOCAL ROLE board_anonymous_owner; GRANT SELECT ON verification_private.pass_sessions TO board_public; RESET ROLE;' \
+ -f migrations/0260_contest_pass_receipts.sql >"$cluster/vote-rejected.log" 2>&1; then
+ echo 'Contest proof migration accepted membership authority drift' >&2; exit 1
+fi
+grep -Eq '(Posting|Transfer|Snapshot|Restriction) authority drifted' "$cluster/vote-rejected.log" || { cat "$cluster/vote-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0260_contest_pass_receipts.sql -c ROLLBACK >"$cluster/vote-rollback.log" 2>&1 || { cat "$cluster/vote-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regclass('verification_private.pass_site_receipts') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained contest membership receipts'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0260_contest_pass_receipts.sql >"$cluster/vote-accepted.log" 2>&1 || { cat "$cluster/vote-accepted.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT ON submission_private.feedback TO board_public;' \
+ -f migrations/0261_feedback_submission.sql >"$cluster/feedback-rejected.log" 2>&1; then
+ echo 'Feedback migration accepted private submission drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/feedback-rejected.log" || { cat "$cluster/feedback-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0261_feedback_submission.sql -c ROLLBACK >"$cluster/feedback-rollback.log" 2>&1 || { cat "$cluster/feedback-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('submission_api.submit_feedback(bigint,integer,text,text,inet,text,text,bytea,bytea,bytea,bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained feedback writes'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0261_feedback_submission.sql >"$cluster/feedback-accepted.log" 2>&1 || { cat "$cluster/feedback-accepted.log" >&2; exit 1; }
+"${migrator[@]}" <<'SQL'
+INSERT INTO submission_private.feedback_profiles(id,subject_limit,message_limit,capacity,received) VALUES(778,150,2000,100,1);
+INSERT INTO submission_private.feedback_categories VALUES(778,1,0,'Owned retained','Owned');
+INSERT INTO submission_private.feedback(profile_id,category,subject,message,actor_hash,peer,user_agent,language,created_at,updated_at)
+VALUES(778,1,'Retained subject','Retained private body',decode(repeat('a1',32),'hex'),'192.0.2.225','Owned agent','en',100,100);
+CREATE TABLE public.owned_feedback_before AS SELECT * FROM submission_private.feedback;
+SQL
+if "${migrator[@]}" --single-transaction -c 'GRANT USAGE ON SCHEMA public TO board_submission_review_owner;' \
+ -f migrations/0262_feedback_review.sql >"$cluster/review-owner-rejected.log" 2>&1; then
+ echo 'Feedback review accepted pre-existing owner authority' >&2; exit 1
+fi
+grep -q 'Submission review owner has unexpected existing authority' "$cluster/review-owner-rejected.log" || { cat "$cluster/review-owner-rejected.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT ON submission_private.feedback TO board_public;' \
+ -f migrations/0262_feedback_review.sql >"$cluster/review-rejected.log" 2>&1; then
+ echo 'Feedback review accepted private submission drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/review-rejected.log" || { cat "$cluster/review-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0262_feedback_review.sql -c ROLLBACK >"$cluster/review-rollback.log" 2>&1 || { cat "$cluster/review-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regclass('submission_private.feedback_review_log') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained feedback review log'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0262_feedback_review.sql >"$cluster/review-accepted.log" 2>&1 || { cat "$cluster/review-accepted.log" >&2; exit 1; }
+"${migrator[@]}" <<'SQL'
+INSERT INTO submission_private.application_campaigns(id,starts_at,ends_at,boards,questions,field_limit,answer_limit,capacity)
+VALUES(777,100,200,ARRAY['g'],ARRAY['Owned one','Owned two','Owned three','Owned four'],150,2000,100);
+INSERT INTO submission_private.applications(campaign_id,age,timezone,hours,times,board1,answers,created_at,updated_at)
+VALUES(777,25,-4,3,'16:00-19:00','g',ARRAY['one','two','three','four'],100,100);
+INSERT INTO submission_private.application_identity(application_id,campaign_id,ownership_hash,actor_hash,firstname,handle,email,email_identity)
+SELECT id,777,decode(repeat('a1',32),'hex'),decode(repeat('b2',32),'hex'),'Owned','Owned handle','owned@example.test','owned@example.test'
+FROM submission_private.applications WHERE campaign_id=777;
+CREATE TABLE public.owned_submission_identity_before AS SELECT * FROM submission_private.application_identity;
+CREATE TABLE public.owned_submission_answers_before AS SELECT * FROM submission_private.applications;
+SQL
+if "${migrator[@]}" --single-transaction -c 'GRANT USAGE ON SCHEMA public TO board_application_owner;' \
+ -f migrations/0263_application_ownership.sql >"$cluster/application-owner-rejected.log" 2>&1; then
+ echo 'Application migration accepted existing owner authority' >&2; exit 1
+fi
+grep -q 'Application owner has unexpected existing authority' "$cluster/application-owner-rejected.log" || { cat "$cluster/application-owner-rejected.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT(email) ON submission_private.application_identity TO board_submission_review_owner;' \
+ -f migrations/0263_application_ownership.sql >"$cluster/application-rejected.log" 2>&1; then
+ echo 'Application migration accepted private identity drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/application-rejected.log"
+"${migrator[@]}" -c BEGIN -f migrations/0263_application_ownership.sql -c ROLLBACK >"$cluster/application-rollback.log" 2>&1 || { cat "$cluster/application-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('submission_api.application_target(bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained application ownership'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0263_application_ownership.sql >"$cluster/application-accepted.log" 2>&1 || { cat "$cluster/application-accepted.log" >&2; exit 1; }
+"${migrator[@]}" <<'SQL'
+INSERT INTO submission_private.contest_campaigns(id,kind,boards,submission_starts,submission_ends,voting_starts,voting_ends,capacity,vote_capacity,votes)
+VALUES(777,1,ARRAY['g'],1,2,2,3,100,100,1);
+INSERT INTO submission_private.contest_entries(campaign_id,board,ownership_hash,actor_hash,author,email,media_id,state,score,created_at,updated_at)
+VALUES(777,'g',decode(repeat('a7',32),'hex'),decode(repeat('b7',32),'hex'),'Retained private credit','retained@example.org',repeat('c',32),1,1,1,1);
+INSERT INTO submission_private.contest_votes(campaign_id,board,voter_hash,entry_id,created_at)
+SELECT 777,'g',decode(repeat('d7',32),'hex'),id,1 FROM submission_private.contest_entries WHERE campaign_id=777;
+CREATE TABLE public.owned_contest_before AS SELECT
+ (SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM submission_private.contest_campaigns c) campaigns,
+ (SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM submission_private.contest_entries e) entries,
+ (SELECT jsonb_agg(to_jsonb(v) ORDER BY entry_id) FROM submission_private.contest_votes v) votes;
+SQL
+if "${migrator[@]}" --single-transaction -c 'GRANT USAGE ON SCHEMA public TO board_contest_owner;' \
+ -f migrations/0264_contest_voting.sql >"$cluster/contest-owner-rejected.log" 2>&1; then
+ echo 'Contest migration accepted existing owner authority' >&2; exit 1
+fi
+grep -q 'Contest owner has unexpected existing authority' "$cluster/contest-owner-rejected.log" || { cat "$cluster/contest-owner-rejected.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT(email) ON submission_private.contest_entries TO board_application_owner;' \
+ -f migrations/0264_contest_voting.sql >"$cluster/contest-rejected.log" 2>&1; then
+ echo 'Contest migration accepted private contact drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/contest-rejected.log" || { cat "$cluster/contest-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0264_contest_voting.sql -c ROLLBACK >"$cluster/contest-rollback.log" 2>&1 || { cat "$cluster/contest-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('submission_api.contest_vote(bigint,bigint,bytea,bytea,bytea,bytea)') IS NOT NULL OR to_regclass('submission_private.one_enabled_contest_per_kind') IS NULL THEN RAISE EXCEPTION 'Rollback retained contest voting'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0264_contest_voting.sql >"$cluster/contest-accepted.log" 2>&1 || { cat "$cluster/contest-accepted.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT(email) ON submission_private.application_identity TO board_submission_review_owner;' \
+ -f migrations/0265_application_review.sql >"$cluster/application-review-rejected.log" 2>&1; then
+ echo 'Application review accepted identity authority drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/application-review-rejected.log" || { cat "$cluster/application-review-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0265_application_review.sql -c ROLLBACK >"$cluster/application-review-rollback.log" 2>&1 || { cat "$cluster/application-review-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regclass('submission_private.application_review_log') IS NOT NULL OR to_regprocedure('submission_api.application_review_action(bytea,bytea,integer,bigint,integer,text)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained application review'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0265_application_review.sql >"$cluster/application-review-accepted.log" 2>&1 || { cat "$cluster/application-review-accepted.log" >&2; exit 1; }
+cat >"$cluster/check.sql" <<'SQL'
+DO $$ BEGIN
+ IF (SELECT boards FROM public.owned_submissions_before) IS DISTINCT FROM
+  (SELECT jsonb_agg(to_jsonb(b) ORDER BY slug) FROM content.boards b)
+ OR (SELECT posts FROM public.owned_submissions_before) IS DISTINCT FROM
+  (SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM content.posts p)
+ OR (SELECT threads FROM public.owned_submissions_before) IS DISTINCT FROM
+  (SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM content.threads t)
+ OR EXISTS((SELECT * FROM submission_private.application_identity EXCEPT SELECT * FROM public.owned_submission_identity_before)
+  UNION ALL (SELECT * FROM public.owned_submission_identity_before EXCEPT SELECT * FROM submission_private.application_identity))
+ OR EXISTS((SELECT * FROM submission_private.applications EXCEPT SELECT * FROM public.owned_submission_answers_before)
+  UNION ALL (SELECT * FROM public.owned_submission_answers_before EXCEPT SELECT * FROM submission_private.applications))
+ OR EXISTS((SELECT * FROM submission_private.feedback EXCEPT SELECT * FROM public.owned_feedback_before)
+  UNION ALL (SELECT * FROM public.owned_feedback_before EXCEPT SELECT * FROM submission_private.feedback))
+ OR (SELECT campaigns FROM public.owned_contest_before) IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM submission_private.contest_campaigns c)
+ OR (SELECT entries FROM public.owned_contest_before) IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM submission_private.contest_entries e)
+ OR (SELECT votes FROM public.owned_contest_before) IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(v) ORDER BY entry_id) FROM submission_private.contest_votes v)
+ THEN RAISE EXCEPTION 'Submission migration or restore changed retained data'; END IF;
+END $$;
+SQL
+"${migrator[@]}" -f "$cluster/check.sql"
+public=("$pg_bin/psql" -XAt -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U board_public)
+ready=$("${public[@]}" -d owned_site_submissions -c 'SELECT submission_api.ready();')
+[[ $ready = t ]] || { echo "Submission readiness failed before dump: $ready" >&2; exit 1; }
+echo 'Submission readiness passed before dump.'
+"${migrator[@]}" -At -c "SELECT prosrc FROM pg_proc WHERE oid='submission_private.catalog_hash()'::regprocedure" >"$cluster/catalog.sql"
+python3 - "$cluster/catalog.sql" <<'PYCODE'
+import sys
+p=sys.argv[1]
+s=open(p).read().replace('SELECT sha256(convert_to(jsonb_build_object(', 'SELECT jsonb_build_object(', 1)
+s=s.replace(")::text,'UTF8'))", ")::text;")
+open(p,'w').write('SET search_path=pg_catalog,pg_temp;\n'+s)
+PYCODE
+"${migrator[@]}" -At -f "$cluster/catalog.sql" >"$cluster/before.json"
+"$pg_bin/pg_dump" -h 127.0.0.1 -p "$port" -U "$pg_user" -d owned_site_submissions -Fc >"$cluster/submissions.dump"
+"${admin[@]}" -c 'CREATE DATABASE owned_site_submissions_restore OWNER board_migrator;' \
+ -c 'REVOKE ALL ON DATABASE owned_site_submissions_restore FROM PUBLIC;' \
+ -c 'GRANT CONNECT ON DATABASE owned_site_submissions_restore TO board_migrator,board_public;' >/dev/null
+"$pg_bin/pg_restore" -h 127.0.0.1 -p "$port" -U "$pg_user" -d owned_site_submissions_restore --exit-on-error <"$cluster/submissions.dump"
+"$pg_bin/psql" -XAt -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U "$pg_user" -d owned_site_submissions_restore -f "$cluster/catalog.sql" >"$cluster/after.json"
+python3 - "$cluster/before.json" "$cluster/after.json" <<'PYCODE'
+import sys,json
+before,after=(json.loads(open(p).read().splitlines()[-1]) for p in sys.argv[1:])
+for key in before:
+    if before[key]!=after[key]:
+        print('Catalog restore changed '+key, file=sys.stderr)
+        print(json.dumps({'before':before[key],'after':after[key]},indent=2),file=sys.stderr)
+        raise SystemExit(1)
+PYCODE
+ready=$("${public[@]}" -d owned_site_submissions_restore -c 'SELECT submission_api.ready();')
+[[ $ready = t ]] || { echo "Submission readiness failed after restore: $ready" >&2; exit 1; }
+"$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U board_migrator -d owned_site_submissions_restore -f "$cluster/check.sql"
+printf 'Submission storage rollback, authority drift, retained data and restore passed.\n'

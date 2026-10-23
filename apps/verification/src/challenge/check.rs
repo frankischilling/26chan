@@ -26,6 +26,24 @@ pub(crate) async fn check(
         protocol::Purpose::Reply => (ChallengePurpose::Reply, "reply"),
         protocol::Purpose::Report => (ChallengePurpose::Report, "report"),
         protocol::Purpose::Like => (ChallengePurpose::Like, "like"),
+        protocol::Purpose::SiteFeedback => (ChallengePurpose::SiteFeedback, "site_feedback"),
+        protocol::Purpose::SiteApplication => {
+            (ChallengePurpose::SiteApplication, "site_application")
+        }
+        protocol::Purpose::SiteApplicationAuth => (
+            ChallengePurpose::SiteApplicationAuth,
+            "site_application_auth",
+        ),
+        protocol::Purpose::SiteApplicationEdit => (
+            ChallengePurpose::SiteApplicationEdit,
+            "site_application_edit",
+        ),
+        protocol::Purpose::SiteContestSubmit => {
+            (ChallengePurpose::SiteContestSubmit, "site_contest_submit")
+        }
+        protocol::Purpose::SiteContestDelete => {
+            (ChallengePurpose::SiteContestDelete, "site_contest_delete")
+        }
         _ => return error(StatusCode::BAD_REQUEST),
     };
     let Some(context_hash) = state.key.form_context(
