@@ -275,6 +275,7 @@ fn post_json(
 ) -> Result<Value, AppError> {
     let post = PostView::resolved(post, quotes.targets, quotes.current_thread);
     let comment = Comment {
+        event_perk: post.post.event_perk(),
         staff_notices: &post.post.staff_notices,
         lines: &post.lines,
         board: &board.slug,
@@ -758,6 +759,7 @@ mod poster_id_projection_tests {
                 name: "Owned source ID".into(),
                 trip: None,
                 since4pass: 0,
+                event_perk: None,
                 json_op_poster_id: (ordinary && op && saved.is_some()).then(|| "Ab12+/CD".into()),
                 poster_id: saved,
                 capcode: (!ordinary).then(|| row["capcode"].as_str().unwrap().into()),

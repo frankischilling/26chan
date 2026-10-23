@@ -212,6 +212,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
         trip: None,
         poster_id: None,
         since4pass: 0,
+        event_perk: None,
         json_op_poster_id: None,
         capcode: None,
         country: None,
@@ -247,6 +248,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             trip: None,
             poster_id: None,
             since4pass: 0,
+            event_perk: None,
             json_op_poster_id: None,
             capcode: None,
             country: None,
@@ -468,7 +470,7 @@ fn archived_thread() -> String {
             thread_id: thread.id,
             name: "Anonymous".into(),
             trip: None,
-            poster_id: None, since4pass: 0, json_op_poster_id: None, capcode: None,
+            poster_id: None, since4pass: 0, event_perk: None, json_op_poster_id: None, capcode: None,
             country: None,
             country_name: None,
             board_flag: None,
@@ -498,7 +500,7 @@ fn archived_thread() -> String {
             thread_id: thread.id,
             name: "Anonymous".into(),
             trip: None,
-            poster_id: None, since4pass: 0, json_op_poster_id: None, capcode: None,
+            poster_id: None, since4pass: 0, event_perk: None, json_op_poster_id: None, capcode: None,
             country: None,
             country_name: None,
             board_flag: None,
@@ -583,6 +585,7 @@ async fn main() -> std::io::Result<()> {
     .render()
     .unwrap();
     let _ = views::Comment {
+        event_perk: None,
         staff_notices: &[],
         lines: &[],
         board: "demo",

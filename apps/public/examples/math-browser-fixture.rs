@@ -136,6 +136,7 @@ fn fixture(enabled: bool, empty: bool, catalog: bool, index: bool) -> axum::resp
         trip: None,
         poster_id: None,
         since4pass: 0,
+        event_perk: None,
         json_op_poster_id: None,
         capcode: None,
         country: None,

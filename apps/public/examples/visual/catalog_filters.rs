@@ -77,6 +77,7 @@ fn page(slug: &str, sorted: bool) -> String {
                 trip: trip.map(str::to_owned),
                 poster_id: None,
                 since4pass: 0,
+                event_perk: None,
                 json_op_poster_id: None,
                 capcode: capcode.map(str::to_owned),
                 country: None,

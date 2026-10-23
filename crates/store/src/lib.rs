@@ -359,6 +359,9 @@ pub struct Post {
     /// Public opt-in membership year; zero means no year was published.
     #[sqlx(default)]
     pub since4pass: i32,
+    /// Finite server-selected event glyph; never stored HTML.
+    #[sqlx(default)]
+    pub event_perk: Option<i16>,
     pub capcode: Option<String>,
     pub country: Option<String>,
     pub country_name: Option<String>,
@@ -390,6 +393,10 @@ pub struct Post {
 }
 
 impl Post {
+    pub fn event_perk(&self) -> Option<board_domain::source_events::perks::Perk> {
+        self.event_perk
+            .and_then(board_domain::source_events::perks::from_stored)
+    }
     pub fn has_generated_comment(&self) -> bool {
         board_domain::formatting::generated_content_format(self.comment_format)
     }

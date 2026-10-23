@@ -670,6 +670,7 @@ pub(crate) mod tests {
                 trip: None,
                 poster_id: None,
                 since4pass: 0,
+                event_perk: None,
                 json_op_poster_id: None,
                 capcode: None,
                 country: None,
@@ -806,6 +807,7 @@ pub(crate) mod tests {
                 snapshot.post.comment_format = format;
                 snapshot.post.comment = "[spoiler]<b>first</b>\nsecond[/spoiler]".into();
                 let expected = crate::views::Comment {
+                    event_perk: None,
                     staff_notices: &[],
                     lines: &board_domain::parse_post_comment(&snapshot.post.comment, format),
                     board: "test",
@@ -1125,6 +1127,41 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn stored_perk_choices_render_only_the_pinned_source_glyphs() {
+        use askama::Template;
+        use board_domain::source_events::perks;
+        for id in 1..=231 {
+            let perk = perks::from_stored(id).unwrap();
+            let mut snapshot = fixture();
+            snapshot.posts[0].event_perk = Some(id);
+            let bytes = encode(snapshot, "", MAX_BYTES).unwrap();
+            let parsed: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            let html = parsed["posts"][0]["html"].as_str().unwrap();
+            assert!(html.contains(&format!(
+                "<div class=\"like-perk-cnt\">{}</div>",
+                perk.glyph()
+            )));
+            let comment = crate::views::Comment {
+                event_perk: Some(perk),
+                lines: &[],
+                board: "g",
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
+                drawing: None,
+                staff_notices: &[],
+            };
+            assert_eq!(comment.render_json(0).unwrap(), perk.source_html());
+            assert!(comment.render().unwrap().contains(&perk.glyph()));
+        }
+        for invalid in [i16::MIN, -1, 0, 232, i16::MAX] {
+            let mut post = fixture().posts.remove(0);
+            post.event_perk = Some(invalid);
+            assert!(post.event_perk().is_none());
+        }
+    }
+
+    #[test]
     fn stored_stock_badges_match_source_markup_without_claiming_membership() {
         let source: serde_json::Value =
             serde_json::from_str(include_str!("../../../fixtures/event-reference.json")).unwrap();
@@ -1205,6 +1242,7 @@ pub(crate) mod tests {
             snapshot.posts[1].comment_format = format;
             snapshot.posts[1].comment = "[spoiler]<b>first</b>\nsecond[/spoiler]".into();
             let expected = crate::views::Comment {
+                event_perk: None,
                 staff_notices: &[],
                 lines: &board_domain::parse_post_comment(&snapshot.posts[1].comment, format),
                 board: "test",

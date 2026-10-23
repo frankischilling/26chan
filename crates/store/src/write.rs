@@ -884,6 +884,18 @@ async fn create_post_in_context(
     } else {
         None
     };
+    // Only an explicit deployment opt-in offers dormant source perks. SQL
+    // rechecks and locks the active run after verification, before stamping.
+    let event_perk = if metadata.event_scores && ordinary {
+        board_domain::source_events::perks::generate(metadata.options)
+            .map_err(|_| StoreError::RandomnessUnavailable)?
+    } else {
+        None
+    };
+    sqlx::query("SELECT set_config('board.event_perk',$1,true)")
+        .bind(event_perk.map_or(String::new(), |perk| perk.stored_id().to_string()))
+        .execute(&mut *tx)
+        .await?;
     let special = board_domain::posting_randomizers::request(
         metadata.options,
         board.dice_roll,

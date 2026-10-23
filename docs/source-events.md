@@ -63,8 +63,8 @@ badge and perk-option cases. It executes pinned slices with PHP 8.3; the
 historical production PHP version is unknown. Stock valuation is supplied as
 a scalar, and the score-read boundary retains the source's unconditional zero.
 These tests do not establish an active scoring, market or emote workflow.
-Optional market, emote and score persistence are implemented below. Perk
-selection, seasonal presentation and final browser qualification remain open.
+Optional market, emote, score and perk behavior are implemented below.
+Seasonal presentation, missing artwork and final browser qualification remain open.
 
 ## Dormant market model
 
@@ -211,8 +211,8 @@ CI also runs `tests/browser/events-native.mjs` against a real public router and
 private database accounts. It exercises successful native purchases/rolls and
 refresh behavior with JavaScript disabled/enabled at desktop/mobile sizes.
 These browser cases require a passing CI result; local HTML tests alone do not
-qualify them. Score browser qualification, perk selection, seasonal presentation and missing
-artwork remain part of issue #224.
+qualify them. Score and perk browser qualification, seasonal presentation and
+missing artwork remain part of issue #224.
 
 ## Dormant scores and perk glyphs
 
@@ -234,7 +234,30 @@ A second corpus executes all 231 glyph entries across the 19 active perks.
 Random pools retain duplicate entries and their source order. Negative scores
 unlock none; zero unlocks every active choice. Commented image/animation perks
 stay unavailable even at a higher score. Glyphs come only from pinned numeric
-Unicode entities. A perk-selection UI and post glyph rendering remain unfinished.
+Unicode entities.
+
+With event workflows enabled and an active score run, the ordinary Options
+field accepts the first recognized perk name. The server chooses from its
+original pool and saves a finite ordinal, not HTML. The posting trigger checks
+the active run under lock after verification. Expired or closed runs leave the
+post undecorated; disabled deployments ignore these choices.
+
+Saved glyphs render after the comment in the source's `like-perk-cnt` wrapper.
+The main JSON projection retains the original numeric entities. Native updater,
+quote and search recipes accept only the 214 distinct glyph strings represented
+by the 231 pool entries. Catalog teasers and server search include the selected
+glyph. Authenticated thread transfer preserves it, and whole-post erasure
+removes it.
+
+`/event-perks.html` lists the 19 choices without creating an account or cookie.
+Its read-only board/post form opens the native like page; it never submits a
+vote. The page is absent when workflows are disabled and shows a closed message
+without an active score run. This is an explicit reconstruction of the dormant
+helper, not evidence that the supplied PHP posting hook was enabled.
+
+The browser regression for saved comment readers includes all 231 perk choices.
+It must pass in CI; typed rendering and local parser tests alone do not qualify
+actual browser cloning or display.
 
 ## Optional score ledger and native form
 

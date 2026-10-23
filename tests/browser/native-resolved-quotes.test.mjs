@@ -263,3 +263,41 @@ test('stored source stock badges remain finite inert identity markup in every re
   }
   assert.equal(parse(rows[0].badge).status, 'invalid-snapshot');
 });
+
+test('optional perks retain exactly the pinned Unicode recipes without active content', async () => {
+  const fixture = JSON.parse(await readFile(new URL('../../fixtures/event-perk-reference.json', import.meta.url), 'utf8'));
+  const { eventPerkRecipe } = await import('../../apps/public/client/native-event-perks.js');
+  const released = await import('../../apps/public/static/native-filter.v1.js');
+  const searchRelease = await import('../../apps/public/static/global-search.v1.js');
+  const allowed = new Set(fixture.cases.map(row => row.glyph));
+  for (let code = 0; code <= 0x10ffff; ++code) {
+    const glyph = String.fromCodePoint(code);
+    assert.equal(eventPerkRecipe('div', { class: 'like-perk-cnt' }, [glyph]), allowed.has(glyph));
+  }
+  for (const row of fixture.cases) {
+    const value = post(row.html);
+    const parsed = parseUpdaterSnapshot(JSON.stringify(updater(value)), context);
+    assert.equal(parsed.status, 'ok', row.name);
+    const tree = parsed.snapshot.posts[0].tree;
+    assert.doesNotThrow(() => released.validatePostTree(tree, context, no));
+    assert.deepEqual(message(tree).children[0].children, [row.glyph]);
+    for (const reader of [localQuoteTree, released.localQuoteTree]) {
+      const local = reader(dom(tree), context, no);
+      assert.equal(message(local).children[0].attrs.class, 'like-perk-cnt');
+    }
+    assert.equal(parseQuotePreviewSnapshot(JSON.stringify(preview(value)), { ...context, post: no }).status, 'ok');
+    assert.equal(parseBoardPageSnapshot(JSON.stringify(page(value)), { ...context, page: 0 }).status, 'ok');
+    assert.doesNotThrow(() => searchRelease.parseSearchPayload(JSON.stringify(search(value)), context));
+  }
+  for (const html of [
+    '<div class="like-perk-cnt">owned</div>',
+    '<div class="like-perk-cnt"><b>😃</b></div>',
+    '<div class="like-perk-cnt" onclick="owned()">😃</div>',
+    '<div class="like-perk-cnt"><img src="/owned"></div>',
+    '<span class="like-perk-cnt">😃</span>',
+    '<a href="/g/thread/123"><div class="like-perk-cnt">😃</div></a>',
+  ]) assert.equal(parse(html).status, 'invalid-snapshot', html);
+  const value = post('Owned');
+  value.html = value.html.replace('<span class="name">Anonymous</span>', '<div class="like-perk-cnt">😃</div>');
+  assert.equal(parseUpdaterSnapshot(JSON.stringify(updater(value)), context).status, 'invalid-snapshot');
+});

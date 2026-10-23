@@ -1,7 +1,10 @@
 DO $$ BEGIN
+ IF (SELECT jsonb_agg(to_jsonb(v) ORDER BY id) FROM public.owned_perks_before v)
+ IS DISTINCT FROM (SELECT jsonb_agg(jsonb_build_object('id',p.id,'event_perk',p.event_perk) ORDER BY id) FROM content.posts p) THEN
+ RAISE EXCEPTION 'Restore changed retained event perks'; END IF;
  IF EXISTS(SELECT 1 FROM public.owned_events_before b WHERE
  b.boards IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(v) ORDER BY slug) FROM content.boards v)
- OR b.posts IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(v) ORDER BY id) FROM content.posts v)
+ OR b.posts IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(v)-'event_perk' ORDER BY id) FROM content.posts v)
  OR b.threads IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(v) ORDER BY id) FROM content.threads v)) THEN
  RAISE EXCEPTION 'Event upgrade changed board history'; END IF;
  IF (SELECT jsonb_agg(to_jsonb(a) ORDER BY run_id,actor_hash) FROM event_private.accounts a)

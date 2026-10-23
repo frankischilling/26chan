@@ -335,7 +335,7 @@ async fn successful_move_preserves_exact_private_evidence_and_old_registration_x
         let cap = f.capability();
         let source = f.post(0, 0, Some(&cap)).await;
         let reply = f.post(0, source, None).await;
-        sqlx::query("UPDATE content.posts SET since4pass=CASE WHEN id=$1 THEN 2020 ELSE 2008 END WHERE id=ANY($2)")
+        sqlx::query("UPDATE content.posts SET since4pass=CASE WHEN id=$1 THEN 2020 ELSE 2008 END,event_perk=CASE WHEN id=$1 THEN 1 ELSE 231 END WHERE id=ANY($2)")
             .bind(source).bind(&[source,reply][..]).execute(&f.owner).await.unwrap();
         let mut membership=f.owner.begin().await.unwrap();sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *membership).await.unwrap();
         sqlx::query("INSERT INTO verification_private.pass_posts VALUES($1,$2),($3,$4)")
@@ -364,6 +364,11 @@ async fn successful_move_preserves_exact_private_evidence_and_old_registration_x
         let erased_years:Vec<i32>=sqlx::query_scalar("SELECT since4pass FROM content.posts WHERE id=ANY($1) ORDER BY id")
             .bind(&[source,reply][..]).fetch_all(&f.owner).await.unwrap();
         assert_eq!(erased_years,vec![0,0]);
+        let moved_perks:Vec<Option<i16>>=sqlx::query_scalar("SELECT event_perk FROM content.posts WHERE thread_id=$1 AND board=$2 ORDER BY id").bind(target).bind(&f.boards[1]).fetch_all(&f.owner).await.unwrap();
+        assert_eq!(moved_perks,vec![Some(1),Some(231)]);
+        let erased_perks:Vec<Option<i16>>=sqlx::query_scalar("SELECT event_perk FROM content.posts WHERE id=ANY($1) ORDER BY id").bind(&[source,reply][..]).fetch_all(&f.owner).await.unwrap();
+        assert_eq!(erased_perks,vec![None,None]);
+
         let mut membership=f.private().await;
         let moved:Vec<Vec<u8>>=sqlx::query_scalar("SELECT identity_hash FROM verification_private.pass_posts WHERE post_id=ANY($1) ORDER BY post_id")
             .bind(&[target,result.posts[1].destination_post_id][..]).fetch_all(&mut *membership).await.unwrap();

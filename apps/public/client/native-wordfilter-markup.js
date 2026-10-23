@@ -53,6 +53,12 @@ export function isWordfilterMarkup(tag, attrs) {
   return recipes.has(JSON.stringify([tag, keys[0] ?? '', keys.length ? attrs[keys[0]] : '']));
 }
 export function isCommentElement(node, attributes = node?.attributes) {
+  // This reader serializes already-rendered DOM as inert text. Incoming worker
+  // recipes separately enforce the complete pinned glyph set.
+  if (node?.tagName === 'DIV') return attributes.length === 1
+    && attributes[0].name === 'class' && attributes[0].value === 'like-perk-cnt'
+    && node.childNodes.length === 1 && node.childNodes[0].nodeType === 3
+    && node.childNodes[0].data.length > 0 && node.childNodes[0].data.length <= 4;
   if (['TABLE', 'TBODY', 'TR', 'TD'].includes(node?.tagName)) {
     return exifRecipe(node.localName, Object.fromEntries(Array.from(attributes, ({ name, value }) => [name, value]))) !== null;
   }

@@ -44,12 +44,26 @@ async fn imported_stock_identity_keeps_html_and_json_contracts_separate() {
         let public = public.clone();
         let board = board.clone();
         tokio::spawn(async move {
+            for id in 1i16..=231 {
+                let glyph: String = sqlx::query_scalar("SELECT content.event_perk_text($1)")
+                    .bind(id)
+                    .fetch_one(&public)
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    glyph,
+                    board_domain::source_events::perks::from_stored(id)
+                        .unwrap()
+                        .glyph()
+                );
+            }
             for value in 10001..=10017 {
                 sqlx::query("INSERT INTO content.posts(board,thread_id,name,subject,comment,since4pass) VALUES($1,$2,'Anonymous','','Synthetic',$3)")
                 .bind(&board).bind(op).bind(value).execute(&owner).await.unwrap();
             }
             let pass:i64=sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment,since4pass) VALUES($1,$2,'Anonymous','','Owned Pass presentation',2020) RETURNING id")
                 .bind(&board).bind(op).fetch_one(&owner).await.unwrap();
+            sqlx::query("UPDATE content.posts SET event_perk=CASE WHEN id=$1 THEN 231 ELSE (since4pass-9999)::smallint END WHERE board=$2").bind(pass).bind(&board).execute(&owner).await.unwrap();
             for invalid in [-1, 10018, i32::MAX] {
                 let error = sqlx::query("UPDATE content.posts SET since4pass=$1 WHERE id=$2")
                     .bind(invalid)
@@ -69,6 +83,23 @@ async fn imported_stock_identity_keeps_html_and_json_contracts_separate() {
                     .await
                     .is_err()
             );
+            let glyph = board_domain::source_events::perks::from_stored(231)
+                .unwrap()
+                .glyph();
+            let found = board_store::search(&public, &glyph, Some(&board), 0)
+                .await
+                .unwrap();
+            assert_eq!(found.nhits, 1);
+            assert!(
+                found.threads[0]
+                    .posts
+                    .iter()
+                    .any(|p| p.id == pass && p.event_perk == Some(231))
+            );
+            let board_row = board_store::board(&public, &board).await.unwrap();
+            let saved = board_store::find_post(&public, &board, pass).await.unwrap();
+            let teaser = board_public::views::PostView::new(saved).catalog_teaser(&board_row);
+            assert!(teaser.serialized.contains(&glyph));
             let web = board_public::router(public.clone(), "http://localhost:3000".into(), false);
             let html =
                 String::from_utf8(get(&web, &format!("/{board}/thread/{op}")).await).unwrap();
@@ -86,11 +117,25 @@ async fn imported_stock_identity_keeps_html_and_json_contracts_separate() {
                 );
             }
             assert!(!html.contains("Pass user since 100"));
+            assert_eq!(html.matches("class=\"like-perk-cnt\"").count(), 19);
             let json: Value =
                 serde_json::from_slice(&get(&web, &format!("/{board}/thread/{op}.json")).await)
                     .unwrap();
             assert_eq!(json["posts"].as_array().unwrap().len(), 19);
             for post in json["posts"].as_array().unwrap() {
+                let saved: i16 =
+                    sqlx::query_scalar("SELECT event_perk FROM content.posts WHERE id=$1")
+                        .bind(post["no"].as_i64().unwrap())
+                        .fetch_one(&owner)
+                        .await
+                        .unwrap();
+                assert!(
+                    post["com"].as_str().unwrap().contains(
+                        &board_domain::source_events::perks::from_stored(saved)
+                            .unwrap()
+                            .source_html()
+                    )
+                );
                 if post["no"].as_i64() == Some(pass) {
                     assert_eq!(post["since4pass"], 2020);
                 } else {

@@ -36,7 +36,7 @@ const localTags = {
 const localClasses = new Set(['postContainer', 'opContainer', 'replyContainer', 'post', 'op', 'reply',
   'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'n-pu', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'imgspoiler', 'fileDeleted', 'fileDeletedRes', 'postMessage',
   'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint',
-  'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
+  'like-perk-cnt', 'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
   'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
 const controls = '.postActions,.postMenuBtn,.extButton,.extControls,.filter-preview,.quoteLink,.sideArrows,.backlink,[data-drawing-edit-wrap]';
 

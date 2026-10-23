@@ -344,7 +344,7 @@ pub async fn search(
     let rows: Vec<SearchHitRow> = sqlx::query_as(
         "WITH candidates AS MATERIALIZED (\
             SELECT p.board,p.thread_id,p.id,p.subject,\
-                coalesce(p.saved_presentation_search,p.wordfilter_search,p.comment) || coalesce(E'\\n' || content.drawing_search_text(p.drawing_time_seconds,p.drawing_source_post_id),'') || CASE WHEN cardinality(p.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(p.staff_notices,E')\\n\\n(') || ')' END AS comment \
+                coalesce(p.saved_presentation_search,p.wordfilter_search,p.comment) || coalesce(content.event_perk_text(p.event_perk),'') || coalesce(E'\\n' || content.drawing_search_text(p.drawing_time_seconds,p.drawing_source_post_id),'') || CASE WHEN cardinality(p.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(p.staff_notices,E')\\n\\n(') || ')' END AS comment \
             FROM content.posts p \
             JOIN content.visible_threads t ON t.board=p.board AND t.id=p.thread_id \
             WHERE NOT p.deleted AND ($2::text IS NULL OR p.board=$2) \
@@ -419,7 +419,7 @@ pub async fn search(
                 (SELECT reply.* FROM content.posts reply \
                  WHERE reply.thread_id=selected.thread_id AND reply.id<>selected.thread_id \
                    AND NOT reply.deleted \
-                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.saved_presentation_search,reply.wordfilter_search,reply.comment) || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'') || CASE WHEN cardinality(reply.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(reply.staff_notices,E')\\n\\n(') || ')' END), lower($2)) > 0 \
+                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.saved_presentation_search,reply.wordfilter_search,reply.comment) || coalesce(content.event_perk_text(reply.event_perk),'') || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'') || CASE WHEN cardinality(reply.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(reply.staff_notices,E')\\n\\n(') || ')' END), lower($2)) > 0 \
                  ORDER BY reply.id DESC LIMIT $3)\
             ) picked ORDER BY picked.id\
          ) p",
@@ -434,7 +434,7 @@ pub async fn search(
     }
 
     let mut posts: Vec<Post> = sqlx::query_as(
-        "SELECT p.id,p.board,p.thread_id,p.name,p.trip,p.poster_id,p.json_op_poster_id,p.since4pass,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,\
+        "SELECT p.id,p.board,p.thread_id,p.name,p.trip,p.poster_id,p.json_op_poster_id,p.since4pass,p.event_perk,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,\
                 p.subject,p.image_spoiler,\
                 CASE WHEN char_length(p.comment) <= $4 THEN p.comment \
                      WHEN strpos(lower(p.comment), lower($2)) > 0 THEN \
@@ -450,7 +450,7 @@ pub async fn search(
                 (SELECT reply.* FROM content.posts reply \
                  WHERE reply.thread_id=selected.thread_id AND reply.id<>selected.thread_id \
                    AND NOT reply.deleted \
-                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.saved_presentation_search,reply.wordfilter_search,reply.comment) || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'') || CASE WHEN cardinality(reply.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(reply.staff_notices,E')\\n\\n(') || ')' END), lower($2)) > 0 \
+                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.saved_presentation_search,reply.wordfilter_search,reply.comment) || coalesce(content.event_perk_text(reply.event_perk),'') || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'') || CASE WHEN cardinality(reply.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(reply.staff_notices,E')\\n\\n(') || ')' END), lower($2)) > 0 \
                  ORDER BY reply.id DESC LIMIT $3)\
             ) picked ORDER BY picked.id\
          ) p ORDER BY selected.ord,p.id",

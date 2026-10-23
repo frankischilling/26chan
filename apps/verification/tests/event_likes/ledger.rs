@@ -300,7 +300,7 @@ pub(super) async fn exercise(
         .await
         .unwrap();
     let posting_key = board_domain::poster_id::PosterIdKey::parse(&"45".repeat(32)).unwrap();
-    let unscored = board_store::create_post_with_identity_keys(
+    let unscored = board_store::create_post_with_metadata(
         &public,
         board,
         op,
@@ -317,14 +317,30 @@ pub(super) async fn exercise(
             peer: Some("192.0.2.181".parse().unwrap()),
             op_password_proof: None,
         },
-        board_store::PostIdentityKeys {
-            tripcode: None,
-            poster_id: Some(&posting_key),
+        board_store::PostMetadata {
+            event_scores: false,
+            keys: board_store::PostIdentityKeys {
+                tripcode: None,
+                poster_id: Some(&posting_key),
+            },
+            country_database: None,
+            flag: "",
+            options: "animal",
+            spoiler: false,
+            drawing: None,
         },
     )
     .await
     .unwrap();
     assert!(unscored > op);
+    assert_eq!(
+        sqlx::query_scalar::<_, Option<i16>>("SELECT event_perk FROM content.posts WHERE id=$1")
+            .bind(unscored)
+            .fetch_one(owner)
+            .await
+            .unwrap(),
+        None
+    );
     assert_eq!(h.counts().await, (3, 33, 3, 3, 3));
     let posted = board_store::create_post_with_metadata(
         &public,
@@ -351,7 +367,7 @@ pub(super) async fn exercise(
             },
             country_database: None,
             flag: "",
-            options: "",
+            options: "animal",
             spoiler: false,
             drawing: None,
         },
@@ -364,6 +380,17 @@ pub(super) async fn exercise(
         .await
         .unwrap();
     assert!(posted > op);
+    let saved: i16 = sqlx::query_scalar("SELECT event_perk FROM content.posts WHERE id=$1")
+        .bind(posted)
+        .fetch_one(owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        board_domain::source_events::perks::from_stored(saved)
+            .unwrap()
+            .name(),
+        "animal"
+    );
     assert_eq!(h.counts().await, (3, 35, 3, 4, 3));
     // The runtime cannot mint scores or inspect private identities directly.
     for query in [
@@ -375,6 +402,63 @@ pub(super) async fn exercise(
     }
     sqlx::query("DELETE FROM admission.network_rules WHERE id=$1")
         .bind(range_id)
+        .execute(owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1")
+        .bind(board)
+        .execute(owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE event_private.runs SET ends_at=floor(extract(epoch FROM clock_timestamp()))::bigint WHERE id=$1").bind(run).execute(owner).await.unwrap();
+    let closed_post = board_store::create_post_with_metadata(
+        &public,
+        board,
+        op,
+        &board_store::NewPost {
+            name: "Anonymous".into(),
+            subject: String::new(),
+            comment: "Owned closed event perk".into(),
+            deletion_hash: "owned-test-hash".into(),
+            sage: false,
+        },
+        None,
+        board_store::PostingContext {
+            request_start: chrono::Utc::now(),
+            peer: Some("192.0.2.183".parse().unwrap()),
+            op_password_proof: None,
+        },
+        board_store::PostMetadata {
+            event_scores: true,
+            keys: board_store::PostIdentityKeys {
+                tripcode: None,
+                poster_id: Some(&posting_key),
+            },
+            country_database: None,
+            flag: "",
+            options: "animal",
+            spoiler: false,
+            drawing: None,
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, Option<i16>>("SELECT event_perk FROM content.posts WHERE id=$1")
+            .bind(closed_post)
+            .fetch_one(owner)
+            .await
+            .unwrap(),
+        None
+    );
+    assert_eq!(h.counts().await, (3, 35, 3, 4, 3));
+    sqlx::query("UPDATE event_private.runs SET ends_at=253402300799 WHERE id=$1")
+        .bind(run)
+        .execute(owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.boards SET captcha_enabled=true WHERE slug=$1")
+        .bind(board)
         .execute(owner)
         .await
         .unwrap();

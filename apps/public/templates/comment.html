@@ -4,4 +4,5 @@
 {%- if let Some(fortune) = fortune_text -%}{%- if let Some(color) = fortune_color -%}<span class="fortune" style="color:{{ color }}"><br><br><b>Your fortune: {{ fortune }}</b></span>{%- endif -%}{%- endif -%}
 {%- call formatting::drawing_annotation(drawing.as_ref()) -%}{%- endcall -%}
 
+{%- if let Some(perk) = event_perk -%}<div class="like-perk-cnt">{{ perk.glyph() }}</div>{%- endif -%}
 {%- for notice in staff_notices %} <br><br><strong style="color: red;">({{ notice }})</strong>{% endfor -%}

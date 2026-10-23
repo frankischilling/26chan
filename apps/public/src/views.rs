@@ -406,8 +406,23 @@ impl PostView {
     }
 
     pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {
+        let decorated = self.post.event_perk().map(|perk| {
+            let mut lines = self.lines.clone();
+            if lines.is_empty() {
+                lines.push(Line {
+                    green: false,
+                    tokens: Vec::new(),
+                });
+            }
+            lines
+                .last_mut()
+                .unwrap()
+                .tokens
+                .push(Token::Text(perk.glyph()));
+            lines
+        });
         crate::catalog::teaser::prepare_with_notices(
-            &self.lines,
+            decorated.as_deref().unwrap_or(&self.lines),
             &board.slug,
             crate::catalog::teaser::Policy::for_post(board, self.post.comment_format),
             self.post.separate_dice_result(),
@@ -486,6 +501,7 @@ mod catalog_tests {
 #[derive(Template)]
 #[template(path = "comment.html")]
 pub struct Comment<'a> {
+    pub event_perk: Option<board_domain::source_events::perks::Perk>,
     pub lines: &'a [Line],
     pub board: &'a str,
     pub dice_result: Option<&'a str>,
@@ -509,6 +525,7 @@ impl Comment<'_> {
     /// never decodes entities, parses user HTML, or changes historical profiles.
     pub(crate) fn render_json(&self, format: i16) -> askama::Result<String> {
         let body = Self {
+            event_perk: self.event_perk,
             lines: self.lines,
             board: self.board,
             dice_result: self.dice_result,
@@ -528,6 +545,12 @@ impl Comment<'_> {
         } else {
             body
         };
+        if let Some(perk) = self.event_perk {
+            html = html.replace(
+                &format!("<div class=\"like-perk-cnt\">{}</div>", perk.glyph()),
+                &perk.source_html(),
+            );
+        }
         board_domain::post_notice::validate_saved(self.staff_notices)
             .map_err(|_| askama::Error::Fmt)?;
         for text in self.staff_notices {
@@ -583,6 +606,7 @@ mod comment_tests {
         prepared.freeze_format("p");
         let lines = board_domain::filtered_formatting::lines_for_post(&prepared, "p", 488);
         let html = Comment {
+            event_perk: None,
             lines: &lines,
             board: "p",
             dice_result: None,
@@ -612,6 +636,7 @@ mod comment_tests {
             "again".into(),
         ];
         let comment = Comment {
+            event_perk: None,
             lines: &[],
             board: "demo",
             dice_result: None,
@@ -631,6 +656,7 @@ mod comment_tests {
         let invalid = vec![String::new()];
         assert!(
             Comment {
+                event_perk: None,
                 staff_notices: &invalid,
                 ..comment
             }
@@ -651,6 +677,7 @@ mod comment_tests {
                 tokens: vec![Token::Text(case["input"].as_str().unwrap().into())],
             }];
             let comment = Comment {
+                event_perk: None,
                 staff_notices: &[],
                 lines: &lines,
                 board: "g",
@@ -684,6 +711,7 @@ mod comment_tests {
                 tokens: vec![Token::Text(text.into())],
             }];
             let comment = Comment {
+                event_perk: None,
                 staff_notices: &[],
                 lines: &lines,
                 board: "g",
@@ -711,6 +739,7 @@ mod comment_tests {
 
     fn render(input: &str, format: i16) -> String {
         Comment {
+            event_perk: None,
             staff_notices: &[],
             lines: &parse_post_comment(input, format),
             board: "test",
@@ -755,6 +784,7 @@ mod comment_tests {
                 }
             }
             let html = Comment {
+                event_perk: None,
                 staff_notices: &[],
                 lines: &lines,
                 board,
@@ -821,6 +851,7 @@ mod comment_tests {
             let drawing = view.drawing_annotation();
             assert_eq!(drawing.unwrap().replay_tim, expected.then_some(123));
             let html = Comment {
+                event_perk: None,
                 staff_notices: &[],
                 lines: &[],
                 board: "i",
@@ -859,6 +890,7 @@ mod comment_tests {
             let seconds = i32::try_from(case["args"][0].as_i64().unwrap()).ok();
             let drawing = DrawingAnnotation::from_saved(seconds, None);
             let html = Comment {
+                event_perk: None,
                 staff_notices: &[],
                 lines: &[],
                 board: "i",
@@ -878,6 +910,7 @@ mod comment_tests {
             "<br><br><small><b>Oekaki Post</b> (Time: 1h 1m, Source: &gt;&gt;42)</small>";
         assert_eq!(drawing.stored_html(), expected);
         let html = Comment {
+            event_perk: None,
             staff_notices: &[],
             lines: &[],
             board: "i",
@@ -944,6 +977,7 @@ mod comment_tests {
                         board_domain::filtered_formatting::lines_for_post(&prepared, "test", 488);
                     let source = board_domain::filtered_formatting::source_projection(&lines);
                     let json = Comment {
+                        event_perk: None,
                         staff_notices: &[],
                         lines: &lines,
                         board: "test",
@@ -980,6 +1014,7 @@ mod comment_tests {
     fn retained_randomizer_metadata_uses_fixed_markup_and_escaped_text() {
         let lines = parse_post_comment("ordinary <text>", 0);
         let html = Comment {
+            event_perk: None,
             staff_notices: &[],
             lines: &lines,
             board: "test",
@@ -1137,6 +1172,7 @@ mod comment_tests {
         .unwrap();
         let lines = parse_comment(&text);
         let html = Comment {
+            event_perk: None,
             staff_notices: &[],
             lines: &lines,
             board: "test",
@@ -1166,6 +1202,7 @@ mod comment_tests {
             .unwrap();
             let lines = parse_comment(&text);
             let html = Comment {
+                event_perk: None,
                 staff_notices: &[],
                 lines: &lines,
                 board: "test",
@@ -1206,6 +1243,7 @@ mod comment_tests {
                 );
                 let lines = parse_comment(&text);
                 let html = Comment {
+                    event_perk: None,
                     staff_notices: &[],
                     lines: &lines,
                     board: "test",

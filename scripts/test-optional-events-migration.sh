@@ -113,6 +113,19 @@ grep -q 'Event authority drifted' "$cluster/identity-rejected.log" || { cat "$cl
 "${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('event_private.post_identity(bigint,text,bigint,bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained score identity helper'; END IF; END \$\$;" >/dev/null
 "${migrator[@]}" --single-transaction -f migrations/0255_score_identity_boundary.sql >"$cluster/identity-accepted.log"
 "${migrator[@]}" --single-transaction -f migrations/0256_stored_stock_identities.sql >"$cluster/stock-accepted.log"
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT ON event_private.score_accounts TO board_public;' -f migrations/0257_optional_post_perks.sql >"$cluster/perk-rejected.log" 2>&1; then
+  echo 'Perk migration accepted pre-existing event authority drift' >&2; exit 1
+fi
+grep -q 'Event authority drifted' "$cluster/perk-rejected.log" || { cat "$cluster/perk-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0257_optional_post_perks.sql -c ROLLBACK >"$cluster/perk-rollback.log"
+"${migrator[@]}" -c "DO \$\$ BEGIN IF EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='content.posts'::regclass AND attname='event_perk' AND NOT attisdropped) THEN RAISE EXCEPTION 'Rollback retained event perk'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0257_optional_post_perks.sql >"$cluster/perk-accepted.log"
+"${migrator[@]}" <<'SQL'
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM content.posts WHERE event_perk IS NOT NULL) THEN RAISE EXCEPTION 'Upgrade created event perks'; END IF; END $$;
+UPDATE content.posts SET event_perk=231 WHERE id=(SELECT min(id) FROM content.posts);
+CREATE TABLE public.owned_perks_before AS SELECT id,event_perk FROM content.posts;
+SQL
+
 # Execute the actual automatic/report readiness contracts as the public role.
 # These are catalog-only queries; no private posting evidence is selected.
 python3 - "$cluster/score-readiness.sql" <<'PYCODE'

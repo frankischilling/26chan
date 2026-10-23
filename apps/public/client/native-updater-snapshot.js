@@ -1,3 +1,4 @@
+import { eventPerkRecipe } from './native-event-perks.js';
 import { stockToken, stockBadge, stockContainer } from './native-event-badges.js';
 import { exifTags, exifRecipe } from './native-exif.js';
 import { defaultTreeAdapter, parseFragment } from 'parse5';
@@ -119,6 +120,12 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     const attrs = node.attrs;
     require((Object.hasOwn(attributes, node.tag) || isWordfilterMarkupTag(node.tag) || exifTags.has(node.tag)) && Array.isArray(node.children));
     require(attrs && typeof attrs === 'object' && !Array.isArray(attrs));
+    if (attrs.class === 'like-perk-cnt') {
+      require(comment && !link && eventPerkRecipe(node.tag, attrs, node.children));
+      charge(attrs.class);
+      visit(node.children[0], depth + 1, form, true, false);
+      return;
+    }
     const exif = exifRecipe(node.tag, attrs);
     if (exif) {
       require(comment && !link);

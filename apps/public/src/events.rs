@@ -2,6 +2,7 @@
 //! Do not create accounts, read event cookies, or consume request bodies here.
 mod active;
 mod likes;
+mod perks;
 
 use crate::AppState;
 use axum::{
@@ -18,6 +19,8 @@ pub(crate) fn routes(enabled: bool) -> Router<AppState> {
     Router::new()
         .route("/emotes_xa22.php", any(emotes_closed))
         .route("/xa24tb.php", any(market_closed))
+        .route("/event-perks.html", any(emotes_closed))
+        .route("/event-like.html", any(emotes_closed))
         .route("/event-market.html", any(emotes_closed))
         .route("/event-emotes.html", any(emotes_closed))
         .route("/event-like/{board}/{post}", any(emotes_closed))
@@ -60,6 +63,8 @@ mod tests {
             .unwrap();
         let web = crate::router(pool, "http://localhost:3000".into(), false);
         for path in [
+            "/event-perks.html",
+            "/event-like.html",
             "/event-market.html",
             "/event-emotes.html",
             "/event-like/b/123",

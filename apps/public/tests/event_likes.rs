@@ -220,6 +220,48 @@ async fn exercise(
     post: i64,
     sessions: Arc<Mutex<Vec<[u8; 32]>>>,
 ) {
+    let overview = web
+        .clone()
+        .oneshot(request("/event-perks.html", None, None))
+        .await
+        .unwrap();
+    assert_eq!(overview.status(), StatusCode::OK);
+    assert!(!overview.headers().contains_key(header::SET_COOKIE));
+    let overview = body(overview).await;
+    for name in board_domain::source_events::PERKS {
+        assert!(overview.contains(&format!("<strong>{name}</strong>")));
+    }
+    let redirect = web
+        .clone()
+        .oneshot(request(
+            &format!("/event-like.html?board={board}&post={post}"),
+            None,
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(redirect.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        redirect.headers()[header::LOCATION],
+        format!("/event-like/{board}/{post}")
+    );
+    assert!(!redirect.headers().contains_key(header::SET_COOKIE));
+    for query in [
+        "board=g&post=0",
+        "board=g&post=001",
+        "board=g&post=1&post=2",
+        "board=../../&post=1",
+        "board=g&post=1&extra=x",
+    ] {
+        assert_eq!(
+            web.clone()
+                .oneshot(request(&format!("/event-like.html?{query}"), None, None))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::BAD_REQUEST
+        );
+    }
     let path = format!("/event-like/{board}/{post}");
     let response = web
         .clone()
@@ -444,6 +486,26 @@ async fn exercise(
         .execute(&owner)
         .await
         .unwrap();
+    let closed = web
+        .clone()
+        .oneshot(request("/event-perks.html", None, None))
+        .await
+        .unwrap();
+    assert_eq!(closed.status(), StatusCode::OK);
+    assert!(!closed.headers().contains_key(header::SET_COOKIE));
+    assert!(body(closed).await.contains("This event is closed."));
+    assert_eq!(
+        web.clone()
+            .oneshot(request(
+                &format!("/event-like.html?board={board}&post={post}"),
+                None,
+                None
+            ))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::NOT_FOUND
+    );
     assert_eq!(
         web.oneshot(request(&path, None, Some(&cookie)))
             .await
