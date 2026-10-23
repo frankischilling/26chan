@@ -11,5 +11,5 @@
 {% if notices.minimum %}<li>Images smaller than {{ board.min_image_width }}x{{ board.min_image_height }} pixels are not allowed.</li>{% endif %}
 {% if notices.maximum %}<li>Images greater than {{ board.max_image_dimension }}x{{ board.max_image_dimension }} pixels are not allowed.</li>{% endif %}
 {% if notices.advice %}<li>If images are missing, check whether browser filtering blocks this board.</li><li class="crisisNotice">In the United States, crisis support is available from the <a href="https://988lifeline.org?oai_link_source=model_response_hotline" rel="noreferrer noopener">988 Suicide &amp; Crisis Lifeline</a>.</li>{% endif %}
-{% if notices.flash_unavailable %}<li>SWF uploading and the Flash archive are not available in this build.</li>{% endif %}
+{% if notices.flash %}<li>Supported file types are: SWF</li><li>Maximum file size allowed is {{ board.max_image_bytes / 1024 }} KB.</li><li>Check out the 4chan <a href="https://www.4chan.org/flash" target="_blank" rel="noopener noreferrer">Flash archive</a>!</li>{% endif %}
 </ul>{% endif %}

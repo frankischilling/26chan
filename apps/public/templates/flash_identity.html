@@ -1,0 +1,4 @@
+{% macro identity(item) %}
+<span class="nameBlock{% if let Some(badge) = item.flash_post_badge() %} {{ badge.name_class() }}{% endif %}"><span class="name">{{ item.post.name }}</span>{% if let Some(trip) = item.post.trip %} <span class="postertrip">{{ trip }}</span>{% endif %}{% if let Some(badge) = item.flash_post_badge() %} <strong class="capcode">## {{ badge.label() }}</strong>{% if let Some(icon) = badge.icon() %} <img class="identityIcon" src="/static/identity/{{ icon }}.gif" alt="{{ badge.icon_title() }}" title="{{ badge.icon_title() }}" width="16" height="16">{% endif %}{% endif %}</span>
+{% endmacro %}
+{% macro modes(view) %}{% if view.thread.sticky %} <img class="flashModeIcon" src="/static/catalog/sticky.gif" alt="Sticky" title="Sticky" width="18" height="18">{% endif %}{% if view.thread.closed %} <img class="flashModeIcon" src="/static/catalog/closed.gif" alt="Closed" title="Closed" width="18" height="18">{% endif %}{% endmacro %}

@@ -85,6 +85,14 @@ fn headers(mut response: Response) -> Response {
         .headers()
         .get("content-type")
         .is_some_and(|value| value == "video/webm" || value == "video/mp4");
+    let player_policy = (response.status() == StatusCode::OK)
+        .then(|| {
+            response
+                .extensions()
+                .get::<crate::swf_player::DocumentPolicy>()
+                .cloned()
+        })
+        .flatten();
     let h = response.headers_mut();
     let policy = if video {
         "default-src 'none'; media-src 'self'; sandbox allow-same-origin; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
@@ -96,7 +104,12 @@ fn headers(mut response: Response) -> Response {
         "x-content-type-options",
         HeaderValue::from_static("nosniff"),
     );
-    h.insert("x-frame-options", HeaderValue::from_static("DENY"));
+    if let Some(player) = player_policy {
+        h.insert("content-security-policy", player.0);
+        h.remove("x-frame-options");
+    } else {
+        h.insert("x-frame-options", HeaderValue::from_static("DENY"));
+    }
     h.insert("referrer-policy", HeaderValue::from_static("no-referrer"));
     h.insert(
         "cross-origin-resource-policy",

@@ -1,5 +1,8 @@
 //! Upload-board category identifiers and source subject prefixes.
 
+pub const FILE_ONLY_ERROR: &str =
+    "It doesn't make any sense to do a file-only delete on a file board!";
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Category {
     pub id: u8,

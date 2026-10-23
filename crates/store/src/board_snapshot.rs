@@ -12,6 +12,7 @@ enum PreviewSelection {
     Metadata,
     Fixed(i64),
     Source,
+    SourceHtml,
 }
 impl From<Option<i64>> for PreviewSelection {
     fn from(replies: Option<i64>) -> Self {
@@ -64,7 +65,7 @@ pub async fn source_board_page_snapshot(
         pool,
         slug,
         selection,
-        PreviewSelection::Source,
+        PreviewSelection::SourceHtml,
         true,
         false,
         MAX_BOARD_READ_THREADS,
@@ -245,10 +246,16 @@ async fn read_board_snapshot(
     let preview_limits: Option<Vec<i64>> = match replies {
         PreviewSelection::Metadata => None,
         PreviewSelection::Fixed(limit) => Some(vec![limit; ids.len()]),
-        PreviewSelection::Source => Some(
+        PreviewSelection::Source | PreviewSelection::SourceHtml => Some(
             threads
                 .iter()
-                .map(|thread| board.preview_reply_limit(thread.sticky) as i64)
+                .map(|thread| {
+                    if board.upload_board && matches!(replies, PreviewSelection::SourceHtml) {
+                        0
+                    } else {
+                        board.preview_reply_limit(thread.sticky) as i64
+                    }
+                })
                 .collect(),
         ),
     };

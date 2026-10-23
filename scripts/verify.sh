@@ -57,6 +57,13 @@ early_browser_checks() {
 }
 
 rust_checks() {
+  if [[ -z ${SWF_PLAYER_ASSETS:-} ]]; then
+    if [[ ! -d .local/swf-player ]]; then
+      mkdir -p .local
+      python3 scripts/media/prepare-swf-player.py .local/swf-player
+    fi
+    export SWF_PLAYER_ASSETS="$PWD/.local/swf-player"
+  fi
   node --test tests/browser/upload-fixture-tag.test.mjs tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs tests/helpers/viewport-fit.test.mjs
   cargo fmt --all -- --check
   cargo clippy --workspace --all-targets --all-features --locked -- -D warnings

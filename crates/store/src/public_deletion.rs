@@ -261,6 +261,24 @@ pub async fn public_deletion_target_exists(
         .bind(slug).bind(id).fetch_optional(pool).await?.ok_or(StoreError::NotFound)
 }
 
+pub(crate) async fn file_only_allowed(
+    connection: &mut sqlx::PgConnection,
+    board: &str,
+) -> Result<(), StoreError> {
+    let upload: bool = sqlx::query_scalar("SELECT upload_board FROM content.boards WHERE slug=$1")
+        .bind(board)
+        .fetch_optional(connection)
+        .await?
+        .ok_or(StoreError::NotFound)?;
+    if upload {
+        Err(StoreError::Invalid(
+            board_domain::upload_board::FILE_ONLY_ERROR,
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

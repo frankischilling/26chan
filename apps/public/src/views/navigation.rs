@@ -506,6 +506,9 @@ mod tests {
             current.dice_roll = true;
             current.pdf_enabled = true;
             current.upload_board = slug == "f";
+            if current.upload_board {
+                current.max_image_bytes = 10_485_760;
+            }
             let mut view = page(vec![], current);
             view.media_origin = "https://media.invalid".into();
             let html = view.render().unwrap();
@@ -534,9 +537,12 @@ mod tests {
                 assert!(!html.contains("273-8255"));
             }
             if slug == "f" {
-                assert!(html.contains("SWF uploading and the Flash archive are not available"));
+                assert!(html.contains("Supported file types are: SWF"));
+                assert!(html.contains("Maximum file size allowed is 10240 KB."));
+                assert!(html.contains("https://www.4chan.org/flash"));
             }
             view.media_origin.clear();
+            assert!(!view.posting_notices().flash);
             assert!(!view.posting_notices().pdf);
             assert!(!view.posting_notices().types);
             assert!(!view.posting_notices().minimum);

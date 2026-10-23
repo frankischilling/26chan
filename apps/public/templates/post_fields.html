@@ -1,5 +1,5 @@
 {% import "captcha_fields.html" as captcha_markup %}
-{% macro fields(parent, image, randomizers, spoilers, text_only, forced_anon, country_flags, flag_options, quote, drawing, drawing_width, drawing_height, captcha) %}
+{% macro fields(parent, image, randomizers, spoilers, text_only, forced_anon, country_flags, flag_options, quote, drawing, drawing_width, drawing_height, captcha, upload_categories) %}
 <input type="hidden" name="mode" value="regist">
 <input id="postPassword" name="pwd" type="hidden">
 {% if forced_anon %}<input type="hidden" name="name">{% endif %}
@@ -7,8 +7,8 @@
 {% if !forced_anon %}
 <tr><td><label for="name">Name</label></td><td><input id="name" name="name" type="text" autocomplete="off" placeholder="Anonymous"></td></tr>
 {% endif %}
-<tr><td><label for="email">Options</label></td><td><input id="email" name="email" type="text">{% if parent != 0 || forced_anon %}<button type="submit">{% if image %}Post with image{% else %}Post{% endif %}</button>{% endif %}</td></tr>
-{% if parent == 0 && !forced_anon %}<tr><td><label for="sub">Subject</label></td><td><input id="sub" name="sub" type="text"{% if text_only %} required{% endif %}><button type="submit">{% if image %}Post with image{% else %}Post{% endif %}</button></td></tr>{% endif %}
+<tr><td><label for="email">Options</label></td><td><input id="email" name="email" type="text">{% if parent != 0 || forced_anon %}<button type="submit">{% if image && upload_categories.is_empty() %}Post with image{% else %}Post{% endif %}</button>{% endif %}</td></tr>
+{% if parent == 0 && !forced_anon %}<tr><td><label for="sub">Subject</label></td><td><input id="sub" name="sub" type="text"{% if text_only %} required{% endif %}><button type="submit">{% if image && upload_categories.is_empty() %}Post with image{% else %}Post{% endif %}</button></td></tr>{% endif %}
 {% if !flag_options.is_empty() %}<tr><td><label for="flag">Flag</label></td><td><select id="flag" name="flag" class="flagSelector"><option value="0">{% if country_flags %}Geographic Location{% else %}None{% endif %}</option>{% for option in flag_options %}<option value="{{ option.0 }}">{{ option.1 }}</option>{% endfor %}</select></td></tr>{% endif %}
 <tr><td><label for="com">Comment</label></td><td><textarea id="com" name="com" cols="48" rows="4"{% if !image && parent != 0 && !randomizers %} required{% endif %} data-randomizer-content="{{ randomizers }}" aria-describedby="postHelp">{{ quote }}</textarea></td></tr>
 {% if image && spoilers %}<tr><td><label for="spoiler">Spoiler image</label></td><td><input id="spoiler" name="spoiler" type="checkbox" value="on"></td></tr>{% endif %}
@@ -16,5 +16,6 @@
 <tr data-type="Painter" class="desktop"><td>Draw</td><td class="painter-ctrl">Size <input type="text" value="{{ drawing_width }}" maxlength="4" inputmode="numeric" aria-label="Drawing width" data-drawing-width> &times; <input type="text" value="{{ drawing_height }}" maxlength="4" inputmode="numeric" aria-label="Drawing height" data-drawing-height> <button data-dims="{{ drawing_width }}" type="button" data-drawing-draw>Draw</button> <button disabled type="button" data-drawing-clear>Clear</button><span role="status" aria-live="polite" data-drawing-status></span></td></tr>
 {% endif %}
 {% if captcha.enabled %}<tr id="captchaFormPart"><td colspan="2">{% call captcha_markup::fields(captcha) %}{% endcall %}</td></tr>{% endif %}
+{% if parent == 0 && !upload_categories.is_empty() %}<tr><td><label for="filetag">Tag</label></td><td><select id="filetag" name="filetag"><option value="9999" selected="selected">Choose one:</option>{% for category in upload_categories %}<option value="{{ category.id }}">{{ category.name }}</option>{% endfor %}</select></td></tr>{% endif %}
 </tbody></table>
 {% endmacro %}

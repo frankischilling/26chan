@@ -56,8 +56,9 @@ jobs:
           python3 scripts/extract-json-feed-reference.py --check --php php
           python3 scripts/extract-swf-header-reference.py --check --php php
           python3 scripts/extract-upload-board-reference.py --check --php php
+          python3 scripts/extract-upload-row-reference.py --check --php php
           node scripts/extract-swf-embed-reference.mjs --check
-          node --test tests/browser/native-swf-core.test.mjs
+          node --test tests/browser/native-swf-core.test.mjs tests/browser/swf-player-bootstrap.test.mjs
       - name: Qualify isolated source page-title function
         run: python3 scripts/extract-page-title-reference.py --fixture-check fixtures/page-title-reference.json --php php
       - name: Qualify isolated source quote callbacks
@@ -452,6 +453,8 @@ jobs:
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             bash scripts/test-media-intake.sh --interrupt
+      - name: Qualify SWF upgrade, authority preflight and restore
+        run: sudo bash scripts/test-swf-upgrade.sh
       - name: Qualify JSON visibility upgrade and authority preflight
         run: sudo bash scripts/test-json-visibility-migration.sh
       - name: Upgrade existing comments from migration 0006

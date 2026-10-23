@@ -8,6 +8,8 @@ use board_store::{Board, Post, Thread};
 mod catalog_identity;
 #[path = "views/file_label.rs"]
 mod file_label;
+#[path = "views/flash.rs"]
+mod flash;
 #[path = "views/home_directory.rs"]
 mod home_directory;
 #[path = "views/mobile_label.rs"]

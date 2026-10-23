@@ -324,6 +324,14 @@ async fn receive(
         .filter(|name| !name.is_empty() && name.len() <= 255 && !name.chars().any(char::is_control))
         .ok_or_else(invalid)?
         .to_owned();
+    if board_settings.upload_board
+        && board_domain::file_name::normalize_upload(&filename, board).starts_with('.')
+    {
+        return Err(AppError(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Error: Invalid filename (first character cannot be a period).",
+        ));
+    }
     let source_image = board_domain::still_image_policy::configured(board);
     let reservation = if source_image {
         media

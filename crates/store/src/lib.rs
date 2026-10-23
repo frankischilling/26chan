@@ -299,7 +299,23 @@ impl Board {
         }
     }
 
+    pub fn upload_categories(&self) -> &'static [board_domain::upload_board::Category] {
+        if self.upload_board {
+            &board_domain::upload_board::CATEGORIES
+        } else {
+            &[]
+        }
+    }
+
     pub fn check_attachment_allowed(&self, parent: i64, attached: bool) -> Result<(), StoreError> {
+        if self.upload_board {
+            if parent == 0 && !attached {
+                return Err(StoreError::Invalid("Error: You must attach a file."));
+            }
+            if parent != 0 && attached {
+                return Err(StoreError::Invalid("Error: Upload failed."));
+            }
+        }
         if self.text_only && parent != 0 && attached {
             return Err(StoreError::Invalid("You cannot upload files on this board"));
         }

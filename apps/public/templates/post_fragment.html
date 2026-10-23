@@ -1,3 +1,3 @@
 {% import "formatting.html" as formatting %}
 {% import "attachments.html" as attachments %}
-{% include "post_content.html" %}
+{% if board.upload_board %}{% include "flash_post_content.html" %}{% else %}{% include "post_content.html" %}{% endif %}

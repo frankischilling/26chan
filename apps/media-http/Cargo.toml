@@ -9,6 +9,7 @@ database-tests = ["board-store/database-tests"]
 browser-tests = ["database-tests"]
 
 [dependencies]
+board-domain = { path = "../../crates/domain" }
 board-config = { path = "../../crates/config" }
 board-store = { path = "../../crates/store" }
 board-media = { path = "../../crates/media" }
@@ -22,7 +23,6 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
-board-domain = { path = "../../crates/domain" }
 board-media-admin = { path = "../media-admin" }
 sqlx.workspace = true
 tower = { version = "0.5", features = ["util"] }

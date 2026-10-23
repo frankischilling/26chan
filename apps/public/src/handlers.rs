@@ -776,6 +776,7 @@ async fn board_page(
             hidden_views.push(view);
         }
     }
+    let flash = board.upload_board && state.media.is_some();
     let replay = board.oekaki_replays && !catalog && state.media.is_some();
     let math_tags = board.math_tags && !catalog;
     let drawing = !catalog && board.ordinary_drawing_enabled(state.media.is_some());
@@ -829,6 +830,7 @@ async fn board_page(
         },
     )?;
     let response = crate::posting_challenge::page::finish(response, &captcha_context);
+    let response = crate::security::flash_page(response, flash);
     Ok(crate::security::drawing_page(
         crate::security::replay_page(crate::security::math_page(response, math_tags), replay),
         drawing,
@@ -902,6 +904,7 @@ pub async fn thread(
         .into_iter()
         .map(|post| PostView::resolved(post, &quote_targets, Some(thread.id)))
         .collect();
+    let flash = board.upload_board && state.media.is_some();
     let replay = board.oekaki_replays && state.media.is_some();
     let math_tags = board.math_tags;
     let drawing = !thread.closed
@@ -959,6 +962,7 @@ pub async fn thread(
         },
     )?;
     let response = crate::posting_challenge::page::finish(response, &captcha_context);
+    let response = crate::security::flash_page(response, flash);
     Ok(crate::security::drawing_page(
         crate::security::replay_page(crate::security::math_page(response, math_tags), replay),
         drawing,
@@ -992,6 +996,8 @@ pub struct PostForm {
     name: String,
     #[serde(default)]
     sub: String,
+    #[serde(default)]
+    filetag: String,
     #[serde(default)]
     com: String,
     #[serde(default, alias = "pwd")]
@@ -1083,7 +1089,7 @@ async fn submit_post(
     state: AppState,
     board: String,
     headers: HeaderMap,
-    form: PostForm,
+    mut form: PostForm,
     format: crate::posting_response::Format,
     mut context: board_store::PostingContext,
     observations: PostingObservations,
@@ -1110,6 +1116,17 @@ async fn submit_post(
     let auto_watch = form.awt == Some(1);
     let track = form.track == Some(1);
     let settings = board_store::board(&state.pool, &board).await?;
+    if settings.upload_board && form.resto == 0 {
+        let category = (form.filetag.len() <= 128)
+            .then(|| board_domain::upload_board::submitted_category(&form.filetag))
+            .flatten()
+            .ok_or(AppError(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Error: Invalid tag specified.",
+            ))?;
+        form.sub = format!("{}|{}", category.id, form.sub);
+    }
+
     let attachment = match (form.upload_id.is_empty(), form.upload_capability.is_empty()) {
         (true, true) => None,
         (false, false) if state.media.is_some() && !form.textonly => {
@@ -1573,6 +1590,16 @@ pub(crate) async fn delete_with_context(
     batch: &mut board_store::PublicDeletionBatch,
     form: DeleteForm,
 ) -> Result<Redirect, AppError> {
+    if form.file_only
+        && board_store::board(&state.pool, batch.slug())
+            .await?
+            .upload_board
+    {
+        return Err(AppError(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            board_domain::upload_board::FILE_ONLY_ERROR,
+        ));
+    }
     board_store::public_deletion_precheck(
         &state.pool,
         batch.slug(),

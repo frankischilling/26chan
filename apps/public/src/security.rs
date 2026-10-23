@@ -73,6 +73,15 @@ pub(crate) fn drawing_page(mut response: Response, enabled: bool) -> Response {
 }
 
 #[derive(Clone, Copy)]
+struct FlashPage;
+pub(crate) fn flash_page(mut response: Response, enabled: bool) -> Response {
+    if enabled && response.status().is_success() {
+        response.extensions_mut().insert(FlashPage);
+    }
+    response
+}
+
+#[derive(Clone, Copy)]
 struct ReplayPage;
 #[derive(Clone, Copy)]
 struct ReplayWorker;
@@ -301,6 +310,9 @@ fn headers(
     let math = interactive
         && page == Some(InteractivePage::Board)
         && response.extensions().get::<MathPage>().is_some();
+    let flash = interactive
+        && page == Some(InteractivePage::Board)
+        && response.extensions().get::<FlashPage>().is_some();
     let script = if verification_page {
         format!("{}{}", state.origin, crate::signin::SCRIPT_PATH)
     } else if report_shell {
@@ -412,6 +424,17 @@ fn headers(
     } else {
         script
     };
+    let script = if flash {
+        format!(
+            "{script} {}{} {}{}",
+            state.origin,
+            crate::ui_assets::NATIVE_SWF_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_SWF_CORE_PATH
+        )
+    } else {
+        script
+    };
     let script = if math {
         format!(
             "{script} {}{}",
@@ -514,6 +537,11 @@ fn headers(
         "https://www.youtube-nocookie.com/embed/ https://w.soundcloud.com/player/"
     } else {
         "'none'"
+    };
+    let frames = if flash && let Some(media) = &state.media {
+        format!("{frames} {}/player/", media.settings.origin.as_string())
+    } else {
+        frames.into()
     };
     let script = if drawing {
         format!(

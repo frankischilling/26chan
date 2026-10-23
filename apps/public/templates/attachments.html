@@ -1,6 +1,8 @@
 {% macro file(item, board, media_origin, spoiler_thumbnail) %}
 {% if let Some(file) = item.post.attachment %}
-{% if item.post.file_deleted() %}<div class="file" id="f{{ item.post.id }}"><span class="fileThumb"><img class="fileDeletedRes" src="/static/catalog/filedeleted-res.gif" srcset="/static/catalog/filedeleted-res@2x.gif 2x" alt="File deleted." width="127" height="13" loading="lazy"></span></div>
+{% if file.output_format.extension() == "swf" %}
+<div class="file" id="f{{ item.post.id }}"><div class="fileInfo">{% if item.post.file_deleted() %}[<b>File Deleted</b>]{% else if !media_origin.is_empty() %}<span class="fileText" id="fT{{ item.post.id }}">File: <a data-width="{{ file.width }}" data-height="{{ file.height }}" data-player="{{ media_origin }}/player/{{ board }}/{{ file.tim }}" href="{{ media_origin }}/{{ board }}/{{ item.flash_file_url() }}" target="_blank" rel="noopener noreferrer">{{ file.display_filename() }}</a>-({{ item.flash_thread_size(file.bytes) }}, {{ file.width }}x{{ file.height }}, {{ item.flash_category() }})</span>{% endif %}</div></div>
+{% else if item.post.file_deleted() %}<div class="file" id="f{{ item.post.id }}"><span class="fileThumb"><img class="fileDeletedRes" src="/static/catalog/filedeleted-res.gif" srcset="/static/catalog/filedeleted-res@2x.gif 2x" alt="File deleted." width="127" height="13" loading="lazy"></span></div>
 {% else if !media_origin.is_empty() %}
 {% let filename = file.display_filename() %}
 <div class="file" id="f{{ item.post.id }}"{% if file.spoiler %} data-image-spoiler="true" data-image-filename="{{ filename }}"{% if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) %} data-thumbnail-width="{{ width }}" data-thumbnail-height="{{ height }}"{% else %}{% let (width, height) = item.catalog_size(true) %} data-thumbnail-width="{{ width }}" data-thumbnail-height="{{ height }}" data-thumbnail-legacy="true"{% endif %}{% endif %}>

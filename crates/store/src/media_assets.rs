@@ -807,6 +807,25 @@ impl MediaReader {
             .bind(output_id).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
     }
 
+    pub async fn get_swf_filename(&self, board: &str, tim: i64) -> Result<String, StoreError> {
+        board_domain::BoardSlug::parse(board).map_err(|_| StoreError::NotFound)?;
+        if !(1..=9_007_199_254_740_991).contains(&tim) {
+            return Err(StoreError::NotFound);
+        }
+        let filename: String=sqlx::query_scalar("SELECT filename FROM media.approved_post_assets WHERE board=$1 AND tim=$2 AND output_format='swf'")
+            .bind(board).bind(tim).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)?;
+        Ok(board_domain::file_name::display(&filename, "swf"))
+    }
+
+    pub async fn get_named_swf(&self, board: &str, filename: &str) -> Result<Asset, StoreError> {
+        board_domain::BoardSlug::parse(board).map_err(|_| StoreError::NotFound)?;
+        if filename.len() > 259 || !filename.ends_with(".swf") || filename.contains(['/', '\\']) {
+            return Err(StoreError::NotFound);
+        }
+        sqlx::query_as("SELECT id,sha256,bytes,width,height,output_format FROM media.approved_post_assets WHERE board=$1 AND output_format='swf' AND regexp_replace(filename,'\\.[a-zA-Z0-9]+$','')||'.swf'=$2")
+            .bind(board).bind(filename).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
+    }
+
     pub async fn get_post_mobile(&self, board: &str, tim: i64) -> Result<Asset, StoreError> {
         board_domain::BoardSlug::parse(board).map_err(|_| StoreError::NotFound)?;
         if !(1..=9_007_199_254_740_991).contains(&tim) {

@@ -124,6 +124,10 @@ pub(crate) fn scoped_error(error: sqlx::Error) -> StoreError {
         ),
         Some("22023") => StoreError::Invalid("Invalid attachment request."),
         Some("23514") => match error.as_database_error().map(|error| error.message()) {
+            Some(board_domain::upload_board::FILE_ONLY_ERROR) => {
+                StoreError::Invalid(board_domain::upload_board::FILE_ONLY_ERROR)
+            }
+            Some("Filename already exists.") => StoreError::Invalid("Filename already exists."),
             Some("Error: File too large.") => StoreError::Invalid("Error: File too large."),
             Some("Error: Upload failed.") => StoreError::Invalid("Error: Upload failed."),
             Some("Error: Corrupted file or unsupported file type.") => {

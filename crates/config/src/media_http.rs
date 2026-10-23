@@ -11,6 +11,7 @@ pub struct MediaHttpSettings {
     pub origin: Origin,
     pub bind: SocketAddr,
     pub approved_dir: PathBuf,
+    pub player_dir: Option<PathBuf>,
 }
 
 impl MediaHttpSettings {
@@ -51,12 +52,17 @@ impl MediaHttpSettings {
             .map(PathBuf::from)
             .filter(|path| path.is_absolute())
             .ok_or(ConfigError("MEDIA_APPROVED_DIR must be an absolute path."))?;
+        let player_dir = env::var_os("MEDIA_PLAYER_DIR").map(PathBuf::from);
+        if player_dir.as_ref().is_some_and(|path| !path.is_absolute()) {
+            return Err(ConfigError("MEDIA_PLAYER_DIR must be an absolute path."));
+        }
         Ok(Self {
             reader,
             public_origin,
             origin,
             bind,
             approved_dir,
+            player_dir,
         })
     }
 }

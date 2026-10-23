@@ -10,7 +10,7 @@ use board_store::StoreError;
 use board_store::media_assets::MediaFormat;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Variant {
+pub(crate) enum Variant {
     Primary,
     Thumbnail,
     Mobile,
@@ -68,6 +68,33 @@ pub async fn post_image(
     method: Method,
     headers: HeaderMap,
 ) -> Response {
+    if name.ends_with(".swf") {
+        if uri.path() != format!("/{board}/{}", board_domain::file_name::url_component(&name)) {
+            return error(StatusCode::NOT_FOUND);
+        }
+        let asset = state.reader.get_named_swf(&board, &name).await;
+        let mut response = serve(
+            state,
+            asset,
+            Variant::Primary,
+            MediaFormat::Swf,
+            headers,
+            false,
+            method,
+        )
+        .await;
+        if matches!(response.status(), StatusCode::OK | StatusCode::NOT_MODIFIED) {
+            response.headers_mut().insert(
+                "content-disposition",
+                HeaderValue::from_str(&format!(
+                    "attachment; filename=\"download.swf\"; filename*=UTF-8''{}",
+                    board_domain::file_name::url_component(&name)
+                ))
+                .expect("encoded path component"),
+            );
+        }
+        return response;
+    }
     let (suffix, format, variant) = if name.ends_with("s.jpg") {
         ("s.jpg", MediaFormat::Png, Variant::Thumbnail)
     } else if name.ends_with("m.jpg") {
@@ -207,7 +234,7 @@ pub async fn post_replay(
     response
 }
 
-async fn serve(
+pub(crate) async fn serve(
     state: AppState,
     asset: Result<board_store::media_assets::Asset, StoreError>,
     variant: Variant,

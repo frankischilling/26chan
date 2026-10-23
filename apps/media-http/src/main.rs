@@ -43,13 +43,17 @@ async fn run(settings: MediaHttpSettings) -> Result<(), Box<dyn std::error::Erro
     let files = ApprovedFiles::open(settings.approved_dir)?;
     files.ready()?;
     let reader = MediaReader::connect(&settings.reader.database_url).await?;
-    tracing::info!("media HTTP ready");
-    let (metrics, app) = observed_router(AppState::new(
+    let mut state = AppState::new(
         reader.clone(),
         files,
         &settings.origin,
         &settings.public_origin,
-    ));
+    );
+    if let Some(root) = settings.player_dir {
+        state = state.with_player_assets(&root)?;
+    }
+    tracing::info!("media HTTP ready");
+    let (metrics, app) = observed_router(state);
     let serving = async {
         axum::serve(listener, app)
             .with_graceful_shutdown(shutdown())

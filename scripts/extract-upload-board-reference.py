@@ -29,7 +29,7 @@ else:
     admission, table = saved['admission_php'], saved['tags_php']
 assert hashlib.sha256(table.encode()).hexdigest() == '6104ed7ff6b2b73f9096df5213b67b010a77dabf15599b06346ea8afb106107d'
 assert hashlib.sha256(admission.encode()).hexdigest() == 'fbf43c10622f1baa397e138433659186bad758b72ecd936828544d0ef8ce4e26'
-values = ['0','1','2','3','4','5','6','7','-1','-0','00','0006','+2',' 2','2 ', '2.9', '.9', '-.9', '6.99', '7.0', '1e0', '1e1','1e-999','1e999','NaN','INF','',' ','1x','0x1','1\x00','\t3\n','١','３','1_0']
+values = ['9999','0','1','2','3','4','5','6','7','-1','-0','00','0006','+2',' 2','2 ', '2.9', '.9', '-.9', '6.99', '7.0', '1e0', '1e1','1e-999','1e999','NaN','INF','',' ','1x','0x1','1\x00','\t3\n','١','３','1_0']
 driver = table + '''
 function error($message,$field){throw new Exception($message);}
 $cases=json_decode(stream_get_contents(STDIN),true,32,JSON_THROW_ON_ERROR);

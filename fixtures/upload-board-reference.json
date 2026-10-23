@@ -34,6 +34,12 @@
   },
   "cases": [
     {
+      "input": "9999",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
       "input": "0",
       "expected": {
         "accepted": true,

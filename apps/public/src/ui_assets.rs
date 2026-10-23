@@ -28,6 +28,8 @@ pub(crate) const NATIVE_THREAD_CONTROLS_PATH: &str = "/static/native-thread-cont
 pub(crate) const NATIVE_THREAD_STATS_PATH: &str = "/static/native-thread-stats.v1.js";
 pub(crate) const NATIVE_NAVIGATION_PATH: &str = "/static/native-navigation.v1.js";
 pub(crate) const PAGE_CHROME_PATH: &str = "/static/page-chrome.v1.js";
+pub(crate) const NATIVE_SWF_PATH: &str = "/static/native-swf.v1.js";
+pub(crate) const NATIVE_SWF_CORE_PATH: &str = "/static/native-swf-core.v1.js";
 pub(crate) const EXIF_PATH: &str = "/static/exif.v1.js";
 pub(crate) const SOURCE_POST_ACTIONS_PATH: &str = "/static/source-post-actions.v1.js";
 pub(crate) const NATIVE_LAYOUT_PATH: &str = "/static/native-layout.v1.js";
@@ -1014,6 +1016,14 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         (
             PAGE_CHROME_PATH,
             include_bytes!("../static/page-chrome.v1.js").as_slice(),
+        ),
+        (
+            NATIVE_SWF_PATH,
+            include_bytes!("../static/native-swf.v1.js").as_slice(),
+        ),
+        (
+            NATIVE_SWF_CORE_PATH,
+            include_bytes!("../static/native-swf-core.v1.js").as_slice(),
         ),
         (
             EXIF_PATH,

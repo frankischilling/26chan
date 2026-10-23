@@ -25,8 +25,12 @@ image dimension ceiling.
 
 The profile uses the existing small-guest external resource limits, including
 its memory, CPU, wall-clock and process limits. SWF validation does not authorize
-publication or make executable content safe for the board origin. Integration
-with posting authority and a separately isolated player is still required.
+publication or make executable content safe for the board origin. Publication
+requires an immutable input receipt, the current processing lease and an
+approved SWF manifest. Posting consumes that capability once, on an upload-board
+opening post. Replies cannot carry attachments. Filename claims are serialized
+by a private, case-sensitive database constraint; deletion and thread retirement
+release the claim. Public file-only deletion retains the source refusal.
 
 ## Reference checks
 
@@ -36,7 +40,7 @@ historical production PHP version is unknown. Cases that expose malformed or
 unsigned-wrap geometry are recorded separately from matching valid inputs.
 
 `fixtures/upload-board-reference.json` captures the original category table and
-admission statements, including numeric coercion. Its 35 cases cover ordinary
+admission statements, including numeric coercion. Its 36 cases cover ordinary
 identifiers, decimal/exponent forms, whitespace and rejected values. Form order
 is 0, 6, 1, 2, 3, 5, 4. Missing subject prefixes select Other for HTML; unknown
 numeric prefixes are stripped but do not acquire a known category.
@@ -58,9 +62,45 @@ application, not a mutable manifest beside the files.
 
 This cap applies only to WebAssembly linear memory. It is not a limit on total
 browser, JavaScript or GPU memory, nor a guarantee that every movie plays.
-Player loading and interaction still need browser qualification.
+Player loading and interaction still need final-head browser qualification.
 
 Ruffle documents `allowNetworking: "none"` as unimplemented. That option must
 not be treated as a network boundary. The player integration needs a restrictive
 browser Content Security Policy and sandbox independently of player options.
+The player document uses an opaque-origin sandbox with scripts enabled but no
+same-origin, form, popup or top-navigation permissions. Its connection policy
+allows only the selected movie and pinned WebAssembly files. The raw download
+endpoint remains attachment-only; the separate player-data endpoint accepts
+anonymous cross-origin reads of already-public, approved bytes.
 See the [Ruffle networking API documentation](https://ruffle.rs/js-docs/master/enums/Config.NetworkingAccessMode.html).
+
+## Listing and thread controls
+
+The upload listing uses the source column order, category labels, filename and
+subject truncation, 30-row window and oldest-row highlighting. The 254 owned
+row cases include escaped text boundaries and the source's distinct listing
+and thread size arithmetic. Thread pages show file metadata without an image
+thumbnail. JSON retains SWF geometry and zero thumbnail dimensions.
+
+Embed creates the player only after a click. Desktop listing playback uses a
+closeable overlay; thread playback uses Embed/Remove at the file information.
+Mobile listing pages omit the extra Embed column. Source sizing arithmetic is
+covered by 30 captured cases. Display frames additionally reject dimensions
+above 8,192 pixels or an area above 16 megapixels; this is a browser resource
+limit, not a change to stored movie metadata.
+
+## Qualification and remaining work
+
+The upgrade exercise covers both SWF migrations, rejection of existing schema
+or grant drift, preservation of historical content, private filename authority
+and an administrator dump/restore. Database tests exercise capability
+consumption, filename reuse after retirement and the public file-only refusal.
+The real-browser player test uses owned FWS/CWS movies and checks visible
+playback, opaque-origin storage denial, network blocking and original-byte
+downloads. The test must pass in CI; local unit checks do not establish playback.
+
+The ordinary posting page still has a separate upload step. Source single-submit
+posting, Quick Reply details, all-theme visual comparison and full browser
+qualification remain open. Ruffle is a replacement runtime, not evidence that
+every historical Flash movie behaves identically. External networking and
+persistent Flash storage are intentionally unavailable.

@@ -11767,5 +11767,113 @@
         }
       }
     }
+  ],
+  "swf_cases": [
+    {
+      "sticky": false,
+      "permaage": false,
+      "undead": false,
+      "closed": false,
+      "replies": 0,
+      "images": 0,
+      "context": "",
+      "media": {
+        "sub": "4|Owned movie",
+        "filedeleted": 0,
+        "ext": ".swf",
+        "filename": "owned movie",
+        "tim": 1704067200123,
+        "w": 640,
+        "h": 480,
+        "tn_w": 0,
+        "tn_h": 0,
+        "fsize": 188,
+        "md5": "000102030405060708090a0b0c0d0e0f",
+        "m_img": 0
+      },
+      "expected": {
+        "full": {
+          "no": 100,
+          "resto": 0,
+          "now": "01/01/24(Mon)00:00:00",
+          "time": 1704067200,
+          "name": "Anonymous",
+          "sub": "Owned movie",
+          "tim": 1704067200123,
+          "filename": "owned movie",
+          "ext": ".swf",
+          "w": 640,
+          "h": 480,
+          "tn_w": 0,
+          "tn_h": 0,
+          "md5": "AAECAwQFBgcICQoLDA0ODw==",
+          "fsize": 188,
+          "bumplimit": 0,
+          "imagelimit": 0,
+          "semantic_url": "",
+          "custom_spoiler": 4,
+          "tag": "Other",
+          "replies": 0,
+          "images": 0
+        },
+        "tail": {
+          "no": 100,
+          "bumplimit": 0,
+          "imagelimit": 0,
+          "replies": 0,
+          "images": 0,
+          "custom_spoiler": 4
+        }
+      }
+    },
+    {
+      "sticky": false,
+      "permaage": false,
+      "undead": false,
+      "closed": false,
+      "replies": 0,
+      "images": 0,
+      "context": "",
+      "media": {
+        "sub": "4|Owned movie",
+        "filedeleted": 1,
+        "ext": ".swf",
+        "filename": "owned movie",
+        "tim": 1704067200123,
+        "w": 640,
+        "h": 480,
+        "tn_w": 0,
+        "tn_h": 0,
+        "fsize": 188,
+        "md5": "000102030405060708090a0b0c0d0e0f",
+        "m_img": 0
+      },
+      "expected": {
+        "full": {
+          "no": 100,
+          "resto": 0,
+          "now": "01/01/24(Mon)00:00:00",
+          "time": 1704067200,
+          "name": "Anonymous",
+          "sub": "Owned movie",
+          "filedeleted": 1,
+          "bumplimit": 0,
+          "imagelimit": 0,
+          "semantic_url": "",
+          "custom_spoiler": 4,
+          "tag": "Other",
+          "replies": 0,
+          "images": 0
+        },
+        "tail": {
+          "no": 100,
+          "bumplimit": 0,
+          "imagelimit": 0,
+          "replies": 0,
+          "images": 0,
+          "custom_spoiler": 4
+        }
+      }
+    }
   ]
 }

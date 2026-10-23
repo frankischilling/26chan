@@ -48,6 +48,7 @@ const TEXT_FIELDS: &[&str] = &[
     "flag",
     "name",
     "sub",
+    "filetag",
     "com",
     "password",
     "pwd",
