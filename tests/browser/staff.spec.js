@@ -858,7 +858,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await expect(report).toContainText('undead: true');
     const undeadResponse = await page.request.get(publicUrl, { headers: { 'If-None-Match': beforeUndead.headers().etag } });
     expect(undeadResponse.status()).toBe(200);
-    expect((await undeadResponse.json()).posts[0].imagelimit).toBeUndefined();
+    expect((await undeadResponse.json()).posts[0].imagelimit).toBe(0);
     const afterOptions = fixture('inspect', board);
     expect(afterOptions.threadOptions[0][1]).toBe(true);
     expect(afterOptions.threadOptions[0][2]).toBe(beforeOptions[2]);
