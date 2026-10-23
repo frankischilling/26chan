@@ -2,6 +2,7 @@
 
 mod security;
 mod serving;
+pub mod swf_player;
 
 use axum::{Router, http::HeaderValue, middleware, routing::get};
 use board_media::{ApprovedFiles, MediaError};
@@ -14,6 +15,8 @@ pub struct AppState {
     reader: MediaReader,
     files: Arc<ApprovedFiles>,
     authority: String,
+    media_origin: String,
+    player: Option<Arc<swf_player::PlayerAssets>>,
     public_origin: HeaderValue,
     requests: Arc<Semaphore>,
     reads: Arc<Semaphore>,
@@ -30,6 +33,8 @@ impl AppState {
         Self {
             reader,
             files: Arc::new(files),
+            media_origin: origin.clone(),
+            player: None,
             authority: origin
                 .split_once("://")
                 .expect("parsed origin")
@@ -40,6 +45,11 @@ impl AppState {
             requests: Arc::new(Semaphore::new(16)),
             reads: Arc::new(Semaphore::new(4)),
         }
+    }
+
+    pub fn with_player_assets(mut self, root: &std::path::Path) -> std::io::Result<Self> {
+        self.player = Some(Arc::new(swf_player::PlayerAssets::open(root)?));
+        Ok(self)
     }
 
     async fn blocking<T: Send + 'static>(
@@ -87,6 +97,12 @@ pub fn observed_router(state: AppState) -> (board_observe::Metrics, Router) {
 
 pub fn router(state: AppState) -> Router {
     Router::new()
+        .route("/player/{board}/{tim}", get(swf_player::document))
+        .route("/player-data/{board}/{tim}", get(swf_player::data))
+        .route(
+            "/player-assets/ruffle-0.7.1-memory-cap-v1/{name}",
+            get(swf_player::asset),
+        )
         .route("/media/{name}", get(serving::image))
         .route("/{board}/{name}", get(serving::post_image))
         .route("/replay/{board}/{name}", get(serving::post_replay))

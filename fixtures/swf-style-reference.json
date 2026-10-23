@@ -1,0 +1,41 @@
+{
+  "scope": "Exact upload-table style rules and inherited font/color declarations from the supplied source. No scripts, resources or full-page layout are reproduced by this fixture.",
+  "themes": {
+    "yotsuba": {
+      "path": "css/yotsubanew.css",
+      "file_sha256": "05d61b9a886aca60bd418b63a5b86d2ef3050d1d90c640da64f2206dda740db9",
+      "css": "a, a:visited {\n\tcolor: #00E;\n\ttext-decoration: none;\n}\na:hover {\n\tcolor: red !important;\n}\nbody { color: #800000; font-family: arial, helvetica, sans-serif; font-size: 10pt; }\n.postblock {\n\tbackground-color: #EA8;\n\tcolor: #800;\n\tfont-weight: bold;\n\tborder: 1px solid #800;\n\tpadding: 0 5px;\n\tfont-size: 10pt;\n}\n.highlightPost:not(.op) {\n\tbackground: #f0d6d6 !important;\n\tborder-color: #d69595 !important;\n}\ntable.flashListing td.postblock {\n\tpadding: 5px;\n\ttext-align: center;\n}\ntable.flashListing td {\n\tpadding: 2px;\n\tfont-size: 9pt;\n}\ntable.flashListing td:not(.subject) {\n\ttext-align: center;\n}\ntable.flashListing .name {\n\tcolor: #117743;\n\tfont-weight: bold;\n}\ntable.flashListing .postertrip {\n\tcolor: #117743;\n}\ntable.flashListing .subject {\n\tcolor: #cc1105;\n\tfont-weight: bold;\n}\ntable.flashListing tr:nth-of-type(odd) {\n\tbackground-color: #ede2d4;\n}\n.name-col, .file-col, table.flashListing .subject {\n  max-width: 250px;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n  word-wrap: break-word;\n}\n",
+      "css_sha256": "fc9bcf2c7b5e51c72d71acd0e054875b0b766a52bf1f26353ac4af3b70119410"
+    },
+    "yotsuba-b": {
+      "path": "css/yotsubluenew.css",
+      "file_sha256": "d6abc7c9fb8c2d9c168554b39a54b4569f68243aa4bcb972b8452264cbdd1a65",
+      "css": "a, a:visited {\n\tcolor: #34345C;\n\ttext-decoration: none;\n}\na:hover {\n\tcolor: #DD0000 !important;\n}\nbody { color: #000000; font-family: arial, helvetica, sans-serif; font-size: 10pt; }\n.postblock {\n\tbackground-color: #98E;\n\tcolor: #000;\n\tfont-weight: bold;\n\tborder: 1px solid #000;\n\tpadding: 0 5px;\n\tfont-size: 10pt;\n}\n.highlightPost:not(.op) {\n\tbackground: #c1c6e2 !important;\n\tborder-color: #7b82ac !important;\n}\ntable.flashListing td.postblock {\n\tpadding: 5px;\n\ttext-align: center;\n}\ntable.flashListing td {\n\tpadding: 2px;\n\tfont-size: 9pt;\n}\ntable.flashListing td:not(.subject) {\n\ttext-align: center;\n}\ntable.flashListing .name {\n\tcolor: #117743;\n\tfont-weight: bold;\n}\ntable.flashListing .postertrip {\n\tcolor: #117743;\n}\ntable.flashListing .subject {\n\tcolor: #cc1105;\n\tfont-weight: bold;\n}\ntable.flashListing tr:nth-of-type(odd) {\n\tbackground-color: #e0e5f6;\n}\n.name-col, .file-col, table.flashListing .subject {\n  max-width: 250px;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n  word-wrap: break-word;\n}\n",
+      "css_sha256": "95103908737e7006a91a0b5f230e6def39c8e28fdacf2af25d6103384543dfaf"
+    },
+    "futaba": {
+      "path": "css/futabanew.css",
+      "file_sha256": "8beb159cfcf83d042a68b1037997511c7b0bb959289eb1b5757036cdd7aa0945",
+      "css": "a, a:visited {\n\tcolor: #00E;\n}\na:hover {\n\tcolor: red !important;\n}\nbody { color: #800000; font-size: 12pt; font-family: 'Times New Roman', serif; }\n.postblock {\n\tbackground-color: #EA8;\n\tcolor: #800;\n\tfont-weight: bold;\n\tpadding: 0 5px;\n}\n.highlightPost:not(.op) {\n\tbackground: #f0d6d6 !important;\n}\ntable.flashListing {\n\tmargin: 0 auto;\n}\ntable.flashListing td.postblock {\n\tpadding: 5px;\n\ttext-align: center;\n}\ntable.flashListing td {\n\tpadding: 2px;\n}\ntable.flashListing td:not(.subject) {\n\ttext-align: center;\n}\ntable.flashListing .name {\n\tcolor: #117743;\n\tfont-weight: bold;\n}\ntable.flashListing .postertrip {\n\tcolor: #117743;\n}\ntable.flashListing .subject {\n\tcolor: #cc1105;\n\tfont-weight: bold;\n}\ntable.flashListing tr:nth-of-type(odd) {\n\tbackground-color: #ede2d4;\n}\n.name-col, .file-col, table.flashListing .subject {\n  max-width: 250px;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n  word-wrap: break-word;\n}\n",
+      "css_sha256": "b2f8aedd1b458dfbc7e1d0b9a2daf614aac48de41617759392d368e8692e478c"
+    },
+    "burichan": {
+      "path": "css/burichannew.css",
+      "file_sha256": "71a5a5b8362aa78269c19e89cacc249cda48f2af2393fda7d3638fa518307b18",
+      "css": "a, a:visited {\n\tcolor: #34345C;\n}\na:hover {\n\tcolor: #DD0000;\n}\nbody { color: #000000; font-size: 12pt; font-family: 'Times New Roman', serif; }\n.postblock {\n\tbackground-color: #98E;\n\tcolor: #000;\n\tfont-weight: bold;\n\tpadding: 0 5px;\n}\n.highlightPost:not(.op) {\n\tbackground: #c1c6e2 !important;\n}\ntable.flashListing {\n\tmargin: 0 auto;\n}\ntable.flashListing td.postblock {\n\tpadding: 5px;\n\ttext-align: center;\n}\ntable.flashListing td {\n\tpadding: 2px;\n}\ntable.flashListing td:not(.subject) {\n\ttext-align: center;\n}\ntable.flashListing .name {\n\tcolor: #117743;\n\tfont-weight: bold;\n}\ntable.flashListing .postertrip {\n\tcolor: #117743;\n}\ntable.flashListing .subject {\n\tcolor: #cc1105;\n\tfont-weight: bold;\n}\ntable.flashListing tr:nth-of-type(odd) {\n\tbackground-color: #e0e5f6;\n}\n.name-col, .file-col, table.flashListing .subject {\n  max-width: 250px;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n  word-wrap: break-word;\n}\n",
+      "css_sha256": "44f3f0342597590b37b81a66c9f7d5dda509c4c26fe4184b5bf6889fd0db46aa"
+    },
+    "photon": {
+      "path": "css/photon.css",
+      "file_sha256": "a4741759760d959b4a2e29d9622ab63a91d1cdc49f10679335b71f5b16e9575d",
+      "css": "a, a:visited {\n\tcolor: #FF6600 !important;\n  text-decoration: none;\n}\na:hover {\n\tcolor: #FF3300 !important;\n}\nbody { color: #333; font-family: arial, helvetica, sans-serif; font-size: 10pt; }\n.postblock {\n  background-color: #DDD;\n\tcolor: #333;\n\tfont-weight: bold;\n\tpadding: 0 5px;\n\tfont-size: 10pt;\n}\n.highlightPost:not(.op) {\n\tbackground: #f0d6d6 !important;\n\tborder-color: #d69595 !important;\n}\ntable.flashListing td.postblock {\n\tpadding: 5px;\n\ttext-align: center;\n}\ntable.flashListing td {\n\tpadding: 2px;\n\tfont-size: 9pt;\n}\ntable.flashListing td:not(.subject) {\n\ttext-align: center;\n}\ntable.flashListing .name {\n\tcolor: #004A99;\n\tfont-weight: bold;\n}\ntable.flashListing .postertrip {\n\tcolor: #004A99;\n}\ntable.flashListing .subject {\n\tcolor: #111;\n\tfont-weight: bold;\n}\ntable.flashListing tr:nth-of-type(odd) {\n\tbackground-color: #888;\n}\n.name-col, .file-col, table.flashListing .subject {\n  max-width: 250px;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n  word-wrap: break-word;\n}\n",
+      "css_sha256": "28671bac8b2901ceeac2b63774a3b0ef31b7f44c9a5e1a647f669aed3dada0fa"
+    },
+    "tomorrow": {
+      "path": "css/tomorrow.css",
+      "file_sha256": "40b4c474a93e87737811c77a50cce9af4fadc9b025a3863e126ca418a8f33a4a",
+      "css": "a, a:visited {\n\tcolor: #81a2be !important;\n  text-decoration: none;\n}\na:hover {\n\tcolor: #5F89AC !important;\n}\nbody { color: #c5c8c6; font-family: arial, helvetica, sans-serif; font-size: 10pt; }\n.postblock {\n  background-color: #282A2E;\n\tcolor: #c5c8c6;\n\tfont-weight: bold;\n\tpadding: 0 5px;\n\tfont-size: 10pt;\n}\n.highlightPost:not(.op) {\n\tbackground: #3A171C !important;\n\tborder-color: #3A171C !important;\n}\ntable.flashListing td.postblock {\n\tpadding: 5px;\n\ttext-align: center;\n}\ntable.flashListing td {\n\tpadding: 2px;\n\tfont-size: 9pt;\n}\ntable.flashListing td:not(.subject) {\n\ttext-align: center;\n}\ntable.flashListing .name {\n\tcolor: #C5C8C6;\n\tfont-weight: bold;\n}\ntable.flashListing .postertrip {\n\tcolor: #C5C8C6;\n}\ntable.flashListing .subject {\n\tcolor: #B294BB;\n\tfont-weight: bold;\n}\ntable.flashListing tr:nth-of-type(odd) {\n\tbackground-color: rgba(255, 255, 255, .1);\n}\n.name-col, .file-col, table.flashListing .subject {\n  max-width: 250px;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n  word-wrap: break-word;\n}\n",
+      "css_sha256": "f346b7359d6bf77d24bb0738a35b6cdbdf9e998610e75fac15bf70e27b76c9a3"
+    }
+  }
+}

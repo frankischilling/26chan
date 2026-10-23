@@ -1,3 +1,5 @@
+import { attributeKeys } from './native-attribute-keys.js';
+
 import { isSpoilerAssetPath } from './native-spoiler-assets.js';
 
 // Uploaded filenames remain display metadata. The approved URL supplies format.
@@ -30,6 +32,22 @@ export function validateFilePresentation(tree, context, no) {
       require(node.attrs.class === 'fileText' && node.tag === 'div' && node.attrs.id === `fT${no}` && parent?.attrs.class === 'file'
         && parent.attrs.id === `f${no}` && node.children.length === 3 && node.children[0] === 'File: ');
       const link = node.children[1], tail = node.children[2];
+      if (context.board === 'f' && link?.attrs?.href?.endsWith('.swf')) {
+        // Source JSON rendering is distinct from the initial upload-board PHP
+        // page. A file has one canonical download link and no thumbnail/player.
+        const label = link?.tag === 'a' ? text(link) : '';
+        const match = typeof tail === 'string' && /^ \(([0-9]+(?:\.[0-9]{1,2})?) (B|KB|MB), ([1-9][0-9]{0,8})x([1-9][0-9]{0,8}), (Hentai|Porn|Japanese|Anime|Game|Loop|Other|null|undefined)\)$/.exec(tail);
+        const encoded = encodeURIComponent(label).replace(/[!'()*]/g, value => '%' + value.charCodeAt(0).toString(16).toUpperCase());
+        require(no === context.thread && bounded(label) && label.endsWith('.swf') && !label.startsWith('.')
+          && elements(node).length === 1 && link.children.every(child => typeof child === 'string')
+          && match && Number(match[3]) <= 107374182 && Number(match[4]) <= 107374182
+          && Number(match[1]) * ({B:1,KB:1024,MB:1048576}[match[2]]) <= 10485760
+          && context.mediaOrigin && link.attrs.href === `${context.mediaOrigin}/f/${encoded}`
+          && attributeKeys(link.attrs) === 'href,rel,target' && link.attrs.target === '_blank' && link.attrs.rel === 'noopener noreferrer'
+          && attributeKeys(node.attrs) === 'class,id' && attributeKeys(parent.attrs) === 'class,id'
+          && link.attrs.title === undefined && node.attrs.title === undefined && elements(parent).length === 1);
+        return;
+      }
       require(link?.tag === 'a' && elements(node).length === 1 && typeof tail === 'string'
         && /^ \([0-9]+(?:\.[0-9]{1,2})? (?:B|KB|MB), (?:PDF|[1-9][0-9]{0,4}x[1-9][0-9]{0,4})\)$/.test(tail)
         && link.children.every(child => typeof child === 'string'));

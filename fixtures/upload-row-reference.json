@@ -1,0 +1,3311 @@
+{
+  "scope": "Run the upload listing's exact label/size statements over owned escaped fields.\n\nFields are already sanitized and comments already formatted at this boundary.\nThis does not qualify the source database, sanitizer or comment formatter.\n",
+  "listing_php": "if( $fsize >= 1048576 ) {\n\t\t\t\t$kbsize = round( ( $fsize / 1048576 ), 2 ) . ' M';\n\t\t\t} elseif( $fsize >= 1024 ) {\n\t\t\t\t$kbsize = round( $fsize / 1024 ) . ' K';\n\t\t\t} else {\n\t\t\t\t$kbsize = $fsize . ' ';\n\t\t\t}\n\t\t\t$kbsize .= 'B';\n\n\t\t\t$emailstart = $emailend = '';\n\n\n\t\t\t//if( $email != '' ) {\n\t\t\t//\t$email = emailencode($email);\n\t\t\t//\t$emailstart = '<a href=\"mailto:' . $email . '\" class=\"useremail\">';\n\t\t\t//\t$emailend   = '</a>';\n\t\t\t//}\n\n\t\t\tif( mb_strlen( $filename ) > 25 ) {\n\t\t\t\t$shortname = mb_substr( $filename, 0, 25, 'UTF-8'  ) . \"(...)\";\n\t\t\t} else {\n\t\t\t\t$shortname = $filename;\n\t\t\t}\n\n\t\t\tif( $kbsize != '0 B' ) {\n\t\t\t\t$class = '';\n\t\t\t\tif( in_array( $no, $delarr ) ) {\n\t\t\t\t\t$class = 'class=\"oldpost\"';\n\t\t\t\t}\n\n\n\t\t\t\t$texttag = $tags[$tag]['short'];\n\n\t\t\t\tif ($sub != '') {\n\t\t\t\t\t$sub = str_replace('&#44;', ',', $sub);\n\n\t\t\t\t\tif (mb_strlen($sub) > 30) {\n\t\t\t\t\t\t$shortsub = mb_substr($sub, 0, 30, 'UTF-8') . '(...)';\n\t\t\t\t\t}\n\t\t\t\t\telse {\n\t\t\t\t\t\t$shortsub = $sub;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\telse {\n\t\t\t\t\t$com = str_replace('&#44;', ',', $com);\n\t\t\t\t\t$com = explode('<', $com)[0];\n\t\t\t\t\tif (mb_strlen($com) > 30) {\n\t\t\t\t\t\t$shortsub = mb_substr($com, 0, 30, 'UTF-8') . '(...)';\n\t\t\t\t\t}\n\t\t\t\t\telse {\n\t\t\t\t\t\t$shortsub = $com;\n\t\t\t\t\t}\n\t\t\t\t}",
+  "thread_php": "if( $fsize >= 1048576 ) {\n\t\t\t\t\t$size = round( $fsize / 1048576, 2 ) . ' M';\n\t\t\t\t} elseif( $fsize >= 1024 ) {\n\t\t\t\t\t$size = round( $fsize / 1048 ) . ' K';\n\t\t\t\t} else {\n\t\t\t\t\t$size = $fsize . ' ';\n\t\t\t\t}",
+  "listing_sha256": "745ff4192f1414bf909ad66bcf06b8d5967a7f9010ad089053e3c93eb0efad3b",
+  "thread_sha256": "862ab0affe947a91c63e9675492bae5725f5c47eface0b561e670f7976b6835c",
+  "cases": [
+    {
+      "bytes": 0,
+      "filename": "owned",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "owned",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "owned",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "owned",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "owned",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "owned",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "owned",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "owned",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 0,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": false,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": null,
+        "listing_size": "0 B",
+        "thread_size": "0 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "owned",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "owned",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "plain subject",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "owned",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "plain subject",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "plain subject",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "plain subject",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "plain subject",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 B",
+        "thread_size": "1 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "owned",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "owned",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "plain subject",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "owned",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "plain subject",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "plain subject",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "plain subject",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "plain subject",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1023,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1023 B",
+        "thread_size": "1023 B"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "owned",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "owned",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "plain subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "owned",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "plain subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "plain subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "plain subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "plain subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "owned",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "owned",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "plain subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "owned",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "plain subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "plain subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "plain subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "plain subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1048,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "owned",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "Fallback &amp; text",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "owned",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "plain subject",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "owned",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "Fallback &amp; text",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "plain subject",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "plain subject",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "plain subject",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "plain subject",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1572,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "2 KB",
+        "thread_size": "2 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "owned",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "owned",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "plain subject",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "owned",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "plain subject",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "plain subject",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "plain subject",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "plain subject",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048575,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1024 KB",
+        "thread_size": "1001 KB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "owned",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "owned",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "plain subject",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "owned",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "plain subject",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "plain subject",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "plain subject",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "plain subject",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1048576,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1 MB",
+        "thread_size": "1 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "owned",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "owned",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "plain subject",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "owned",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "plain subject",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "plain subject",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "plain subject",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "plain subject",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 1179648,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "1.13 MB",
+        "thread_size": "1.13 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "owned",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "Fallback &amp; text",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "owned",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "plain subject",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "owned",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "owned",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "Fallback &amp; text",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "plain subject",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "plain subject",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "plain subject",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫猫(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "Fallback &amp; text",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "plain subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "plain subject",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 10485760,
+      "filename": "xxxxxxxxxxxxxxxxxxxxxxx&<\"",
+      "subject": "<unsafe>& subject",
+      "comment": "Fallback &amp; text<br>ignored",
+      "expected": {
+        "visible": true,
+        "filename": "xxxxxxxxxxxxxxxxxxxxxxx&a(...)",
+        "subject": "&lt;unsafe&gt;&amp; subject",
+        "listing_size": "10 MB",
+        "thread_size": "10 MB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "owned",
+      "subject": "",
+      "comment": "<span class=\"quote\">&gt;quoted</span>",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "owned",
+      "subject": "",
+      "comment": "plain <strong>bold</strong>",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "plain ",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "owned",
+      "subject": "",
+      "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx(...)",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    },
+    {
+      "bytes": 1024,
+      "filename": "owned",
+      "subject": "",
+      "comment": "literal &amp;#44; text",
+      "expected": {
+        "visible": true,
+        "filename": "owned",
+        "subject": "literal &amp;#44; text",
+        "listing_size": "1 KB",
+        "thread_size": "1 KB"
+      }
+    }
+  ]
+}

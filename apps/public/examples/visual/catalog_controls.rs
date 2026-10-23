@@ -71,6 +71,7 @@ pub fn page() -> String {
     })
     .collect();
     views::BoardPage {
+        flash_old_ids: Vec::new(),
         captcha: Default::default(),
         announcement: None,
         public_origin: String::new(),

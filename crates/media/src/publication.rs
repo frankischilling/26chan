@@ -51,6 +51,7 @@ enum Format {
     Pdf,
     Webm,
     Mp4,
+    Swf,
     Replay,
 }
 
@@ -70,17 +71,19 @@ impl Format {
             Self::Pdf => "pdf",
             Self::Webm => "webm",
             Self::Mp4 => "mp4",
+            Self::Swf => "swf",
             Self::Replay => "ibr",
         }
     }
     fn other_primary_formats(self) -> &'static [&'static str] {
         match self {
-            Self::Png | Self::SourcePng => &["jpg", "gif", "pdf", "webm", "mp4"],
-            Self::Jpeg => &["png", "gif", "pdf", "webm", "mp4"],
-            Self::Gif => &["png", "jpg", "pdf", "webm", "mp4"],
-            Self::Pdf => &["png", "jpg", "gif", "webm", "mp4"],
-            Self::Webm => &["png", "jpg", "gif", "pdf", "mp4"],
-            Self::Mp4 => &["png", "jpg", "gif", "pdf", "webm"],
+            Self::Png | Self::SourcePng => &["jpg", "gif", "pdf", "webm", "mp4", "swf"],
+            Self::Jpeg => &["png", "gif", "pdf", "webm", "mp4", "swf"],
+            Self::Gif => &["png", "jpg", "pdf", "webm", "mp4", "swf"],
+            Self::Pdf => &["png", "jpg", "gif", "webm", "mp4", "swf"],
+            Self::Webm => &["png", "jpg", "gif", "pdf", "mp4", "swf"],
+            Self::Mp4 => &["png", "jpg", "gif", "pdf", "webm", "swf"],
+            Self::Swf => &["png", "jpg", "gif", "pdf", "webm", "mp4"],
             Self::Replay => unreachable!("replays have no opposite image format"),
         }
     }
@@ -92,6 +95,7 @@ impl Format {
             Self::Pdf => MAX_PDF_BYTES,
             Self::Webm | Self::Mp4 => MAX_VIDEO_BYTES,
             Self::Replay => crate::replay_wire::MAX_WIRE_BYTES as u64,
+            Self::Swf => crate::swf::MAX_INPUT_BYTES,
         }
     }
 }
@@ -217,6 +221,22 @@ impl PublicationGuard<'_> {
             output.bytes(),
             output.sha256(),
             format,
+            Variant::Primary,
+        )
+    }
+
+    /// Retained SWF bytes are executable media and must never be served from
+    /// the board origin. The caller holds a context-bound SWF reservation.
+    pub fn install_swf(
+        &self,
+        id: ObjectId,
+        output: &crate::swf::ValidatedSwf,
+    ) -> Result<Promotion, MediaError> {
+        self.install_bytes(
+            id,
+            output.bytes(),
+            output.sha256(),
+            Format::Swf,
             Variant::Primary,
         )
     }
@@ -417,6 +437,7 @@ impl PublicationGuard<'_> {
             "pdf",
             "webm",
             "mp4",
+            "swf",
             "thumb.part",
             "thumb.png",
             "thumb.jpg",
@@ -479,6 +500,15 @@ impl ApprovedFiles {
 
     /// Call only after live approval for the exact video format, hash and size.
     /// Range responses must still authenticate the complete stored object.
+    pub fn read_swf(&self, id: ObjectId, sha256: &str, bytes: u64) -> Result<Vec<u8>, MediaError> {
+        read_checked(
+            &self.root.join(format!("{id}.swf")),
+            sha256,
+            bytes,
+            crate::swf::MAX_INPUT_BYTES,
+        )
+    }
+
     pub fn read_video(
         &self,
         id: ObjectId,

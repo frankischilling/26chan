@@ -45,12 +45,20 @@ fn media_group_config_child() {
 
 #[test]
 fn http_reader_rejects_unsafe_configuration_before_connecting() {
+    let absolute_player = if cfg!(windows) {
+        r"C:\owned-player"
+    } else {
+        "/tmp/owned-player"
+    };
     for (name, value, valid) in [
         ("", "", true),
         ("APP_ENV", "production", false),
         ("APP_ENV", "", false),
         ("MEDIA_ENABLED", "true", false),
         ("MEDIA_APPROVED_DIR", "relative", false),
+        ("MEDIA_PLAYER_DIR", "relative", false),
+        ("MEDIA_PLAYER_DIR", "", false),
+        ("MEDIA_PLAYER_DIR", absolute_player, true),
         ("MEDIA_APPROVED_DIR", "", false),
         ("MEDIA_BIND_ADDR", "0.0.0.0:3002", false),
         ("MEDIA_BIND_ADDR", "127.0.0.1:0", false),

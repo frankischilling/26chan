@@ -15,8 +15,7 @@ const icons = new Set(definitions.flatMap(value => value.icon ? [`/static/identi
 export const isCapcodeToken = token => tokens.has(token);
 export const postIdentityUrl = value => icons.has(value);
 const classes = node => typeof node === 'string' ? [] : (node.attrs.class || '').split(' ');
-const exact = (attrs, expected) => Object.keys(attrs).sort().join(',') === Object.keys(expected).sort().join(',')
-  && Object.entries(expected).every(([key, value]) => attrs[key] === value);
+import { exactAttributes as exact } from './native-attribute-keys.js';
 function require(value) { if (!value) throw new TypeError('invalid-snapshot'); }
 const encoder = new TextEncoder();
 const escapedName = value => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char]);

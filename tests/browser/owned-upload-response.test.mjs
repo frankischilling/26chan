@@ -65,10 +65,11 @@ test('unknown response stages fail before accessing response data', async () => 
 });
 
 test('browser capture retains the real upload and posting bodies after transport cleanup', { timeout: 30000 }, async () => {
-  const [transport, numbers, core] = await Promise.all([
+  const [transport, numbers, core, attributes] = await Promise.all([
     readFile(new URL('../../apps/public/client/native-quick-reply-transport.js', import.meta.url)),
     readFile(new URL('../../apps/public/client/native-post-numbers.js', import.meta.url)),
     readFile(new URL('../../apps/public/static/thread-watcher-core.v1.js', import.meta.url)),
+    readFile(new URL('../../apps/public/client/native-attribute-keys.js', import.meta.url)),
   ]);
   const receipt = { upload_id: '1'.repeat(32), upload_capability: '2'.repeat(64), resto: '10', state: 'queued' };
   const counts = { upload: 0, post: 0 };
@@ -84,6 +85,8 @@ test('browser capture retains the real upload and posting bodies after transport
       response.writeHead(200, { 'content-type': 'text/javascript' }).end(transport);
     } else if (request.url === '/client/native-post-numbers.js') {
       response.writeHead(200, { 'content-type': 'text/javascript' }).end(numbers);
+    } else if (request.url === '/client/native-attribute-keys.js') {
+      response.writeHead(200, { 'content-type': 'text/javascript' }).end(attributes);
     } else if (request.url === '/static/thread-watcher-core.v1.js') {
       response.writeHead(200, { 'content-type': 'text/javascript' }).end(core);
     } else {

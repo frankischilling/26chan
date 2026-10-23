@@ -16,6 +16,9 @@ pub(crate) enum Format {
     Json,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct PostCommitted;
+
 #[derive(Serialize)]
 struct Posted {
     tid: i64,
@@ -58,7 +61,7 @@ impl Format {
     }
 
     pub(crate) fn success(self, parent: i64, post: i64, location: &str) -> Response {
-        match self {
+        let mut response = match self {
             // The source returns zero for a newly created thread, not its ID.
             Self::Json => Json(Posted {
                 tid: parent,
@@ -66,7 +69,9 @@ impl Format {
             })
             .into_response(),
             Self::Html => Redirect::to(location).into_response(),
-        }
+        };
+        response.extensions_mut().insert(PostCommitted);
+        response
     }
 
     pub(crate) fn error(self, error: AppError) -> Response {

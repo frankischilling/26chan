@@ -106,10 +106,22 @@ result=subprocess.run([args.php,'-d','memory_limit=64M','-d','max_execution_time
 assert not result.stderr,result.stderr.decode()
 for case,expected in zip(upload_cases,json.loads(result.stdout)):
     case['expected']=expected
-fixture={'source':PINS,'scope':__doc__,'generator_php':generator,'cache_php':cache,'cases':cases[:state_count],'media_cases':cases[state_count:],'upload_cases':upload_cases}
+swf_cases=[]
+for deleted in [0,1]:
+    swf_cases.append(dict(sticky=False,permaage=False,undead=False,closed=False,
+        replies=0,images=0,context='',media=dict(sub='4|Owned movie',filedeleted=deleted,
+        ext='.swf',filename='owned movie',tim=1704067200123,w=640,h=480,tn_w=0,tn_h=0,
+        fsize=188,md5='000102030405060708090a0b0c0d0e0f',m_img=0)))
+result=subprocess.run([args.php,'-d','memory_limit=64M','-d','max_execution_time=10','-r',
+    driver.replace("define('UPLOAD_BOARD', false)", "define('UPLOAD_BOARD', true)")],
+    input=json.dumps(swf_cases).encode(),capture_output=True,check=True,timeout=15)
+assert not result.stderr,result.stderr.decode()
+for case,expected in zip(swf_cases,json.loads(result.stdout)):
+    case['expected']=expected
+fixture={'source':PINS,'scope':__doc__,'generator_php':generator,'cache_php':cache,'cases':cases[:state_count],'media_cases':cases[state_count:],'upload_cases':upload_cases,'swf_cases':swf_cases}
 encoded=json.dumps(fixture,ensure_ascii=False,indent=2)+'\n'
 if args.check:
     assert path.read_text()==encoded
 else:
     path.write_text(encoded)
-print(f'Executed {len(cases)} source post/tail states and {len(upload_cases)} upload-board subjects.')
+print(f'Executed {len(cases)} source post/tail states and {len(upload_cases)} upload-board subjects, plus {len(swf_cases)} SWF file states.')

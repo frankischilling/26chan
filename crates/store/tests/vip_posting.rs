@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 use board_domain::{
     anonymous_session::Capability,
     challenge_secrets::{PassSessionToken, ReceiptToken, VerificationKey},
@@ -45,15 +46,18 @@ async fn qualify_posting(enabled: bool, images: bool) {
     let key = VerificationKey::parse(&material[3..]).unwrap();
     let poster_key = board_domain::poster_id::PosterIdKey::parse(&material[3..]).unwrap();
     let identifier = key.vip_identifier("owned-vip").unwrap();
-    let board = format!("v{}", &material[3..12]);
+    let board = "qb".to_owned();
+    let originality_nonce: String = sqlx::query_scalar("SELECT gen_random_uuid()::text")
+        .fetch_one(&owner)
+        .await
+        .unwrap();
     let peer = "192.0.2.131".parse().unwrap();
     let peer_hash = key.network_identity(peer);
     let fingerprints = Capability::generate()
         .unwrap()
         .fingerprints(Some(peer), *b"US");
     verifier.ensure_session(&fingerprints, true).await.unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,text_only,captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,forced_anon,user_ids,robot9000,require_subject) VALUES($1,'Owned VIP posting','Synthetic',2000,100,100,100,10,true,false,0,0,0,100,false,true,true,false)")
-        .bind(&board).execute(&owner).await.unwrap();
+    let before=support::borrow_empty_source_board(&owner,&board,serde_json::json!({"title":"Owned VIP posting","text_only":true,"captcha_enabled":false,"posting_reply_seconds":0,"posting_image_seconds":0,"posting_thread_seconds":0,"user_thread_limit":100,"forced_anon":false,"user_ids":true,"robot9000":true,"require_subject":false})).await;
     let pass_session = PassSessionToken::generate().unwrap();
     let mut tx = owner.begin().await.unwrap();
     sqlx::query("SET LOCAL ROLE board_anonymous_owner")
@@ -148,6 +152,7 @@ async fn qualify_posting(enabled: bool, images: bool) {
                 let public = public.clone();
                 let board = board.clone();
                 let poster_key = &poster_key;
+                let comment = format!("{comment} {originality_nonce}");
                 async move {
                     let now = chrono::Utc::now();
                     create_verified_post_with_network(
@@ -157,7 +162,7 @@ async fn qualify_posting(enabled: bool, images: bool) {
                         &NewPost {
                             name: "User #not-vip".into(),
                             subject: "Forced subject".into(),
-                            comment: comment.into(),
+                            comment,
                             deletion_hash,
                             sage: false,
                         },
@@ -629,7 +634,6 @@ async fn qualify_posting(enabled: bool, images: bool) {
         "DELETE FROM content.posts WHERE board=$1",
         "DELETE FROM content.threads WHERE board=$1",
         "DELETE FROM post_secrets.posting_thread_actions WHERE board=$1",
-        "DELETE FROM content.boards WHERE slug=$1",
     ] {
         sqlx::query(statement)
             .bind(&board)
@@ -675,6 +679,7 @@ async fn qualify_posting(enabled: bool, images: bool) {
         .await
         .unwrap();
     tx.commit().await.unwrap();
+    support::restore_empty_source_board(&owner, &board, &before).await;
     public.close().await;
     verifier.close().await;
     owner.close().await;
@@ -683,8 +688,22 @@ async fn qualify_posting(enabled: bool, images: bool) {
 
 // Synthetic metadata qualifies admission and one-use attachment binding; it is
 // not a claim that this fixture decodes or processes a real image.
-async fn owned_upload(_board: &str, _target: i64) -> post_media::NewAttachment {
+async fn owned_upload(board: &str, _target: i64) -> post_media::NewAttachment {
     use board_store::{media::MediaQueue, media_assets::*, media_intake::IntakeStore};
+    let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let upload_board: bool =
+        sqlx::query_scalar("SELECT upload_board FROM content.boards WHERE slug=$1")
+            .bind(board)
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+    owner.close().await;
+    if upload_board {
+        return support::owned_swf(board, 7, "owned-vip.swf").await;
+    }
+
     let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
         .await
         .unwrap();

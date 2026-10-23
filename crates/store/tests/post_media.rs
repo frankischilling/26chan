@@ -548,7 +548,12 @@ async fn exercise(f: &Fixture) {
             'content.exif_post_prepared(text,bigint,bigint)'::regprocedure,
             'content.discard_attachment_exif()'::regprocedure,
             'content.consume_attachment_exif()'::regprocedure,
-            'content.require_consumed_exif()'::regprocedure
+            'content.require_consumed_exif()'::regprocedure,
+            'content.sync_upload_board_name(bigint,boolean)'::regprocedure,
+            'content.sync_upload_board_media()'::regprocedure,
+            'content.sync_upload_board_post()'::regprocedure,
+            'content.sync_upload_board_thread()'::regprocedure,
+            'content.require_upload_board_file()'::regprocedure
         ] AS functions)
         SELECT count(*)=cardinality(required.functions)
             AND bool_and(p.oid=ANY(required.functions)
@@ -565,6 +570,56 @@ async fn exercise(f: &Fixture) {
         functions_safe,
         "Attachment owner must have exactly the reviewed function set"
     );
+    let upload_helpers_private: bool = sqlx::query_scalar(
+        "SELECT count(*)=5 AND bool_and(p.prosecdef
+          AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+            WHERE a.grantee<>p.proowner))
+         FROM pg_proc p WHERE p.oid=ANY(ARRAY[
+          'content.sync_upload_board_name(bigint,boolean)'::regprocedure,
+          'content.sync_upload_board_media()'::regprocedure,
+          'content.sync_upload_board_post()'::regprocedure,
+          'content.sync_upload_board_thread()'::regprocedure,
+          'content.require_upload_board_file()'::regprocedure])",
+    )
+    .fetch_one(&f.admin)
+    .await
+    .unwrap();
+    assert!(
+        upload_helpers_private,
+        "Upload-board triggers and filename bookkeeping must stay owner-only"
+    );
+    // The private table belongs to the attachment owner, not the migrator.
+    // Trigger functions have a positive catalog control above because even an
+    // authorized ordinary SELECT cannot supply their trigger invocation context.
+    let mut private_control = f.admin.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_attachment_owner")
+        .execute(&mut *private_control)
+        .await
+        .unwrap();
+    sqlx::query("SELECT * FROM content.upload_board_names LIMIT 0")
+        .execute(&mut *private_control)
+        .await
+        .unwrap();
+    sqlx::query("SELECT content.sync_upload_board_name(0,false)")
+        .execute(&mut *private_control)
+        .await
+        .unwrap();
+    private_control.rollback().await.unwrap();
+    for sql in [
+        "SELECT * FROM content.upload_board_names LIMIT 0",
+        "SELECT content.sync_upload_board_name(0,false)",
+        "SELECT content.sync_upload_board_media()",
+        "SELECT content.sync_upload_board_post()",
+        "SELECT content.sync_upload_board_thread()",
+        "SELECT content.require_upload_board_file()",
+    ] {
+        let error = f.public.execute(sql).await.unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("42501"),
+            "{sql}"
+        );
+    }
     let duplicate_grants: bool = sqlx::query_scalar("SELECT has_function_privilege('board_public',p.oid,'EXECUTE') AND has_function_privilege('board_staff',p.oid,'EXECUTE') AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE a.privilege_type='EXECUTE' AND (a.is_grantable OR a.grantee NOT IN(p.proowner,'board_public'::regrole,'board_staff'::regrole))) FROM pg_proc p WHERE p.oid='content.image_duplicate_candidate(text,text,text,bigint,boolean,boolean)'::regprocedure")
         .fetch_one(&f.admin).await.unwrap();
     assert!(

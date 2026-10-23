@@ -1,3 +1,5 @@
+import { attributeKeys } from './native-attribute-keys.js';
+
 import { eventPerkRecipe } from './native-event-perks.js';
 import { stockToken, stockBadge, stockContainer } from './native-event-badges.js';
 import { exifTags, exifRecipe } from './native-exif.js';
@@ -147,7 +149,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       require(node.tag === 'a' && comment && !link
         && typeof replay === 'string' && /^[1-9][0-9]{0,15}$/.test(replay)
         && BigInt(replay) <= 9007199254740991n && attrs.href === `#replay-${replay}`
-        && Object.keys(attrs).sort().join(',') === 'data-drawing-replay,href'
+        && attributeKeys(attrs) === 'data-drawing-replay,href'
         && node.children.length === 1 && node.children[0] === 'View');
     }
     for (const [key, value] of Object.entries(attrs)) {
@@ -213,25 +215,25 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     if (tokens.some(token => token.startsWith('n-xa24'))) {
       const stock = stockBadge(attrs.class);
       require(!comment && !link && node.tag === 'span' && stock !== null && attrs['data-tip'] === stock
-        && Object.keys(attrs).sort().join(',') === 'class,data-tip' && node.children.length === 0);
+        && attributeKeys(attrs) === 'class,data-tip' && node.children.length === 0);
       stockBadges.push(stock);
     }
     const passBadge = (attrs.class || '').split(' ').includes('n-pu');
     if (passBadge) hasPass = true;
     if (passBadge) require(!comment && !link && node.tag === 'span' && attrs.class === 'n-pu'
-      && Object.keys(attrs).sort().join(',') === 'class,title' && node.children.length === 0
+      && attributeKeys(attrs) === 'class,title' && node.children.length === 0
       && /^Pass user since [1-9][0-9]{0,3}$/.test(attrs.title));
     const mobileLabel = node.tag === 'span' && ['name', 'subject'].includes(attrs.class) && Object.hasOwn(attrs, 'title');
     const fileTitle = node.tag === 'div' && attrs.class === 'fileText' && Object.hasOwn(attrs, 'title');
-    if (fileTitle) require(Object.keys(attrs).sort().join(',') === 'class,id,title'
+    if (fileTitle) require(attributeKeys(attrs) === 'class,id,title'
       && new TextEncoder().encode(attrs.title).length <= 260 && !/[\u0000-\u001f\u007f-\u009f]/.test(attrs.title));
-    if (mobileLabel) require(Object.keys(attrs).sort().join(',') === 'class,title'
+    if (mobileLabel) require(attributeKeys(attrs) === 'class,title'
       && new TextEncoder().encode(attrs.title).length <= (attrs.class === 'name' ? 255 : 1020)
       && !/[\u0000-\u001f\u007f-\u009f]/.test(attrs.title));
     if ((Object.hasOwn(attrs, 'title') && !['strong', 'img', 'a'].includes(node.tag) && !mobileLabel && !fileTitle && !passBadge)
       || (attrs.class || '').split(' ').some(isPostFlagToken)) {
       require(node.tag === 'span' && isPostFlagClass(attrs.class || '')
-        && Object.keys(attrs).sort().join(',') === 'class,title'
+        && attributeKeys(attrs) === 'class,title'
         && node.children.length === 0 && typeof attrs.title === 'string'
         && new TextEncoder().encode(attrs.title).length >= 1
         && new TextEncoder().encode(attrs.title).length <= 100
@@ -245,7 +247,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       const a = attrs;
       if (a.form !== undefined) {
         require(selection === null && form === null && !comment && !link && node.children.length === 0
-          && Object.keys(a).sort().join(',') === 'aria-label,form,id,name,type,value'
+          && attributeKeys(a) === 'aria-label,form,id,name,type,value'
           && a.type === 'checkbox' && a.name === no && a.value === 'delete'
           && a.form === 'delform' && a.id === `select${no}` && a['aria-label'] === `Select post No.${no}`);
         selection = node;
@@ -254,7 +256,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         require(form !== null);
         require((a.type === 'hidden' && a.name === 'no' && a.value === no && !a.id)
           || (form.endsWith('/delete') && a.type === 'hidden' && a.name === 'password' && a.id === `delete${no}`
-            && Object.keys(a).sort().join(',') === 'id,name,type')
+            && attributeKeys(a) === 'id,name,type')
           || (form.endsWith('/delete') && a.type === 'password' && a.name === 'password' && a.id === `delete${no}` && a.value === undefined)
           || (form.endsWith('/delete') && a.type === 'checkbox' && a.name === 'file_only' && a.value === 'true' && !a.id)
           || (form.endsWith('/report') && !a.type && a.name === 'reason' && a.id === `report${no}` && a.value === undefined));

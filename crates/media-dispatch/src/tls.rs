@@ -215,6 +215,30 @@ impl DispatchClient {
             .map_err(|_| Error::Deadline)?
     }
 
+    /// Opaque SWF transport with its own version and fixed stopped-disk output.
+    pub async fn process_swf(&self, input: &[u8]) -> Result<Vec<u8>> {
+        if !(8..=protocol::MAX_SWF_INPUT).contains(&(input.len() as u64)) {
+            return Err(Error::Frame);
+        }
+        let mut stream = timeout(INTAKE, async {
+            let socket = TcpStream::connect(self.endpoint)
+                .await
+                .map_err(|_| Error::Transport)?;
+            self.connector
+                .connect(self.name.clone(), socket)
+                .await
+                .map_err(|_| Error::Authentication)
+        })
+        .await
+        .map_err(|_| Error::Deadline)??;
+        timeout(INTAKE, protocol::write_swf_request(input, &mut stream))
+            .await
+            .map_err(|_| Error::Deadline)??;
+        timeout(PROCESSING, protocol::read_swf_response(&mut stream))
+            .await
+            .map_err(|_| Error::Deadline)?
+    }
+
     /// Explicit PDF transport; no image/GIF response or fallback is accepted.
     pub async fn process_pdf<R: AsyncRead + Unpin>(
         &self,

@@ -22,6 +22,7 @@ pub mod replay_state;
 pub mod replay_wire;
 pub mod source_digest;
 pub mod still;
+pub mod swf;
 pub mod video;
 
 pub use block::{OUTPUT_DISK_BYTES, write_input_disk};

@@ -5,6 +5,7 @@
 mod input_receipt;
 pub use input_receipt::{InputComponent, InputReceipt};
 mod still;
+mod swf;
 pub use still::{ExifMetadata, StillOutput};
 
 use crate::{
@@ -25,6 +26,7 @@ pub enum MediaFormat {
     Pdf,
     Webm,
     Mp4,
+    Swf,
 }
 
 impl MediaFormat {
@@ -36,6 +38,7 @@ impl MediaFormat {
             Self::Pdf => "pdf",
             Self::Webm => "webm",
             Self::Mp4 => "mp4",
+            Self::Swf => "swf",
         }
     }
 
@@ -47,6 +50,7 @@ impl MediaFormat {
             Self::Pdf => "PDF",
             Self::Webm => "WEBM",
             Self::Mp4 => "MP4",
+            Self::Swf => "SWF",
         }
     }
 
@@ -58,13 +62,14 @@ impl MediaFormat {
             Self::Pdf => "application/pdf",
             Self::Webm => "video/webm",
             Self::Mp4 => "video/mp4",
+            Self::Swf => "application/x-shockwave-flash",
         }
     }
 
     fn byte_limit(self) -> i64 {
         match self {
             Self::Png => 5_242_880,
-            Self::Jpeg => 10_485_760,
+            Self::Jpeg | Self::Swf => 10_485_760,
             Self::Gif => 20_971_520,
             Self::Pdf | Self::Webm | Self::Mp4 => 8_388_608,
         }
@@ -221,7 +226,13 @@ impl OutputMetadata {
 
     fn validate_format(&self, format: MediaFormat) -> Result<(), StoreError> {
         validate_hex(&self.sha256, 64)?;
-        let dimension = if format.is_video() { 2048 } else { 1024 };
+        let dimension = if format == MediaFormat::Swf {
+            107_374_182
+        } else if format.is_video() {
+            2048
+        } else {
+            1024
+        };
         if !(1..=format.byte_limit()).contains(&self.bytes)
             || !(1..=dimension).contains(&self.width)
             || !(1..=dimension).contains(&self.height)
@@ -478,7 +489,7 @@ impl MediaQueue {
         output_kind: (MediaFormat, Option<&VideoMetadata>),
     ) -> Result<Asset, StoreError> {
         let (format, video) = output_kind;
-        if format == MediaFormat::Jpeg
+        if matches!(format, MediaFormat::Jpeg | MediaFormat::Swf)
             || provenance.is_some_and(|source| {
                 matches!(
                     source.profile,
@@ -794,6 +805,25 @@ impl MediaReader {
         validate_hex(output_id, 32)?;
         sqlx::query_as("SELECT id,mobile_sha256 AS sha256,mobile_bytes AS bytes,mobile_width AS width,mobile_height AS height,'jpeg'::text AS output_format FROM media.approved_assets WHERE id=$1 AND mobile_sha256 IS NOT NULL")
             .bind(output_id).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
+    }
+
+    pub async fn get_swf_filename(&self, board: &str, tim: i64) -> Result<String, StoreError> {
+        board_domain::BoardSlug::parse(board).map_err(|_| StoreError::NotFound)?;
+        if !(1..=9_007_199_254_740_991).contains(&tim) {
+            return Err(StoreError::NotFound);
+        }
+        let filename: String=sqlx::query_scalar("SELECT filename FROM media.approved_post_assets WHERE board=$1 AND tim=$2 AND output_format='swf'")
+            .bind(board).bind(tim).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)?;
+        Ok(board_domain::file_name::display(&filename, "swf"))
+    }
+
+    pub async fn get_named_swf(&self, board: &str, filename: &str) -> Result<Asset, StoreError> {
+        board_domain::BoardSlug::parse(board).map_err(|_| StoreError::NotFound)?;
+        if filename.len() > 259 || !filename.ends_with(".swf") || filename.contains(['/', '\\']) {
+            return Err(StoreError::NotFound);
+        }
+        sqlx::query_as("SELECT id,sha256,bytes,width,height,output_format FROM media.approved_post_assets WHERE board=$1 AND output_format='swf' AND regexp_replace(filename,'\\.[a-zA-Z0-9]+$','')||'.swf'=$2")
+            .bind(board).bind(filename).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
     }
 
     pub async fn get_post_mobile(&self, board: &str, tim: i64) -> Result<Asset, StoreError> {

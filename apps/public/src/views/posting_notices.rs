@@ -13,7 +13,7 @@ pub struct Notices {
     pub minimum: bool,
     pub maximum: bool,
     pub advice: bool,
-    pub flash_unavailable: bool,
+    pub flash: bool,
 }
 pub fn for_board(board: &Board, media: bool) -> Notices {
     let slug = board.slug.as_str();
@@ -30,6 +30,6 @@ pub fn for_board(board: &Board, media: bool) -> Notices {
         minimum: matches!(slug, "hc" | "hr" | "s" | "w" | "wg") && uploads,
         maximum: matches!(slug, "hr" | "trv") && uploads,
         advice: slug == "adv",
-        flash_unavailable: board.upload_board,
+        flash: board.upload_board && media && board.image_limit > 0,
     }
 }

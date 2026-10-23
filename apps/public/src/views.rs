@@ -8,6 +8,8 @@ use board_store::{Board, Post, Thread};
 mod catalog_identity;
 #[path = "views/file_label.rs"]
 mod file_label;
+#[path = "views/flash.rs"]
+mod flash;
 #[path = "views/home_directory.rs"]
 mod home_directory;
 #[path = "views/mobile_label.rs"]
@@ -53,6 +55,7 @@ impl Home {
 #[derive(Template)]
 #[template(path = "board.html")]
 pub struct BoardPage {
+    pub flash_old_ids: Vec<i64>,
     pub captcha: CaptchaView,
     pub announcement: Option<board_store::site_content::SitePage>,
     /// Fixed configured public origin; never derived from a request Host header.
@@ -347,6 +350,17 @@ impl PostView {
         mobile_label::label(&self.post.subject)
     }
 
+    pub fn client_subject<'a>(&'a self, board: &Board) -> &'a str {
+        let title = self.display_subject(board);
+        if board.upload_board && title == "0" {
+            ""
+        } else {
+            title
+        }
+    }
+    pub fn mobile_subject_for_board(&self, board: &Board) -> mobile_label::MobileLabel {
+        mobile_label::label(self.client_subject(board))
+    }
     pub fn pass_year(&self) -> Option<i32> {
         (self.post.capcode.as_deref().is_none_or(str::is_empty)
             && (1..10000).contains(&self.post.since4pass))

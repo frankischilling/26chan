@@ -77,6 +77,7 @@ pub async fn thread(pool: &PgPool, slug: &str, id: i64) -> Result<Thread, StoreE
         .ok_or(StoreError::NotFound)
 }
 pub struct ThreadSnapshot {
+    pub upload_board_old_ids: Vec<i64>,
     pub quote_targets: crate::QuoteTargets,
     pub board: Board,
     pub thread: Thread,
@@ -244,9 +245,15 @@ async fn read_thread_snapshot(
             && metadata.archived_at.is_none(),
     )
     .await?;
+    let upload_board_old_ids = if include_navigation {
+        crate::board_snapshot::upload_board_old_threads(&mut tx, &board).await?
+    } else {
+        Vec::new()
+    };
     tx.commit().await?;
     Ok(PageSnapshot {
         snapshot: ThreadSnapshot {
+            upload_board_old_ids,
             quote_targets,
             board,
             thread: metadata,

@@ -278,6 +278,62 @@ impl<S: Send + Sync> FromRequest<S> for LegacyForm {
     }
 }
 
+pub(crate) async fn submit_request(
+    State(state): State<AppState>,
+    Path(board): Path<String>,
+    transport: crate::security::PostingTransport,
+    headers: HeaderMap,
+    OriginalUri(uri): OriginalUri,
+    request: Request,
+) -> Response {
+    let clock = tokio::time::Instant::now();
+    let format = crate::posting_response::Format::from_headers(&headers);
+    let (request, upload) = match crate::single_upload::normalize(&state, &board, request).await {
+        Ok(value) => value,
+        Err(error) => return format.finish(format.error(error)),
+    };
+    let form = LegacyForm::from_request(request, &state).await;
+    if let Some(upload) = &upload {
+        if !matches!(&form, Ok(LegacyForm(Submission::Post(post))) if post.matches_single_upload(upload))
+        {
+            crate::single_upload::cancel(&state, upload).await;
+            return match form {
+                Err(error) => format.finish(format.invalid_form(error)),
+                _ => format.finish(format.invalid_form(invalid())),
+            };
+        }
+        // Leave time for ordinary posting and cleanup within the unchanged
+        // outer handler deadline. A timeout never queues a background post.
+        let remaining = state
+            .limits
+            .handler_timeout()
+            .saturating_sub(clock.elapsed())
+            .saturating_sub(std::time::Duration::from_secs(1));
+        if let Err(error) = crate::single_upload::approval(&state, upload, remaining).await {
+            crate::single_upload::cancel(&state, upload).await;
+            return format.finish(format.error(error));
+        }
+    }
+    let response = submit(
+        State(state.clone()),
+        Path(board),
+        transport,
+        headers,
+        OriginalUri(uri),
+        form,
+    )
+    .await;
+    if let Some(upload) = &upload
+        && response
+            .extensions()
+            .get::<crate::posting_response::PostCommitted>()
+            .is_none()
+    {
+        crate::single_upload::cancel(&state, upload).await;
+    }
+    response
+}
+
 pub(crate) async fn submit(
     State(state): State<AppState>,
     Path(board): Path<String>,

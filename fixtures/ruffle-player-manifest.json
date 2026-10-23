@@ -1,0 +1,37 @@
+{
+  "version": "0.7.1",
+  "archive_url": "https://github.com/ruffle-rs/ruffle/releases/download/v0.7.1/ruffle-0.7.1-web-selfhosted.zip",
+  "archive_sha256": "ef12edbee135d581a9cd523837d746da30a07a64dbf1cf472d2e472c656f4b5e",
+  "profile": "ruffle-0.7.1-memory-cap-v1",
+  "wasm_max_pages": 4096,
+  "files": {
+    "ruffle.js": {
+      "bytes": 465885,
+      "sha256": "26036a94567088dfb3de88a759e8ed10a4cea07b29500af36f345eef42420098"
+    },
+    "core.ruffle.16d61072ac7fdc4d5013.js": {
+      "bytes": 108322,
+      "sha256": "d27c6bdce2a34afb32e8dfa40970bc7e86cbcb912f92db7eb3e1ac70e943bd82"
+    },
+    "core.ruffle.994eeef0a471a88cd0e3.js": {
+      "bytes": 114743,
+      "sha256": "d89e507ee60d550629e9229aa1e4dd4f9e75ec7db271e0135cbc87dab042ea51"
+    },
+    "172de42e6619eac8f371.wasm": {
+      "bytes": 14302756,
+      "sha256": "0ab382f1c86255163582ef323d481e178f4fd6b6f619fca40cd79f3ad2989da4"
+    },
+    "878d548199cddef07035.wasm": {
+      "bytes": 14227886,
+      "sha256": "d57186393e43aa748097aff4ae866d3f62f6ba9e71f15e3c7191baa615fc5f4e"
+    },
+    "LICENSE_MIT": {
+      "bytes": 1097,
+      "sha256": "4de9338a7879c68e911742a7d691f0797ff1ef8d8a6fb978b0c711e258fe959c"
+    },
+    "LICENSE_APACHE": {
+      "bytes": 9723,
+      "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+    }
+  }
+}

@@ -458,6 +458,7 @@ pub(crate) mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                flash_old_ids: Vec::new(),
                 captcha: Default::default(),
                 announcement: None,
                 public_origin: String::new(),
@@ -518,6 +519,7 @@ pub(crate) mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                flash_old_ids: Vec::new(),
                 captcha: Default::default(),
                 announcement: None,
                 public_origin: String::new(),
@@ -692,6 +694,7 @@ pub(crate) mod tests {
             })
             .collect();
         ThreadSnapshot {
+            upload_board_old_ids: Vec::new(),
             quote_targets: Default::default(),
             board,
             thread,

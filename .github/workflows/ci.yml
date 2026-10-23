@@ -54,6 +54,12 @@ jobs:
           python3 scripts/extract-json-directory-build-reference.py --check --php php
           python3 scripts/extract-json-post-state-reference.py --check --php php
           python3 scripts/extract-json-feed-reference.py --check --php php
+          python3 scripts/extract-swf-header-reference.py --check --php php
+          python3 scripts/extract-upload-board-reference.py --check --php php
+          python3 scripts/extract-upload-row-reference.py --check --php php
+          python3 scripts/check-swf-style-reference.py
+          node scripts/extract-swf-embed-reference.mjs --check
+          node --test tests/browser/native-swf-core.test.mjs tests/browser/native-swf-controls.test.mjs tests/browser/swf-player-bootstrap.test.mjs tests/browser/native-upload-post-session.test.mjs tests/browser/native-upload-post-transport.test.mjs
       - name: Qualify source event gates and presentation helpers
         run: |
           python3 scripts/extract-event-reference.py --check --php php
@@ -177,6 +183,14 @@ jobs:
           source .local/database.env
           source .local/staff.env
           RUN_STAFF_MESSAGE_BROWSER=1 cargo test -p board-staff --features database-tests --test messages --locked -- --nocapture
+      - name: Retain owned upload-board style screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: upload-board-styles-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/swf-style
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Retain synthetic Linux browser failure evidence
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -373,6 +387,9 @@ jobs:
           rustup target add x86_64-unknown-linux-musl --toolchain 1.94.0
           cargo build -p board-media-guest --bins --example containment-probe --target x86_64-unknown-linux-musl --locked --release
           python3 -m unittest discover -s tests/media -p test_runner.py
+          python3 -m unittest discover -s tests/media -p test_swf_transport.py
+          python3 -m unittest discover -s tests/media -p test_swf_player_assets.py
+          sh scripts/test-swf-player-assets.sh
           python3 -m unittest discover -s tests/media -p test_pdf_runtime.py -v
           python3 -m unittest discover -s tests/media -p test_video_runtime.py -v
           python3 -m unittest discover -s tests/media -p test_still_runtime.py -v
@@ -396,6 +413,10 @@ jobs:
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             python3 tests/media/test_video_vm.py -v
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            python3 tests/media/test_swf_vm.py -v
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
@@ -458,6 +479,8 @@ jobs:
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             bash scripts/test-media-intake.sh --interrupt
+      - name: Qualify SWF upgrade, authority preflight and restore
+        run: sudo bash scripts/test-swf-upgrade.sh
       - name: Qualify JSON visibility upgrade and authority preflight
         run: sudo bash scripts/test-json-visibility-migration.sh
       - name: Upgrade existing comments from migration 0006

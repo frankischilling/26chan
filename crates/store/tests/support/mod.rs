@@ -311,3 +311,157 @@ pub fn distinct_comment(prefix: &str) -> String {
         NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     )
 }
+
+/// Synthetic unchanged SWF metadata for database authority tests. This does not
+/// claim parser or playback coverage; the owned VM/browser suites supply those.
+pub async fn owned_swf(
+    board: &str,
+    digest: u8,
+    filename: &str,
+) -> board_store::post_media::NewAttachment {
+    use board_store::{
+        media::MediaQueue,
+        media_assets::{InputComponent, InputReceipt, OutputMetadata},
+        media_intake::IntakeStore,
+    };
+    let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let queue = MediaQueue::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let upload = intake
+        .reserve_image(filename, board, 0, false)
+        .await
+        .unwrap();
+    intake
+        .begin_upload(&upload.id, &upload.capability)
+        .await
+        .unwrap();
+    intake
+        .finish_upload(&upload.id, &upload.capability, 100)
+        .await
+        .unwrap();
+    let job = queue.claim().await.unwrap().unwrap();
+    assert_eq!(job.id, upload.id, "Use an idle disposable queue");
+    let token = job.lease_token.as_deref().unwrap();
+    let input = InputReceipt {
+        component: InputComponent::Upload,
+        sha256: format!("{digest:02x}").repeat(32),
+        bytes: 100,
+        md5: [digest; 16],
+    };
+    let output = OutputMetadata {
+        sha256: input.sha256.clone(),
+        bytes: 100,
+        width: 200,
+        height: 100,
+    };
+    let asset = queue
+        .prepare_swf_output(&job.id, token, &output, &input)
+        .await
+        .unwrap();
+    queue
+        .record_input_receipt(&job.id, token, &asset.id, &input)
+        .await
+        .unwrap();
+    queue
+        .approve_output_with_input(&job.id, token, &asset.id, &input)
+        .await
+        .unwrap();
+    board_store::post_media::NewAttachment {
+        upload,
+        spoiler: false,
+    }
+}
+
+/// Borrow an empty native board because media intake deliberately accepts only
+/// the source inventory. Preserve its entire policy and restore it after the
+/// owned rows are removed; do not broaden the production intake allowlist.
+pub async fn borrow_empty_source_board(
+    owner: &PgPool,
+    slug: &str,
+    settings: serde_json::Value,
+) -> String {
+    let mut tx = owner.begin().await.unwrap();
+    let before: String = sqlx::query_scalar(
+        "SELECT to_jsonb(b)::text FROM content.boards b WHERE slug=$1 FOR UPDATE",
+    )
+    .bind(slug)
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    let empty:bool=sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM content.threads WHERE board=$1) AND NOT EXISTS(SELECT 1 FROM content.posts WHERE board=$1)").bind(slug).fetch_one(&mut *tx).await.unwrap();
+    assert!(empty, "Only borrow an empty source board");
+    let temporary: String =
+        sqlx::query_scalar("SELECT 'zz'||substr(replace(gen_random_uuid()::text,'-',''),1,8)")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned temporary defaults','Synthetic',2000,100,100,100,10)").bind(&temporary).execute(&mut *tx).await.unwrap();
+    let defaults: serde_json::Value =
+        sqlx::query_scalar("SELECT to_jsonb(b) FROM content.boards b WHERE slug=$1")
+            .bind(&temporary)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    sqlx::query("DELETE FROM content.boards WHERE slug=$1")
+        .bind(temporary)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let mut policy = defaults.as_object().unwrap().clone();
+    policy.extend(settings.as_object().unwrap().clone());
+    policy.insert("slug".into(), slug.into());
+    replace_source_policy(&mut tx, slug, &serde_json::Value::Object(policy)).await;
+    tx.commit().await.unwrap();
+    before
+}
+async fn replace_source_policy(
+    tx: &mut Transaction<'_, Postgres>,
+    slug: &str,
+    policy: &serde_json::Value,
+) {
+    let columns:String=sqlx::query_scalar("SELECT string_agg(quote_ident(attname),',' ORDER BY attnum) FROM pg_attribute WHERE attrelid='content.boards'::regclass AND attnum>0 AND NOT attisdropped AND attname<>'slug'").fetch_one(&mut **tx).await.unwrap();
+    let query = format!(
+        "UPDATE content.boards SET ({columns})=(SELECT {columns} FROM jsonb_populate_record(NULL::content.boards,$2::jsonb)) WHERE slug=$1"
+    );
+    assert_eq!(
+        sqlx::query(sqlx::AssertSqlSafe(query))
+            .bind(slug)
+            .bind(policy)
+            .execute(&mut **tx)
+            .await
+            .unwrap()
+            .rows_affected(),
+        1
+    );
+}
+pub async fn restore_empty_source_board(owner: &PgPool, slug: &str, before: &str) {
+    let mut tx = owner.begin().await.unwrap();
+    let title: String =
+        sqlx::query_scalar("SELECT title FROM content.boards WHERE slug=$1 FOR UPDATE")
+            .bind(slug)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    assert!(
+        title.starts_with("Owned "),
+        "Do not replace an unrelated board policy"
+    );
+    let empty:bool=sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM content.threads WHERE board=$1) AND NOT EXISTS(SELECT 1 FROM content.posts WHERE board=$1)").bind(slug).fetch_one(&mut *tx).await.unwrap();
+    assert!(
+        empty,
+        "Remove only the owned fixture rows before restoring policy"
+    );
+    let policy: serde_json::Value = serde_json::from_str(before).unwrap();
+    replace_source_policy(&mut tx, slug, &policy).await;
+    let after: serde_json::Value =
+        sqlx::query_scalar("SELECT to_jsonb(b) FROM content.boards b WHERE slug=$1")
+            .bind(slug)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    assert_eq!(after, policy);
+    tx.commit().await.unwrap();
+}

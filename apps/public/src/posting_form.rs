@@ -40,7 +40,7 @@ impl IntoResponse for Rejection {
     }
 }
 
-const TEXT_FIELDS: &[&str] = &[
+pub(crate) const TEXT_FIELDS: &[&str] = &[
     "captcha-csrf",
     "t-challenge",
     "t-response",
@@ -48,6 +48,7 @@ const TEXT_FIELDS: &[&str] = &[
     "flag",
     "name",
     "sub",
+    "filetag",
     "com",
     "password",
     "pwd",

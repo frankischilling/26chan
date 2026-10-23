@@ -328,22 +328,12 @@ fn post_json(
         value["com"] = json!(comment);
     }
     let mut subject = post.post.subject.as_str();
-    if op
-        && board.upload_board
-        && let Some((prefix, title)) = subject.split_once('|')
-        && !prefix.is_empty()
-        && prefix.bytes().all(|byte| byte.is_ascii_digit())
-    {
-        let tags = [
-            "Hentai", "Japanese", "Anime", "Game", "Other", "Loop", "Porn",
-        ];
-        value["tag"] = json!(
-            prefix
-                .parse::<usize>()
-                .ok()
-                .and_then(|index| tags.get(index))
-        );
-        subject = title;
+    if op && board.upload_board {
+        let (category, title, prefixed) = board_domain::upload_board::subject(subject);
+        if prefixed {
+            value["tag"] = json!(category.map(|category| category.name));
+            subject = title;
+        }
     }
     if !subject.is_empty() {
         value["sub"] = json!(board_domain::source_html_entities(subject));
@@ -415,7 +405,10 @@ fn post_json(
         if let Some(md5) = file.md5 {
             value["md5"] = json!(md5);
         }
-        if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) {
+        if file.output_format == board_store::media_assets::MediaFormat::Swf {
+            value["tn_w"] = json!(0);
+            value["tn_h"] = json!(0);
+        } else if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) {
             value["tn_w"] = json!(width);
             value["tn_h"] = json!(height);
         }
@@ -468,6 +461,7 @@ pub async fn thread_selection(
     tail: bool,
 ) -> Result<Response, AppError> {
     let board_store::ThreadSnapshot {
+        upload_board_old_ids: _,
         board,
         thread,
         posts,
@@ -1458,6 +1452,70 @@ mod source_media_state_tests {
 #[cfg(test)]
 mod source_upload_subject_tests {
     use super::*;
+    #[test]
+    fn swf_metadata_matches_the_source_without_inventing_a_thumbnail() {
+        let source: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/json-post-state-reference.json"
+        ))
+        .unwrap();
+        for row in source["swf_cases"].as_array().unwrap() {
+            let mut fixture = crate::native_updater_snapshot::tests::fixture();
+            fixture.board.upload_board = true;
+            let mut post = fixture.posts[0].clone();
+            post.subject = "4|Owned movie".into();
+            post.attachment = Some(board_store::post_media::PostAttachment {
+                post_id: post.id,
+                asset_id: "a".repeat(32),
+                filename: "owned movie.swf".into(),
+                bytes: 188,
+                width: 640,
+                height: 480,
+                spoiler: false,
+                file_deleted: row["media"]["filedeleted"] == 1,
+                has_replay: false,
+                has_mobile: false,
+                tim: 1704067200123,
+                md5: Some("AAECAwQFBgcICQoLDA0ODw==".into()),
+                thumbnail_width: None,
+                thumbnail_height: None,
+                output_format: board_store::media_assets::MediaFormat::Swf,
+            });
+            let value = post_json(
+                post,
+                &fixture.thread,
+                &fixture.board,
+                0,
+                0,
+                None,
+                QuoteContext {
+                    targets: &fixture.quote_targets,
+                    current_thread: Some(fixture.thread.id),
+                },
+            )
+            .unwrap();
+            for key in [
+                "tag",
+                "sub",
+                "tim",
+                "filename",
+                "ext",
+                "fsize",
+                "w",
+                "h",
+                "tn_w",
+                "tn_h",
+                "md5",
+                "filedeleted",
+            ] {
+                assert_eq!(
+                    value.get(key),
+                    row["expected"]["full"].get(key),
+                    "{key}: {row}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn upload_board_tags_and_stripped_subjects_match_source() {
         let source: Value = serde_json::from_str(include_str!(

@@ -1,0 +1,246 @@
+{
+  "scope": "Compare owned SWF headers with PHP 8.3 getimagesize.\n\nThis records the pinned qualification runtime, not an unknown historical PHP\ninstallation. Malformed geometry accepted by PHP is retained as a security\nboundary case, not an instruction to reproduce unsigned wrapping.\n",
+  "runtime": "PHP 8.3 getimagesize",
+  "cases": [
+    {
+      "name": "normal",
+      "signature": "FWS",
+      "twips": [
+        0,
+        12800,
+        0,
+        9600
+      ],
+      "bytes_hex": "4657530abc00000078000640000012c000001801004302123456d00f000102030405060708090a0b0c0d0e0fff1586000000010000000000000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f40000000",
+      "sha256": "566a925dc3ea7692a6096dfe9cb44abd7c05966472b9efa91099ec1a82817593",
+      "source_geometry_comparable": true,
+      "php": {
+        "0": 640,
+        "1": 480,
+        "2": 4,
+        "3": "width=\"640\" height=\"480\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    },
+    {
+      "name": "normal",
+      "signature": "CWS",
+      "twips": [
+        0,
+        12800,
+        0,
+        9600
+      ],
+      "bytes_hex": "4357530abc000000789cab6060736060103ac0c020c1c8e0cc24641276819f8191899985958d9d83938b9b87978fffbf681b030303230318a0c909080a098b888a894b484a49cbc8cac92b282a29aba8aaa96b686a69ebe8eae91b181a199b989a995b585a59dbd8dad93b383a39bbb8bab97b787a79fbf8faf9070406058784868547444645c7c4c6c527242625a7a4a6a567646665e7e4e6e5171416159794969557545655d7d4d6d5031dcb000043c9257d",
+      "sha256": "8acceb524bad9533c4d06551e9dd91506186fd214ce4587a31d17190b72c576a",
+      "source_geometry_comparable": true,
+      "php": {
+        "0": 640,
+        "1": 480,
+        "2": 13,
+        "3": "width=\"640\" height=\"480\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    },
+    {
+      "name": "fraction",
+      "signature": "FWS",
+      "twips": [
+        0,
+        211,
+        0,
+        399
+      ],
+      "bytes_hex": "4657530ab9000000500069800c78001801004302123456d00f000102030405060708090a0b0c0d0e0fff1586000000010000000000000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f40000000",
+      "sha256": "847a6c7f4134c2b2b0fcf8583d51ec6f9dd8344a9a33609ff785cf48de6cbf9d",
+      "source_geometry_comparable": true,
+      "php": {
+        "0": 10,
+        "1": 19,
+        "2": 4,
+        "3": "width=\"10\" height=\"19\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    },
+    {
+      "name": "fraction",
+      "signature": "CWS",
+      "twips": [
+        0,
+        211,
+        0,
+        399
+      ],
+      "bytes_hex": "4357530ab9000000789c0b60c86ce0a9609060647066123209bbc0cfc0c8c4ccc2cac6cec1c9c5cdc3cbc7ff5fb48d81818191010cd0e4040485844544c5c42524a5a46564e5e4151495945554d5d43534b5b47574f5f40d0c8d8c4d4ccdcc2d2cadac6d6cedec1d1c9d9c5d5cdddc3d3cbdbc7d7cfdfc030283824342c3c22322a3a26362e3e2131293925352d3d23332b3b27372f3f20b0a8b8a4b4acbca2b2aabaa6b6aebea1d804e00005fd125aa",
+      "sha256": "74d770f1843d3e9a470a5c321442fa2b0dc51fcf1aa6ecdac5a2f89402ac4ca1",
+      "source_geometry_comparable": true,
+      "php": {
+        "0": 10,
+        "1": 19,
+        "2": 13,
+        "3": "width=\"10\" height=\"19\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    },
+    {
+      "name": "wide",
+      "signature": "FWS",
+      "twips": [
+        0,
+        200020,
+        0,
+        20
+      ],
+      "bytes_hex": "4657530abe00000098000061aa800000000a00001801004302123456d00f000102030405060708090a0b0c0d0e0fff1586000000010000000000000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f40000000",
+      "sha256": "c9d8dc7716c18ac3f96da07b5616b5dfe758c9482e7e4bf768ae5aef582bc382",
+      "source_geometry_comparable": true,
+      "php": {
+        "0": 10001,
+        "1": 1,
+        "2": 4,
+        "3": "width=\"10001\" height=\"1\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    },
+    {
+      "name": "wide",
+      "signature": "CWS",
+      "twips": [
+        0,
+        200020,
+        0,
+        20
+      ],
+      "bytes_hex": "4357530abe000000789c9bc1c090b8aa818181818b81418291c19949c824ec023f032313330b2b1b3b072717370f2f1fff7fd136a0124606304093131014121611151397909492969195935750545256515553d7d0d4d2d6d1d5d33730343236313533b7b0b4b2b6b1b5b37770747276717573f7f0f4f2f6f1f5f30f080c0a0e090d0b8f888c8a8e898d8b4f484c4a4e494d4bcfc8cccacec9cdcb2f282c2a2e292d2bafa8acaaaea9adab77003a0100b65c261a",
+      "sha256": "d7f9488094b06b7828b317768bedb7559206f3cce58f88c8161045b8c0176989",
+      "source_geometry_comparable": true,
+      "php": {
+        "0": 10001,
+        "1": 1,
+        "2": 13,
+        "3": "width=\"10001\" height=\"1\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    },
+    {
+      "name": "zero",
+      "signature": "FWS",
+      "twips": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "bytes_hex": "4657530ab50000000800001801004302123456d00f000102030405060708090a0b0c0d0e0fff1586000000010000000000000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f40000000",
+      "sha256": "157c222f7000607d9d2f632d2a35fc4b573322cf73f89e5463a3b9bf9596483e",
+      "source_geometry_comparable": false,
+      "php": {
+        "0": 0,
+        "1": 0,
+        "2": 4,
+        "3": "width=\"0\" height=\"0\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    },
+    {
+      "name": "zero",
+      "signature": "CWS",
+      "twips": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "bytes_hex": "4357530ab5000000789ce360609060647066123209bbc0cfc0c8c4ccc2cac6cec1c9c5cdc3cbc7ff5fb48d81818191010cd0e4040485844544c5c42524a5a46564e5e4151495945554d5d43534b5b47574f5f40d0c8d8c4d4ccdcc2d2cadac6d6cedec1d1c9d9c5d5cdddc3d3cbdbc7d7cfdfc030283824342c3c22322a3a26362e3e2131293925352d3d23332b3b27372f3f20b0a8b8a4b4acbca2b2aabaa6b6aebea1d804e0000365323f5",
+      "sha256": "ca0b88b2cb082d19f577333e7d51cd79074da8d8644a6ec1baa6f11c486e7c6b",
+      "source_geometry_comparable": false,
+      "php": {
+        "0": 0,
+        "1": 0,
+        "2": 13,
+        "3": "width=\"0\" height=\"0\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    },
+    {
+      "name": "negative_origin",
+      "signature": "FWS",
+      "twips": [
+        -400,
+        400,
+        -200,
+        200
+      ],
+      "bytes_hex": "4657530ab900000054e0c8670640001801004302123456d00f000102030405060708090a0b0c0d0e0fff1586000000010000000000000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f40000000",
+      "sha256": "8af059782f50b40288b6dbe651c5ea2c01e03b9e83a4d19265e35ba0d2a9126b",
+      "source_geometry_comparable": false,
+      "php": {
+        "0": 3435973825,
+        "1": 3435973805,
+        "2": 4,
+        "3": "width=\"-858993471\" height=\"-858993491\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    },
+    {
+      "name": "negative_origin",
+      "signature": "CWS",
+      "twips": [
+        -400,
+        400,
+        -200,
+        200
+      ],
+      "bytes_hex": "4357530ab9000000789c0b7970229dcd81418291c19949c824ec023f032313330b2b1b3b072717370f2f1fff7fd1360606064606304093131014121611151397909492969195935750545256515553d7d0d4d2d6d1d5d33730343236313533b7b0b4b2b6b1b5b37770747276717573f7f0f4f2f6f1f5f30f080c0a0e090d0b8f888c8a8e898d8b4f484c4a4e494d4bcfc8cccacec9cdcb2f282c2a2e292d2bafa8acaaaea9adab77003a010002e92696",
+      "sha256": "eaab45eca5447258bed9d9a575f3d3e2d17512b861865babf77eacd70bcb2372",
+      "source_geometry_comparable": false,
+      "php": {
+        "0": 3435973825,
+        "1": 3435973805,
+        "2": 13,
+        "3": "width=\"-858993471\" height=\"-858993491\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    },
+    {
+      "name": "reversed",
+      "signature": "FWS",
+      "twips": [
+        100,
+        50,
+        0,
+        400
+      ],
+      "bytes_hex": "4657530ab900000050c819000c80001801004302123456d00f000102030405060708090a0b0c0d0e0fff1586000000010000000000000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f40000000",
+      "sha256": "1bdfb83c573e4408902befd0c0338d3ba9e86232083d7f9f3a499d224f36e741",
+      "source_geometry_comparable": false,
+      "php": {
+        "0": 3435973834,
+        "1": 20,
+        "2": 4,
+        "3": "width=\"-858993462\" height=\"20\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    },
+    {
+      "name": "reversed",
+      "signature": "CWS",
+      "twips": [
+        100,
+        50,
+        0,
+        400
+      ],
+      "bytes_hex": "4357530ab9000000789c0b3821c9c0d3c020c1c8e0cc24641276819f8191899985958d9d83938b9b87978fffbf681b030303230318a0c909080a098b888a894b484a49cbc8cac92b282a29aba8aaa96b686a69ebe8eae91b181a199b989a995b585a59dbd8dad93b383a39bbb8bab97b787a79fbf8faf9070406058784868547444645c7c4c6c527242625a7a4a6a567646665e7e4e6e5171416159794969557545655d7d4d6d53b009d0000610125aa",
+      "sha256": "a984ce6ffeb3dba609bb8303e5cc33be0a0ad46377ff9c87047bb3c7f3f3b1e2",
+      "source_geometry_comparable": false,
+      "php": {
+        "0": 3435973834,
+        "1": 20,
+        "2": 13,
+        "3": "width=\"-858993462\" height=\"20\"",
+        "mime": "application/x-shockwave-flash"
+      }
+    }
+  ]
+}

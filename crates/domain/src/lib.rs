@@ -67,6 +67,7 @@ pub mod saved_presentation;
 mod subject;
 mod trip_cp932;
 mod trip_cp932_data;
+pub mod upload_board;
 pub mod verification_mail;
 pub mod vip_capcode;
 pub mod wordfilter;

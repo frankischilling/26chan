@@ -2313,6 +2313,9 @@ pub async fn delete_with_password_proof(
     let slug = batch.slug();
     let context = batch.context();
     lock_deletion_board(&mut tx, slug).await?;
+    if file_only {
+        public_deletion::file_only_allowed(&mut tx, slug).await?;
+    }
     let eligibility = public_deletion::eligibility(&mut tx, slug, id).await?;
     eligibility.before_authority(context.request_start)?;
     let current: Option<String> = sqlx::query_scalar(crate::read::DELETION_HASH)
@@ -2363,6 +2366,9 @@ pub async fn delete_with_anonymous_proof(
     let mut tx = batch.begin(pool).await?;
     let slug = batch.slug();
     lock_deletion_board(&mut tx, slug).await?;
+    if file_only {
+        public_deletion::file_only_allowed(&mut tx, slug).await?;
+    }
     let eligibility = public_deletion::eligibility(&mut tx, slug, id).await?;
     eligibility.before_authority(context.request_start)?;
     if anonymous_session::locked_post_proof(&mut tx, &token, slug, id).await? != Some(proof) {

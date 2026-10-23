@@ -9,6 +9,8 @@ pub const MAX_PAIRED_INPUT: u64 = 16_777_272;
 pub const PAIRED_OUTPUT_LENGTH: u64 = 4_456_960;
 pub const GIF_OUTPUT_LENGTH: u64 = 17_825_792;
 pub const PDF_OUTPUT_LENGTH: u64 = OUTPUT_LENGTH;
+pub const MAX_SWF_INPUT: u64 = 10 * 1024 * 1024;
+pub const SWF_OUTPUT_LENGTH: u64 = 11 * 1024 * 1024;
 pub const VIDEO_OUTPUT_LENGTH: u64 = 9 * 1024 * 1024;
 pub const MAX_STILL_INPUT: u64 = 10 * 1024 * 1024 + 16;
 pub const STILL_OUTPUT_LENGTH: u64 = 16 * 1024 * 1024;
@@ -21,6 +23,7 @@ pub enum Request {
     GifV3(Vec<u8>),
     PdfV4(Vec<u8>),
     VideoV5(Vec<u8>),
+    SwfV8(Vec<u8>),
     StillV6(Vec<u8>),
     GifV7(Vec<u8>),
     PairedV2 { binding: [u8; 32], input: Vec<u8> },
@@ -30,6 +33,9 @@ pub enum Request {
 pub async fn read_versioned_request<R: AsyncRead + Unpin>(input: &mut R) -> Result<Request> {
     let (magic, length) = read_header(input).await?;
     match &magic {
+        b"IBJOB008" if (8..=MAX_SWF_INPUT).contains(&length) => {
+            Ok(Request::SwfV8(read_body(input, length).await?))
+        }
         b"IBJOB001" if (1..=MAX_INPUT).contains(&length) => {
             Ok(Request::ImageV1(read_body(input, length).await?))
         }
@@ -391,4 +397,22 @@ async fn write_body<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     require_eof(&mut input).await?;
     output.flush().await.map_err(|_| Error::Transport)?;
     output.shutdown().await.map_err(|_| Error::Transport)
+}
+
+pub async fn write_swf_request<W: AsyncWrite + Unpin>(bytes: &[u8], output: &mut W) -> Result<()> {
+    if !(8..=MAX_SWF_INPUT).contains(&(bytes.len() as u64)) {
+        return Err(Error::Frame);
+    }
+    write_frame(bytes, bytes.len() as u64, output, b"IBJOB008").await
+}
+
+pub async fn read_swf_response<R: AsyncRead + Unpin>(input: &mut R) -> Result<Vec<u8>> {
+    read_frame(input, b"IBOUT008", SWF_OUTPUT_LENGTH, SWF_OUTPUT_LENGTH).await
+}
+
+pub async fn write_swf_response<W: AsyncWrite + Unpin>(bytes: &[u8], output: &mut W) -> Result<()> {
+    if bytes.len() as u64 != SWF_OUTPUT_LENGTH {
+        return Err(Error::Frame);
+    }
+    write_frame(bytes, SWF_OUTPUT_LENGTH, output, b"IBOUT008").await
 }

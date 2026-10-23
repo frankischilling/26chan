@@ -1,0 +1,274 @@
+{
+  "source_imgboard_sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+  "tags_php": "function upboard_tags()\n{\n\t// if you add tags to this, make sure to keep the numbers the same\n\t// (they can be out of order)\n\tstatic $tags = array(\n\t\t\t\t  0 => array(\"long\" => \"Hentai\",   \"short\" => \"[H]\"),\n\t\t\t\t  6 => array(\"long\" => \"Porn\", \t   \"short\" => '[P]'),\n\t\t\t\t  1 => array(\"long\" => \"Japanese\", \"short\" => \"[J]\"),\n\t\t\t\t  2 => array(\"long\" => \"Anime\", \"short\" => \"[A]\"),\n\t\t\t\t  3 => array(\"long\" => \"Game\",  \"short\" => \"[G]\"),\n\t\t\t\t  5 => array(\"long\" => \"Loop\",  \"short\" => \"[L]\"),\n\t\t\t\t  4 => array(\"long\" => \"Other\", \"short\" => \"[?]\")\n\t);\n\t\n\treturn $tags;\n}",
+  "admission_php": "if( !$resto && !array_key_exists( (int)$filetag, $tags ) ) error( \"Error: Invalid tag specified.\", $filetag );\n\t\tif( !$resto && !is_numeric( $filetag ) ) error( \"Error: Invalid tag specified.\", $filetag );\n\t\t//if((int)$filetag==9999) error(\"No tag selected.\",$filetag);\n\t\tif( !$resto ) $sub = (int)$filetag . '|' . $sub;",
+  "tags": {
+    "0": {
+      "long": "Hentai",
+      "short": "[H]"
+    },
+    "6": {
+      "long": "Porn",
+      "short": "[P]"
+    },
+    "1": {
+      "long": "Japanese",
+      "short": "[J]"
+    },
+    "2": {
+      "long": "Anime",
+      "short": "[A]"
+    },
+    "3": {
+      "long": "Game",
+      "short": "[G]"
+    },
+    "5": {
+      "long": "Loop",
+      "short": "[L]"
+    },
+    "4": {
+      "long": "Other",
+      "short": "[?]"
+    }
+  },
+  "cases": [
+    {
+      "input": "9999",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "0",
+      "expected": {
+        "accepted": true,
+        "subject": "0|owned subject"
+      }
+    },
+    {
+      "input": "1",
+      "expected": {
+        "accepted": true,
+        "subject": "1|owned subject"
+      }
+    },
+    {
+      "input": "2",
+      "expected": {
+        "accepted": true,
+        "subject": "2|owned subject"
+      }
+    },
+    {
+      "input": "3",
+      "expected": {
+        "accepted": true,
+        "subject": "3|owned subject"
+      }
+    },
+    {
+      "input": "4",
+      "expected": {
+        "accepted": true,
+        "subject": "4|owned subject"
+      }
+    },
+    {
+      "input": "5",
+      "expected": {
+        "accepted": true,
+        "subject": "5|owned subject"
+      }
+    },
+    {
+      "input": "6",
+      "expected": {
+        "accepted": true,
+        "subject": "6|owned subject"
+      }
+    },
+    {
+      "input": "7",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "-1",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "-0",
+      "expected": {
+        "accepted": true,
+        "subject": "0|owned subject"
+      }
+    },
+    {
+      "input": "00",
+      "expected": {
+        "accepted": true,
+        "subject": "0|owned subject"
+      }
+    },
+    {
+      "input": "0006",
+      "expected": {
+        "accepted": true,
+        "subject": "6|owned subject"
+      }
+    },
+    {
+      "input": "+2",
+      "expected": {
+        "accepted": true,
+        "subject": "2|owned subject"
+      }
+    },
+    {
+      "input": " 2",
+      "expected": {
+        "accepted": true,
+        "subject": "2|owned subject"
+      }
+    },
+    {
+      "input": "2 ",
+      "expected": {
+        "accepted": true,
+        "subject": "2|owned subject"
+      }
+    },
+    {
+      "input": "2.9",
+      "expected": {
+        "accepted": true,
+        "subject": "2|owned subject"
+      }
+    },
+    {
+      "input": ".9",
+      "expected": {
+        "accepted": true,
+        "subject": "0|owned subject"
+      }
+    },
+    {
+      "input": "-.9",
+      "expected": {
+        "accepted": true,
+        "subject": "0|owned subject"
+      }
+    },
+    {
+      "input": "6.99",
+      "expected": {
+        "accepted": true,
+        "subject": "6|owned subject"
+      }
+    },
+    {
+      "input": "7.0",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "1e0",
+      "expected": {
+        "accepted": true,
+        "subject": "1|owned subject"
+      }
+    },
+    {
+      "input": "1e1",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "1e-999",
+      "expected": {
+        "accepted": true,
+        "subject": "0|owned subject"
+      }
+    },
+    {
+      "input": "1e999",
+      "expected": {
+        "accepted": true,
+        "subject": "0|owned subject"
+      }
+    },
+    {
+      "input": "NaN",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "INF",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": " ",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "1x",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "0x1",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "1\u0000",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "\t3\n",
+      "expected": {
+        "accepted": true,
+        "subject": "3|owned subject"
+      }
+    },
+    {
+      "input": "١",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "３",
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "input": "1_0",
+      "expected": {
+        "accepted": false
+      }
+    }
+  ]
+}

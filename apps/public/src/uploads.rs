@@ -80,7 +80,7 @@ fn invalid() -> AppError {
     )
 }
 
-async fn settings(
+pub(crate) async fn settings(
     state: &AppState,
     board: &str,
     resto: i64,
@@ -255,10 +255,6 @@ async fn receive(
     request: Request,
     format: Format,
 ) -> Result<Response, AppError> {
-    let media = state.media.as_ref().ok_or(AppError(
-        StatusCode::UNSUPPORTED_MEDIA_TYPE,
-        "Media uploads are unavailable.",
-    ))?;
     let _permit = state.limits.uploads.try_acquire().map_err(|_| {
         AppError(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -319,11 +315,55 @@ async fn receive(
     if field.name() != Some("upfile") {
         return Err(invalid());
     }
+    let reservation = receive_file(state, &board_settings, resto, capcode, field).await?;
+    if !matches!(multipart.next_field().await, Ok(None)) {
+        let _ = board_store::post_media::cancel_upload(
+            &state.pool,
+            &reservation.id,
+            &reservation.capability,
+        )
+        .await;
+        return Err(invalid());
+    }
+    page(
+        state,
+        board_settings,
+        UploadForm {
+            upload_id: reservation.id,
+            upload_capability: reservation.capability,
+            resto,
+        },
+        UploadState::Queued,
+        "Your file is queued for isolated processing. Check its status before posting.",
+        format,
+        Default::default(),
+    )
+}
+
+/// Stream opaque bytes into the separately authorized intake service. Both the
+/// progressive uploader and source one-submit form use this same boundary.
+pub(crate) async fn receive_file(
+    state: &AppState,
+    board_settings: &board_store::Board,
+    resto: i64,
+    capcode: bool,
+    mut field: axum::extract::multipart::Field<'_>,
+) -> Result<board_store::media_intake::IntakeReservation, AppError> {
+    let media = state.media.as_ref().ok_or_else(intake::unavailable)?;
+    let board = board_settings.slug.as_str();
     let filename = field
         .file_name()
         .filter(|name| !name.is_empty() && name.len() <= 255 && !name.chars().any(char::is_control))
         .ok_or_else(invalid)?
         .to_owned();
+    if board_settings.upload_board
+        && board_domain::file_name::normalize_upload(&filename, board).starts_with('.')
+    {
+        return Err(AppError(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Error: Invalid filename (first character cannot be a period).",
+        ));
+    }
     let source_image = board_domain::still_image_policy::configured(board);
     let reservation = if source_image {
         media
@@ -392,28 +432,10 @@ async fn receive(
         .await;
         return Err(error);
     }
-    if !matches!(multipart.next_field().await, Ok(None)) {
-        let _ = board_store::post_media::cancel_upload(
-            &state.pool,
-            &reservation.id,
-            &reservation.capability,
-        )
-        .await;
-        return Err(invalid());
-    }
-    page(
-        state,
-        board_settings,
-        UploadForm {
-            upload_id: reservation.id,
-            upload_capability: reservation.capability,
-            resto,
-        },
-        UploadState::Queued,
-        "Your file is queued for isolated processing. Check its status before posting.",
-        format,
-        Default::default(),
-    )
+    Ok(board_store::media_intake::IntakeReservation {
+        id: reservation.id,
+        capability: reservation.capability,
+    })
 }
 
 pub async fn status(

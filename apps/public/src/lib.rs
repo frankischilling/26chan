@@ -34,6 +34,7 @@ mod search;
 mod security;
 mod semantic_thread;
 mod signin;
+mod single_upload;
 mod site;
 pub mod themes;
 pub mod transport;
@@ -468,7 +469,9 @@ pub fn routers_with_events(
         .route("/{board}/post", post(handlers::post))
         .route(
             "/{board}/imgboard.php",
-            get(legacy_get::get).post(legacy_form::submit),
+            get(legacy_get::get)
+                .post(legacy_form::submit_request)
+                .layer(DefaultBodyLimit::max(10_485_760 + 262_144)),
         )
         .route("/{board}/delete", post(handlers::delete))
         .route("/{board}/report", post(handlers::report));

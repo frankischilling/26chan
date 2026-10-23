@@ -124,3 +124,7 @@ body.publicPageChrome.is_catalog #boardNavDesktopFoot a:hover { color: rgb(255, 
 :root { --archive-header-border: 0; --archive-stripe: #888; }
 
 :root { --blotter-divider-color: #ddd; --blotter-divider-max: none; }
+
+:root { --flash-header-height: 20px; --flash-subject: #111; }
+
+:root { --flash-old-color: #333; --flash-old-weight: bold; }

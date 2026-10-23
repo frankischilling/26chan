@@ -166,6 +166,7 @@ fn fixture(enabled: bool, empty: bool, catalog: bool, index: bool) -> axum::resp
         }));
     }
     let page = BoardPage {
+        flash_old_ids: Vec::new(),
         captcha: Default::default(),
         announcement: None,
         public_origin: String::new(),

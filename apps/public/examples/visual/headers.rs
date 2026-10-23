@@ -90,6 +90,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
     let mut board = board();
     board.worksafe = worksafe;
     views::BoardPage {
+        flash_old_ids: Vec::new(),
         captcha: Default::default(),
         announcement: None,
         public_origin: String::new(),

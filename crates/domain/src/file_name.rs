@@ -60,9 +60,29 @@ pub fn display(filename: &str, retained_extension: &str) -> String {
     format!("{}.{}", basename(filename), retained_extension)
 }
 
+/// PHP rawurlencode-compatible path component, never a filesystem path.
+pub fn url_component(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            use std::fmt::Write as _;
+            write!(&mut encoded, "%{byte:02X}").expect("string write");
+        }
+    }
+    encoded
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn source_raw_url_components_escape_unicode_and_delimiters() {
+        assert_eq!(url_component("a b+c&猫.swf"), "a%20b%2Bc%26%E7%8C%AB.swf");
+        assert_eq!(url_component("AZaz09-._~"), "AZaz09-._~");
+        assert_eq!(url_component("/\"'?#"), "%2F%22%27%3F%23");
+    }
     #[test]
     fn only_the_source_direction_controls_are_removed() {
         assert_eq!(

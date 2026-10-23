@@ -66,7 +66,8 @@ async fn durable_approval_schema_exists() {
             "mobile_sha256",
             "mobile_bytes",
             "mobile_width",
-            "mobile_height"
+            "mobile_height",
+            "filename"
         ]
     );
     let installed_migration: bool =
