@@ -191,10 +191,14 @@ async fn contract(owner: PgPool, public: PgPool, slug: String) {
             &body(request(&api, &format!("/{slug}/thread/{id}.json"), "GET", None).await).await,
         )
         .unwrap();
-        let suffix = thread["posts"][0]["semantic_url"]
+        let context = thread["posts"][0]["semantic_url"]
             .as_str()
-            .map(|value| format!("/{value}"))
-            .unwrap_or_default();
+            .expect("Source OP JSON retains the semantic context, including an empty string");
+        let suffix = if context.is_empty() {
+            String::new()
+        } else {
+            format!("/{context}")
+        };
         assert!(
             row(&before, *id).contains(&format!("href=\"/{slug}/thread/{id}{suffix}\">View</a>"))
         );
