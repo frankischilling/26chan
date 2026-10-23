@@ -111,5 +111,29 @@ and expiry. Direct public consumption is denied. Local integration tests cover
 six scope/target pairs, wrong context, cross-action use, closure, expiry,
 transaction rollback, and one-use replay. The domain suite passes 345 tests,
 and the original public readiness contract still passes with these scopes. Contest voting is excluded from CAPTCHA issuance;
-its Pass-only path remains to be implemented. These verification primitives do
+its separate Pass-only receipts are described below. These verification primitives do
 not yet make the public submission forms functional.
+
+
+## Contest membership receipts
+
+Migration 0260 gives contest votes their own 30-second receipt ledger. Only the
+isolated verifier can issue a receipt for an approved entry in an active voting
+window. The consumer rechecks the anonymous session, live Pass session,
+credential version, expiry, membership status, entry, campaign, peer, and form
+context. A posting receipt or public Pass-year badge cannot substitute for it.
+Voting does not extend or change a posting-network hold.
+
+The private voter key binds the stable entitlement row and campaign. Changing a
+device or invalidating and replacing credentials does not produce a new voter
+identity for that campaign. This key is private bookkeeping, not a public
+anonymity guarantee. The submission APIs do not return it to browsers.
+
+Authorization gates use the current clock and are rechecked after proof locks.
+Tests hold the membership-policy lock until a voting window expires, then
+verify that consumption refuses the proof without burning it. The application
+gate also crosses a deadline within one SQL statement. Restricted-role tests
+cover wrong entries and contexts, direct public refusal, rollback, replay,
+revocation, expired membership, and stable identity across owned device
+sessions. Final vote storage, staff approval, media publication, and public
+forms are still unfinished.

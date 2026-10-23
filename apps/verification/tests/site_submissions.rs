@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "site_submissions/pass_vote.rs"]
+mod pass_vote;
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -197,9 +199,20 @@ async fn site_captcha_receipts_are_closed_bound_atomic_and_separate_from_posting
             consume(&owner,&digest,&peer_hash,&fp.token,&hash,(name,target),true).await.unwrap();
             assert!(consume(&owner,&digest,&peer_hash,&fp.token,&hash,(name,target),true).await.is_err());
         }
+        sqlx::query("UPDATE submission_private.application_campaigns SET ends_at=floor(extract(epoch FROM clock_timestamp()))::bigint+2 WHERE id=$1")
+            .bind(id).execute(&owner).await.unwrap();
+        let mut clock=owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_submission_owner").execute(&mut *clock).await.unwrap();
+        sqlx::query("SELECT set_config('owned.site_campaign',$1,true)").bind(id.to_string()).execute(&mut *clock).await.unwrap();
+        sqlx::query("DO $$ BEGIN IF submission_api.challenge_open('site_application',current_setting('owned.site_campaign')::bigint) IS DISTINCT FROM true THEN RAISE EXCEPTION 'Owned application window was not open'; END IF; PERFORM pg_sleep(2.2); IF submission_api.challenge_open('site_application',current_setting('owned.site_campaign')::bigint) IS DISTINCT FROM false THEN RAISE EXCEPTION 'Application gate used stale statement time'; END IF; END $$;")
+            .execute(&mut *clock).await.unwrap();
+        clock.rollback().await.unwrap();
+        sqlx::query("UPDATE submission_private.application_campaigns SET ends_at=253402300799 WHERE id=$1")
+            .bind(id).execute(&owner).await.unwrap();
         let mut vote=context.clone();vote.purpose=protocol::Purpose::SiteContestVote;
         let request=protocol::PostingChallengeRequest {context:vote,ticket:None,ticket_answer:None};
         assert_eq!(call(&app,"/v1/posting/challenge",&request).await.0,StatusCode::BAD_REQUEST);
+        pass_vote::exercise(&owner, &public, &app, &key, context, id, entry).await;
     }}).await;
     for query in [
         "DELETE FROM submission_private.contest_entries WHERE campaign_id=$1",
