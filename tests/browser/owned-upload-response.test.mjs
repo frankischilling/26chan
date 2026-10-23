@@ -195,7 +195,6 @@ test('browser capture retains native deletion HTML after actual transport cleanu
   const [transport, core, success] = await Promise.all([
     readFile(new URL('../../apps/public/client/native-post-deletion.js', import.meta.url)),
     readFile(new URL('../../apps/public/static/thread-watcher-core.v1.js', import.meta.url)),
-    readFile(new URL('../../apps/public/client/native-attribute-keys.js', import.meta.url)),
     readFile(new URL('../../apps/public/templates/updating_index.html', import.meta.url), 'utf8'),
   ]);
   const html = success.replace('{{ board }}', 'demo');
@@ -212,9 +211,7 @@ test('browser capture retains native deletion HTML after actual transport cleanu
       request.resume();
       if (request.url === '/client/native-post-deletion.js') {
         response.writeHead(200, { 'content-type': 'text/javascript' }).end(transport);
-      } else if (request.url === '/client/native-attribute-keys.js') {
-      response.writeHead(200, { 'content-type': 'text/javascript' }).end(attributes);
-    } else if (request.url === '/static/thread-watcher-core.v1.js') {
+      } else if (request.url === '/static/thread-watcher-core.v1.js') {
         response.writeHead(200, { 'content-type': 'text/javascript' }).end(core);
       } else response.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><title>Owned deletion response</title>');
     }
