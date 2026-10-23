@@ -114,7 +114,8 @@
     "test:verification": "npm run test:verification-core && cargo test -p board-public --example verification-browser-fixture --features browser-tests --locked && playwright test --config playwright.verification.config.js",
     "build:posting-captcha": "node scripts/build-posting-captcha.mjs",
     "check:posting-captcha": "node scripts/build-posting-captcha.mjs --check",
-    "check:event-perks": "node scripts/build-event-perks.mjs --check"
+    "check:event-perks": "node scripts/build-event-perks.mjs --check",
+    "test:events-core": "node --test tests/browser/seasonal-source.test.mjs"
   },
   "devDependencies": {
     "@mathjax/mathjax-tex-font": "4.1.3",

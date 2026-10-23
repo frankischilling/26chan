@@ -167,6 +167,7 @@ case "$suite" in
   all)
     npm run check:generated
 npm run test:verification-core
+npm run test:events-core
 python3 tests/helpers/test_verification_mail_fixture.py
     early_browser_checks
     rust_checks
@@ -176,6 +177,7 @@ python3 tests/helpers/test_verification_mail_fixture.py
   rust)
     npm run check:generated
 npm run test:verification-core
+npm run test:events-core
 python3 tests/helpers/test_verification_mail_fixture.py
     rust_checks
     ;;

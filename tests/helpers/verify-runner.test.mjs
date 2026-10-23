@@ -59,6 +59,7 @@ npm ci --ignore-scripts
 npx playwright install --with-deps chromium
 npm run check:generated
 npm run test:verification-core
+npm run test:events-core
 python3 tests/helpers/test_verification_mail_fixture.py
 timeout 300s npm run test:math
 npm run test:math
@@ -344,6 +345,7 @@ test('CI suites preserve failures and never execute a command after a failed pre
       'node scripts/record-source-quote-styles.mjs',
       'npm run check:generated',
       'npm run test:verification-core',
+      'npm run test:events-core',
       'python3 tests/helpers/test_verification_mail_fixture.py',
       'cargo clippy --workspace --all-targets --all-features --locked -- -D warnings',
     ]],

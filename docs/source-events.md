@@ -319,3 +319,23 @@ bypass, capacity rollback and the posting opt-in. The upgrade fixture retains
 score accounts, vote history and counters across administrator dump/restore.
 Native HTTP tests use the real private verifier; real-browser qualification of
 the score form is still required before claiming frontend parity.
+
+## Seasonal preference and effect reference
+
+The source stores a browser opt-out under `4chan_stop_css_event`. Its value is
+the event name and version joined by a hyphen. A different version enables the
+event again; choosing an ordinary style preserves that style and opts out of
+the current event. Choosing Special removes the opt-out. The ordinary Tomorrow
+theme alone does not activate Christmas effects.
+
+Isolated source functions cover preference selection, the opt-out transition,
+desktop checks and decoration cleanup. Spooky rotates among 23 skeletons, with
+a 25% top-position choice and a 1% dinosaur substitution. An update with a
+truthy count has a 33% chance to keep the existing decoration. Christmas requests
+50 through 99 flakes only at desktop widths of at least 481 pixels.
+
+The native helpers reproduce those decisions without loading any source script
+or contacting the original asset server. They are not yet wired into public
+page configuration. Event CSS integration, the missing snow implementation and
+original artwork remain unfinished. These helper tests do not establish visual
+parity or enable a seasonal event.
