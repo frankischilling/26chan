@@ -38,18 +38,20 @@ requiring the original source tree.
 ## Feed composition
 
 A separate extractor executes the original index, catalog, thread-list, archive,
-full-thread and tail generators over 48 controlled caches. It supplies the removed
+full-thread and tail generators over 76 controlled caches. It supplies the removed
 PHP 5 `each()` helper for PHP 8 and captures file output in memory. SQL and cache
 population are explicit boundaries; no original database or filesystem output
 is used. Cases cover page boundaries, page caps, sticky previews, zero preview
 replies, naturally sorted reply IDs, deleted files and omission counts.
 
-The HTTP test reproduces 24 text-only caches in a disposable database, then
+The HTTP test reproduces 52 text-only caches in a disposable database, then
 compares both listeners with the executed outputs. It checks index, catalog,
 thread-list, archive, full-thread and eligible tail responses. Database-generated
-post IDs are mapped back to fixture IDs. Clock strings, unique-address counts
-and helper-supplied tail eligibility are excluded from this comparison and keep
-their existing dedicated tests. Empty threads reject ineligible tail requests.
+post IDs are mapped back to fixture IDs. Clock strings and unique-address counts are excluded from this comparison and
+keep their existing dedicated tests. The pinned source tail-size helper runs
+unchanged: eligible index opening posts advertise `tail_size`, including
+previews with no displayed replies; catalogs omit it. Below-threshold threads reject ineligible tail requests, including the doubled
+threshold for sticky undead threads.
 Image-bearing cache cases remain source-execution evidence; existing approved
 attachment tests cover their Rust projections and upload authority.
 
@@ -69,6 +71,21 @@ The restricted-role integration test compares complete metadata for the 80
 public imported boards on both listeners, with and without media configuration.
 It checks the two excluded boards, ordering, literal operator edits, denied
 policy writes, escaped HTML and the absent unconfigured upload route.
+
+## Legacy catalog information
+
+`GET /{board}/imgboard.php?mode=cataloginfo` and form-encoded or text-only
+multipart POSTs with `mode=cataloginfo` return the source catalog-info object.
+This shares the directory projection but omits its `board` and `title` keys.
+The route belongs to the HTML listener; the JSON-only listener does not acquire
+legacy actions.
+
+The request accepts only the mode field. Duplicate/conflicting modes, report or
+post fields and unrelated query parameters are rejected. Private and
+JSON-disabled boards remain hidden. No session is registered, no cookie is set
+and no post is changed. Privileged rebuild, preview, transfer, deletion and
+archive modes do not gain public authority through this dispatcher. POSTs retain
+the existing Origin and transport limits.
 
 ## Thread state and file deletion
 

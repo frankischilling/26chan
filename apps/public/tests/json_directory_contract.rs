@@ -191,3 +191,201 @@ async fn live_operator_policy_is_literal_and_does_not_grant_upload_authority() {
         .unwrap();
     result.unwrap();
 }
+
+async fn legacy_request(
+    app: &Router,
+    method: &str,
+    path: &str,
+    content_type: &str,
+    body: &str,
+) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
+    let mut request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("origin", "http://127.0.0.1:3000")
+        .header("content-type", content_type)
+        .header("cookie", "board_session=untrusted; staff_session=untrusted")
+        .body(Body::from(body.to_owned()))
+        .unwrap();
+    request
+        .extensions_mut()
+        .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+            [192, 0, 2, 219],
+            40000,
+        ))));
+    let (parts, body) = app.clone().oneshot(request).await.unwrap().into_parts();
+    (
+        parts.status,
+        parts.headers,
+        to_bytes(body, 4_194_304).await.unwrap().to_vec(),
+    )
+}
+
+#[tokio::test]
+async fn legacy_catalog_info_matches_source_without_write_or_staff_authority() {
+    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let sessions_before: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_sessions")
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+    let before: Vec<String> = sqlx::query_scalar(
+        "SELECT to_jsonb(p)::text FROM content.posts p WHERE board='a' ORDER BY id",
+    )
+    .fetch_all(&owner)
+    .await
+    .unwrap();
+    let (html, api) =
+        board_public::routers_with_media(public, "http://127.0.0.1:3000".into(), false, None);
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/json-directory-reference.json"
+    ))
+    .unwrap();
+    let visibility: Vec<(String, bool, bool)> =
+        sqlx::query_as("SELECT slug,json_enabled,staff_only FROM content.boards")
+            .fetch_all(&owner)
+            .await
+            .unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let board = case["board"].as_str().unwrap();
+        let (_, json, staff) = visibility.iter().find(|row| row.0 == board).unwrap();
+        let path = format!("/{board}/imgboard.php?mode=cataloginfo");
+        let (status, headers, body) =
+            legacy_request(&html, "GET", &path, "application/x-www-form-urlencoded", "").await;
+        assert!(!headers.contains_key("set-cookie"));
+        if *staff || !*json {
+            assert_eq!(status, StatusCode::NOT_FOUND, "{board}");
+        } else {
+            assert_eq!(status, StatusCode::OK, "{board}");
+            assert_eq!(headers["content-type"], "application/json");
+            assert_eq!(
+                serde_json::from_slice::<Value>(&body).unwrap(),
+                case["expected"],
+                "{board}"
+            );
+        }
+    }
+    let expected = &fixture["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["board"] == "a")
+        .unwrap()["expected"];
+    for (path, kind, body) in [
+        (
+            "/a/imgboard.php",
+            "application/x-www-form-urlencoded",
+            "mode=cataloginfo",
+        ),
+        (
+            "/a/imgboard.php?mode=cataloginfo",
+            "application/x-www-form-urlencoded",
+            "",
+        ),
+        (
+            "/a/imgboard.php",
+            "multipart/form-data; boundary=owned",
+            "--owned\r\nContent-Disposition: form-data; name=\"mode\"\r\n\r\ncataloginfo\r\n--owned--\r\n",
+        ),
+    ] {
+        let (status, headers, body) = legacy_request(&html, "POST", path, kind, body).await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "{path}: {}",
+            String::from_utf8_lossy(&body)
+        );
+        assert!(!headers.contains_key("set-cookie"));
+        assert_eq!(&serde_json::from_slice::<Value>(&body).unwrap(), expected);
+    }
+    for query in [
+        "mode=cataloginfo&mode=cataloginfo",
+        "mode=cataloginfo&res=1",
+        "mode=cataloginfo&admin=1",
+        "mode=cataloginfo&mode=report",
+    ] {
+        assert_eq!(
+            legacy_request(
+                &html,
+                "GET",
+                &format!("/a/imgboard.php?{query}"),
+                "application/x-www-form-urlencoded",
+                ""
+            )
+            .await
+            .0,
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            legacy_request(
+                &html,
+                "POST",
+                "/a/imgboard.php",
+                "application/x-www-form-urlencoded",
+                query
+            )
+            .await
+            .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    for mode in [
+        "preview_html",
+        "forcearchive",
+        "movethread",
+        "copythreads",
+        "rebuildboardsjson",
+        "rebuild_threads_by_id",
+        "latest",
+        "admindel",
+    ] {
+        let path = format!("/a/imgboard.php?mode={mode}");
+        assert_eq!(
+            legacy_request(&html, "GET", &path, "application/x-www-form-urlencoded", "")
+                .await
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+    }
+    assert_eq!(
+        legacy_request(
+            &api,
+            "GET",
+            "/a/imgboard.php?mode=cataloginfo",
+            "application/x-www-form-urlencoded",
+            ""
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    let after: Vec<String> = sqlx::query_scalar(
+        "SELECT to_jsonb(p)::text FROM content.posts p WHERE board='a' ORDER BY id",
+    )
+    .fetch_all(&owner)
+    .await
+    .unwrap();
+    let sessions_after: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_sessions")
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+    assert_eq!(sessions_before, sessions_after);
+    let (status, headers, body) = legacy_request(
+        &html,
+        "HEAD",
+        "/a/imgboard.php?mode=cataloginfo",
+        "application/x-www-form-urlencoded",
+        "",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.is_empty());
+    assert_eq!(headers["content-type"], "application/json");
+    assert_eq!(before, after);
+}

@@ -117,6 +117,7 @@ mod tests {
     fn base() -> Board {
         Board {
             replies_shown: 5,
+            json_tail_size: 0,
             source_order: 1000,
             catalog_enabled: true,
             json_enabled: true,

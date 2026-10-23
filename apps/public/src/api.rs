@@ -113,56 +113,102 @@ pub async fn boards(
 ) -> Result<Response, AppError> {
     let mut directory = board_store::boards(&state.pool).await?;
     directory.sort_by(|a, b| a.slug.cmp(&b.slug));
-    let boards: Vec<_> = directory.into_iter().filter(|board| board.json_enabled).map(|board| {
-        let mut value = json!({
-        "board": board.slug, "title": board.title, "ws_board": i32::from(board.worksafe),
-        "per_page": board.threads_per_page, "pages": (board.thread_limit + board.threads_per_page - 1) / board.threads_per_page,
-        "max_filesize": board.max_image_bytes, "max_webm_filesize": board.max_video_bytes, "max_webm_duration": board.max_video_duration,
-        "max_comment_chars": board.max_comment_chars, "bump_limit": board.bump_limit, "image_limit": board.image_limit,
-        "cooldowns": {
-            "threads": board.posting_thread_seconds,
-            "replies": board.posting_reply_seconds,
-            "images": board.posting_image_seconds
-        },
-        "meta_description": directory_data::description(&board.slug, &board.description)
-        });
-        // Source catalog-info describes configured policy, not deployment
-        // health. Upload handlers still require their isolated media boundary.
-        if board.text_only {
-            value["text_only"] = json!(1);
-        }
-        if board.archives_enabled() {
-            value["is_archived"] = json!(1);
-        }
-        if board.require_subject || board.text_only {
-            value["require_subject"] = json!(1);
-        }
-        if board.user_ids { value["user_ids"] = json!(1); }
-        if board.comment_code_spacing { value["code_tags"] = json!(1); }
-        if board.comment_sjis_spacing { value["sjis_tags"] = json!(1); }
-        if board.math_tags { value["math_tags"] = json!(1); }
-        if board.oekaki { value["oekaki"] = json!(1); }
-        if board.country_flags { value["country_flags"] = json!(1); }
-        let flags = (!board.board_flags.is_empty()).then(|| OrderedFlags(board.flag_options()));
-        if board.forced_anon {
-            value["forced_anon"] = json!(1);
-        }
-        if board.comment_spoiler_cleanup {
-            value["spoilers"] = json!(1);
-            if board.custom_spoiler_count > 0 {
-                value["custom_spoilers"] = json!(board.custom_spoiler_count);
-            }
-        }
-        if board.video_audio { value["webm_audio"] = json!(1); }
-        if board.min_image_width > 1 {
-            value["min_image_width"] = json!(board.min_image_width);
-        }
-        if board.min_image_height > 1 {
-            value["min_image_height"] = json!(board.min_image_height);
-        }
-        BoardMetadata { value, board_flags: flags }
-    }).collect();
+    let boards = directory
+        .iter()
+        .filter(|board| board.json_enabled)
+        .map(board_metadata)
+        .collect();
     response(&state.limits, BoardDirectory { boards }, None, &headers)
+}
+
+fn board_metadata(board: &Board) -> BoardMetadata {
+    let mut value = json!({
+    "board": board.slug, "title": board.title, "ws_board": i32::from(board.worksafe),
+    "per_page": board.threads_per_page, "pages": (board.thread_limit + board.threads_per_page - 1) / board.threads_per_page,
+    "max_filesize": board.max_image_bytes, "max_webm_filesize": board.max_video_bytes, "max_webm_duration": board.max_video_duration,
+    "max_comment_chars": board.max_comment_chars, "bump_limit": board.bump_limit, "image_limit": board.image_limit,
+    "cooldowns": {
+        "threads": board.posting_thread_seconds,
+        "replies": board.posting_reply_seconds,
+        "images": board.posting_image_seconds
+    },
+    "meta_description": directory_data::description(&board.slug, &board.description)
+    });
+    // Source catalog-info describes configured policy, not deployment
+    // health. Upload handlers still require their isolated media boundary.
+    if board.text_only {
+        value["text_only"] = json!(1);
+    }
+    if board.archives_enabled() {
+        value["is_archived"] = json!(1);
+    }
+    if board.require_subject || board.text_only {
+        value["require_subject"] = json!(1);
+    }
+    if board.user_ids {
+        value["user_ids"] = json!(1);
+    }
+    if board.comment_code_spacing {
+        value["code_tags"] = json!(1);
+    }
+    if board.comment_sjis_spacing {
+        value["sjis_tags"] = json!(1);
+    }
+    if board.math_tags {
+        value["math_tags"] = json!(1);
+    }
+    if board.oekaki {
+        value["oekaki"] = json!(1);
+    }
+    if board.country_flags {
+        value["country_flags"] = json!(1);
+    }
+    let flags = (!board.board_flags.is_empty()).then(|| OrderedFlags(board.flag_options()));
+    if board.forced_anon {
+        value["forced_anon"] = json!(1);
+    }
+    if board.comment_spoiler_cleanup {
+        value["spoilers"] = json!(1);
+        if board.custom_spoiler_count > 0 {
+            value["custom_spoilers"] = json!(board.custom_spoiler_count);
+        }
+    }
+    if board.video_audio {
+        value["webm_audio"] = json!(1);
+    }
+    if board.min_image_width > 1 {
+        value["min_image_width"] = json!(board.min_image_width);
+    }
+    if board.min_image_height > 1 {
+        value["min_image_height"] = json!(board.min_image_height);
+    }
+    BoardMetadata {
+        value,
+        board_flags: flags,
+    }
+}
+
+pub(crate) async fn catalog_info(
+    state: &AppState,
+    slug: &str,
+    headers: &HeaderMap,
+) -> Result<Response, AppError> {
+    if !crate::legacy_report::safe_board(slug) {
+        return Err(AppError(StatusCode::BAD_REQUEST, "Invalid board."));
+    }
+    let board = board_store::board(&state.pool, slug).await?;
+    require_json(&board, false)?;
+    if board.staff_only {
+        return Err(AppError(StatusCode::NOT_FOUND, "Board not found."));
+    }
+    let mut metadata = board_metadata(&board);
+    let fields = metadata
+        .value
+        .as_object_mut()
+        .expect("board metadata object");
+    fields.remove("board");
+    fields.remove("title");
+    response(&state.limits, metadata, None, headers)
 }
 
 fn tail_op_json(
@@ -625,11 +671,25 @@ pub async fn index(
     require_json(&board, false)?;
     let mut entries = Vec::new();
     for preview in snapshot.threads {
-        let posts = match preview_thread(&board, preview, &snapshot.quote_targets) {
+        let total = preview.visible_posts;
+        let sticky = preview.thread.sticky;
+        let undead = preview.thread.undead;
+        let mut posts = match preview_thread(&board, preview, &snapshot.quote_targets) {
             Ok(posts) => posts,
             Err(error) if error.0 == StatusCode::NOT_FOUND => continue,
             Err(error) => return Err(error),
         };
+        // generate_thread_json advertises an eligible tail on index OPs too,
+        // even when this preview omits every reply. Catalog entries omit it.
+        let tail_size = board_domain::thread_tail_size(
+            board.json_tail_size as u16,
+            sticky,
+            undead,
+            checked_reply_count(total)?,
+        );
+        if tail_size > 0 {
+            posts[0]["tail_size"] = json!(tail_size);
+        }
         entries.push(json!({"posts": posts}));
     }
     response(&state.limits, json!({"threads": entries}), None, headers)

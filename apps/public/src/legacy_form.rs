@@ -25,6 +25,7 @@ const MAX_DELETION_FIELDS: usize = 20;
 const MAX_QUERY_FIELDS: usize = 20;
 
 enum Submission {
+    CatalogInfo,
     Post(Box<PostForm>),
     Delete(Deletion),
     Report {
@@ -244,6 +245,18 @@ impl<S: Send + Sync> FromRequest<S> for LegacyForm {
         }
         if fields
             .iter()
+            .any(|(name, mode)| name == "mode" && mode == "cataloginfo")
+        {
+            if fields.len() != 1
+                || query.iter().any(|(name, _)| name != "mode")
+                || raw_multipart_fields.is_some_and(|count| count.0 > 1)
+            {
+                return Err(invalid());
+            }
+            return Ok(Self(Submission::CatalogInfo));
+        }
+        if fields
+            .iter()
             .any(|(name, mode)| name == "mode" && matches!(mode.as_str(), "usrdel" | "delete"))
         {
             if raw_multipart_fields.is_some_and(|count| count.0 > MAX_DELETION_FIELDS) {
@@ -276,6 +289,11 @@ pub(crate) async fn submit(
     let reporting = url::form_urlencoded::parse(uri.query().unwrap_or("").as_bytes())
         .any(|(name, value)| name == "mode" && value == "report");
     match form {
+        Ok(LegacyForm(Submission::CatalogInfo)) => {
+            crate::api::catalog_info(&state, &board, &headers)
+                .await
+                .unwrap_or_else(AppError::into_response)
+        }
         Ok(LegacyForm(Submission::Report {
             board: submitted_board,
             form,

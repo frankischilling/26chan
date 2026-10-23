@@ -103,6 +103,7 @@ fn board() -> Board {
         expire_neglected: true,
         threads_per_page: 10,
         replies_shown: 5,
+        json_tail_size: 0,
         worksafe: true,
         archive_retention_seconds: 0,
         autoarchive_cap: 0,

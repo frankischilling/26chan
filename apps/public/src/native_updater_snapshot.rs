@@ -559,6 +559,7 @@ pub(crate) mod tests {
         let id = i64::MAX - 1;
         let board = Board {
             replies_shown: 5,
+            json_tail_size: 0,
             source_order: 1000,
             catalog_enabled: true,
             json_enabled: true,

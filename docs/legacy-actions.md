@@ -7,6 +7,10 @@ existing transaction, field validation and HTML/JSON response selection.
 local canonical thread anchors without report or session side effects. Bare GET
 shows the source two-second index-navigation notice, without rebuilding data.
 
+The [catalog-info mode](source-json-contracts.md#legacy-catalog-information)
+returns public board policy for GET and bounded form POST requests. It does not
+perform a rebuild or grant staff authority.
+
 ## Public reference
 
 The released extension v1191 supplies the request shapes. Its bytes and

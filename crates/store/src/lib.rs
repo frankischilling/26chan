@@ -198,6 +198,7 @@ pub struct Board {
     pub expire_neglected: bool,
     pub threads_per_page: i32,
     pub replies_shown: i32,
+    pub json_tail_size: i32,
     pub worksafe: bool,
     pub archive_retention_seconds: i32,
     pub archive_limit: i32,

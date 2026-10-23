@@ -33,8 +33,8 @@ fn normalize(value: &mut Value, ids: &BTreeMap<i64, i64>) {
         }
         Value::Object(fields) => {
             // These values are controlled helper inputs in this oracle. Their
-            // clock, address and tail-eligibility contracts have separate tests.
-            for key in ["now", "time", "unique_ips", "tail_size"] {
+            // clock and address contracts have separate tests.
+            for key in ["now", "time", "unique_ips"] {
                 fields.remove(key);
             }
             for key in ["no", "resto", "tail_id"] {
@@ -57,8 +57,8 @@ async fn seed(owner: &PgPool, slug: &str, case: &Value) -> BTreeMap<i64, i64> {
     for (rank, thread) in case["threads"].as_array().unwrap().iter().enumerate() {
         let source = thread["id"].as_i64().unwrap();
         let children = thread["children"].as_array().unwrap();
-        let id:i64=sqlx::query_scalar("INSERT INTO content.threads(board,sticky,bumped_at,reply_count) VALUES($1,$2,to_timestamp(1704067200-$3),$4) RETURNING id")
-            .bind(slug).bind(thread["sticky"].as_bool().unwrap()).bind(rank as f64).bind(children.len() as i32).fetch_one(owner).await.unwrap();
+        let id:i64=sqlx::query_scalar("INSERT INTO content.threads(board,sticky,bumped_at,reply_count,undead) VALUES($1,$2,to_timestamp(1704067200-$3),$4,$5) RETURNING id")
+            .bind(slug).bind(thread["sticky"].as_bool().unwrap()).bind(rank as f64).bind(children.len() as i32).bind(thread["undead"].as_bool().unwrap_or(false)).fetch_one(owner).await.unwrap();
         ids.insert(id, source);
         sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,created_at) VALUES($1,$2,$1,'Anonymous','','plain',to_timestamp(1704067200))")
             .bind(id).bind(slug).execute(owner).await.unwrap();
@@ -108,7 +108,7 @@ async fn persisted_feeds_match_source_order_counts_fields_and_omissions() {
                 .fetch_one(&owner)
                 .await
                 .unwrap();
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,replies_shown,json_tail_size,archive_retention_seconds,comment_spoiler_cleanup,custom_spoiler_count) VALUES($1,'Owned JSON feeds','',500,100,99,$2,2,99,$3,2,86400,true,4)")
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,replies_shown,json_tail_size,archive_retention_seconds,comment_spoiler_cleanup,custom_spoiler_count) VALUES($1,'Owned JSON feeds','',500,99,99,$2,2,99,$3,2,86400,true,4)")
             .bind(&slug).bind(if case["page_max"]==0 {20} else {4}).bind(case["shown"].as_i64().unwrap() as i32).execute(&owner).await.unwrap();
         let owned = owner.clone();
         let runtime = public.clone();
@@ -123,6 +123,21 @@ async fn persisted_feeds_match_source_order_counts_fields_and_omissions() {
                 None,
             );
             for app in [&html, &api] {
+                for thread in case["threads"].as_array().unwrap() {
+                    let source = thread["id"].as_i64().unwrap();
+                    if case["expected"]
+                        .get(format!("/out/thread/{source}-tail.json"))
+                        .is_none()
+                    {
+                        let actual = ids.iter().find(|(_, s)| **s == source).unwrap().0;
+                        assert_eq!(
+                            get(app, &format!("/{board}/thread/{actual}-tail.json"))
+                                .await
+                                .0,
+                            StatusCode::NOT_FOUND
+                        );
+                    }
+                }
                 for (path, expected) in case["expected"].as_object().unwrap() {
                     let mut path = path.strip_prefix("/out/").unwrap().to_owned();
                     if let Some(key) = path.strip_prefix("thread/") {
@@ -134,21 +149,6 @@ async fn persisted_feeds_match_source_order_counts_fields_and_omissions() {
                             .unwrap();
                         let actual = ids.iter().find(|(_, s)| **s == source).unwrap().0;
                         path = path.replacen(&source.to_string(), &actual.to_string(), 1);
-                        let thread = case["threads"]
-                            .as_array()
-                            .unwrap()
-                            .iter()
-                            .find(|t| t["id"] == source)
-                            .unwrap();
-                        if path.ends_with("-tail.json")
-                            && thread["children"].as_array().unwrap().is_empty()
-                        {
-                            assert_eq!(
-                                get(app, &format!("/{board}/{path}")).await.0,
-                                StatusCode::NOT_FOUND
-                            );
-                            continue;
-                        }
                     }
                     let (status, mut actual) = get(app, &format!("/{board}/{path}")).await;
                     assert_eq!(status, StatusCode::OK, "case {index}: {path}");
