@@ -105,6 +105,30 @@ grep -q 'Event authority drifted' "$cluster/known-rejected.log"
 "${migrator[@]}" --single-transaction -f migrations/0254_known_address_event_votes.sql >"$cluster/known-accepted.log"
 "${migrator[@]}" -c "DO \$\$ BEGIN IF (SELECT enabled FROM event_private.runs WHERE id=3) IS DISTINCT FROM true THEN RAISE EXCEPTION 'Known-address upgrade closed the owned run'; END IF; END \$\$;" >/dev/null
 "${migrator[@]}" -c 'UPDATE event_private.runs SET enabled=false WHERE id=3;' >/dev/null
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT ON event_private.score_accounts TO board_public;' -f migrations/0255_score_identity_boundary.sql >"$cluster/identity-rejected.log" 2>&1; then
+  echo 'Score identity repair accepted pre-existing authority drift' >&2; exit 1
+fi
+grep -q 'Event authority drifted' "$cluster/identity-rejected.log" || { cat "$cluster/identity-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0255_score_identity_boundary.sql -c ROLLBACK >"$cluster/identity-rollback.log"
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('event_private.post_identity(bigint,text,bigint,bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained score identity helper'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0255_score_identity_boundary.sql >"$cluster/identity-accepted.log"
+"${migrator[@]}" --single-transaction -f migrations/0256_stored_stock_identities.sql >"$cluster/stock-accepted.log"
+# Execute the actual automatic/report readiness contracts as the public role.
+# These are catalog-only queries; no private posting evidence is selected.
+python3 - "$cluster/score-readiness.sql" <<'PYCODE'
+import re,sys
+from pathlib import Path
+parts=['SET ROLE board_public;']
+for file in ['automatic_admission.rs','report_admission.rs']:
+    source=Path('crates/store/src',file).read_text()
+    match=re.search(r'pub const READINESS_SQL: &str = r#"(.*?)"#;',source,re.S)
+    assert match, file
+    query=match.group(1).strip().rstrip(';')
+    parts.append("DO $$ DECLARE ok boolean; BEGIN SELECT gate INTO ok FROM ("+query+") contract(gate); IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'Restored "+file+" readiness failed'; END IF; END $$;")
+parts.append('RESET ROLE;')
+Path(sys.argv[1]).write_text('\n'.join(parts)+'\n')
+PYCODE
+"$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U "$pg_user" -d owned_optional_events -f "$cluster/score-readiness.sql"
 "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U "$pg_user" -d owned_optional_events -f scripts/test-optional-events-upgrade.sql
 # Compare the catalog preimage if administrator restore changes readiness.
 "${migrator[@]}" -At -c "SELECT prosrc FROM pg_proc WHERE oid='event_private.catalog_hash()'::regprocedure" >"$cluster/catalog.sql"
@@ -127,4 +151,5 @@ for key in before:
  if before[key]!=after[key]: raise SystemExit('Catalog restore changed '+key)
 PYCODE
 "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U "$pg_user" -d owned_optional_events_restore -f scripts/test-optional-events-upgrade.sql
+"$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U "$pg_user" -d owned_optional_events_restore -f "$cluster/score-readiness.sql"
 printf 'Optional event rollback, upgrade, authority drift, retained history and administrator restore passed.\n'

@@ -812,7 +812,7 @@ mod tests {
     #[test]
     fn public_membership_year_matches_source_json_omission_rules() {
         let fixture = crate::native_updater_snapshot::tests::fixture();
-        for year in [0, 2020, 9999, 10000, 12024] {
+        for year in [0, 2020, 9999, 10000, 10017, 10018, 12024] {
             for capcode in [None, Some("mod".to_owned())] {
                 let mut post = fixture.posts[0].clone();
                 post.since4pass = year;

@@ -1,3 +1,4 @@
+import { stockToken, stockBadge, stockContainer } from './native-event-badges.js';
 import { exifTags, exifRecipe } from './native-exif.js';
 import { defaultTreeAdapter, parseFragment } from 'parse5';
 import { quotePostId } from './native-quote-identity.js';
@@ -18,7 +19,7 @@ const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'side
   'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
   'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
 const attributes = {
-  article: ['class', 'id', 'data-custom-spoiler'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
+  article: ['class', 'id', 'data-custom-spoiler'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc', 'data-tip'],
   strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title', 'data-drawing-replay', 'data-m'], blockquote: ['class', 'id'],
   br: [], wbr: [], b: [], s: [], small: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required', 'form', 'aria-label'],
@@ -109,6 +110,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   const charge = text => { budget.chars += text.length; require(budget.chars <= limits.bytes); };
   const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'pim', 'm', 'f', 'fT', 'delete', 'report', 'select'].map(prefix => prefix + no));
   let selection = null;
+  const stockBadges = []; let hasPass = false, hasCapcode = false;
   const exifTables = new Set(), exifLinks = new Set();
   function visit(node, depth, form = null, comment = false, link = false) {
     require(++budget.nodes <= limits.nodes && depth <= limits.depth);
@@ -146,7 +148,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       // that size. Preserve those valid links within the aggregate wire budget.
       require(attributes[node.tag].includes(key) && typeof value === 'string' && value.length <= (key === 'href' ? 192000 : 4096));
       charge(value);
-      if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token) || isCapcodeToken(token))
+      if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token) || isCapcodeToken(token) || stockToken(token))
         || value === 'deadlink'); // Its exact inert placement is checked below.
       if (key === 'id') { require(expectedIds.has(value) && !ids.has(value)); ids.add(value); }
       if (key === 'href') require(replay !== undefined || postLinkUrl(value, context));
@@ -167,6 +169,10 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         if (key === 'data-m' || key === 'data-drawing-replay') continue; // Both have exact structural checks.
         if (key === 'data-custom-spoiler') {
           require(depth === 0 && node.tag === 'article' && /^(?:[1-9]|[1-5][0-9]|6[0-4])$/.test(value));
+          continue;
+        }
+        if (key === 'data-tip') {
+          require(node.tag === 'span' && stockBadge(attrs.class) === value);
           continue;
         }
         if (key === 'data-utc') {
@@ -194,7 +200,17 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         && node.children.every(child => typeof child === 'string')
         && new TextEncoder().encode(node.children.join('')).length <= 4098);
     }
+    const tokens = (attrs.class || '').split(' ');
+    if (tokens.includes('capcode')) hasCapcode = true;
+    if (tokens.some(token => token.startsWith('p-xa24-'))) require(node === tree && node.tag === 'article');
+    if (tokens.some(token => token.startsWith('n-xa24'))) {
+      const stock = stockBadge(attrs.class);
+      require(!comment && !link && node.tag === 'span' && stock !== null && attrs['data-tip'] === stock
+        && Object.keys(attrs).sort().join(',') === 'class,data-tip' && node.children.length === 0);
+      stockBadges.push(stock);
+    }
     const passBadge = (attrs.class || '').split(' ').includes('n-pu');
+    if (passBadge) hasPass = true;
     if (passBadge) require(!comment && !link && node.tag === 'span' && attrs.class === 'n-pu'
       && Object.keys(attrs).sort().join(',') === 'class,title' && node.children.length === 0
       && /^Pass user since [1-9][0-9]{0,3}$/.test(attrs.title));
@@ -265,8 +281,9 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   validateCapcodeTree(tree, no);
   validatePostNumbers(tree, context, no);
   validateFilePresentation(tree, context, no);
-  require(tree.tag === 'article' && tree.attrs.id === `pc${no}`
-    && tree.attrs.class === `postContainer ${no === context.thread ? 'opContainer' : 'replyContainer'}`);
+  const stock = stockContainer(tree.attrs.class, `postContainer ${no === context.thread ? 'opContainer' : 'replyContainer'}`);
+  require(tree.tag === 'article' && tree.attrs.id === `pc${no}` && stock !== undefined);
+  require(stock === null ? stockBadges.length === 0 : !hasPass && !hasCapcode && stockBadges.length === 2 && stockBadges.every(value => value === stock));
   for (const prefix of ['pc', 'p', 'pi', 'm']) require(ids.has(prefix + no));
   return tree;
 }

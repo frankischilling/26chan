@@ -12,6 +12,10 @@ DO $$ BEGIN
  OR b.votes IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(v) ORDER BY run_id,actor_hash,post_id) FROM event_private.score_votes v)
  OR b.posts IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(p) ORDER BY run_id,post_id) FROM event_private.score_posts p)) THEN
  RAISE EXCEPTION 'Event restore changed score ledger'; END IF;
+ IF has_column_privilege('board_anonymous_owner','post_secrets.posting_history','actor_hash','SELECT')
+ OR has_function_privilege('board_anonymous_owner','content.lock_report_network_policy()','EXECUTE')
+ OR has_function_privilege('board_anonymous_owner','content.network_admission_rules(text,bigint)','EXECUTE') THEN
+ RAISE EXCEPTION 'Score restore broadened sealed authority'; END IF;
  IF has_schema_privilege('board_public','event_private','USAGE')
  OR has_table_privilege('board_public','event_private.accounts','SELECT,INSERT,UPDATE,DELETE')
  OR has_function_privilege('board_public','event_private.catalog_hash()','EXECUTE') THEN
@@ -48,4 +52,14 @@ BEGIN;
 GRANT SELECT ON event_private.score_accounts TO board_public;
 SET LOCAL ROLE board_public;
 DO $$ BEGIN IF content.events_ready() IS DISTINCT FROM false THEN RAISE EXCEPTION 'Ignored private score grant drift'; END IF; END $$;
+ROLLBACK;
+
+BEGIN;
+UPDATE content.posts SET since4pass=10017 WHERE id=(SELECT min(id) FROM content.posts);
+DO $$ BEGIN
+ BEGIN
+  UPDATE content.posts SET since4pass=10018 WHERE id=(SELECT min(id) FROM content.posts);
+  RAISE EXCEPTION 'Unknown stock identity accepted';
+ EXCEPTION WHEN check_violation THEN NULL; END;
+END $$;
 ROLLBACK;

@@ -17,7 +17,11 @@ present in a PHP file is not evidence that its endpoint or posting hook runs.
 - The HTML renderer recognizes stored April 2024 identity values from 10000
   through 10017. The main JSON serializer removes those values instead of
   exposing them as Pass purchase years. The separate test serializer differs;
-  it is not the production JSON contract.
+  it is not the production JSON contract. The rewrite preserves these 18
+  stored values in desktop/mobile headers and native snapshot, quote and search
+  recipes. Ordinary public writes cannot choose an identity value. Badge artwork
+  and its original event styling are still missing; matching markup is not a
+  claim of visual parity.
 
 ## Disabled and disconnected branches
 
@@ -264,6 +268,13 @@ source call's empty scope/options; Pass bypass is decided by the consumed
 receipt. The supplied caller omits the range helper's required ASN argument.
 The reconstruction uses its intended IPv4-only lookup rather than reproducing
 a PHP argument error. Network policy stays locked through the mutation.
+
+The score SQL owner cannot select stored posting-address hashes. The history
+owner returns only a run-scoped pseudonym, a self-match result and the posting
+transaction check. Network helpers expose a lock operation and a boolean
+range result. Automatic-session and reporting permission guards retain their
+original boundaries. Public readiness is tested with events both off and on,
+including after upgrade and restore.
 
 Accounts use run-separated private hashes. Event tables contain no raw address,
 Pass identifier or login credential. Each run has the configured account cap

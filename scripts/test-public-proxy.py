@@ -3,6 +3,8 @@ import contextlib
 from datetime import datetime, timedelta, timezone
 import http.client
 import json
+import html
+import re
 import os
 from pathlib import Path
 import signal
@@ -154,11 +156,12 @@ def main():
                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             cleanup.callback(stop, edge)
             deadline = time.monotonic() + 15
-            last_status, last_error = None, None
+            last_status, last_error, last_body = None, None, b''
             while True:
                 assert public.poll() is None and edge.poll() is None, 'Owned service exited at startup'
                 try:
-                    last_status, _ = request('GET', '/readyz')
+                    last_status, last_body = request('GET', '/readyz')
+                    last_error = None
                     if last_status == 200:
                         break
                 except (OSError, http.client.HTTPException) as error:
@@ -168,8 +171,11 @@ def main():
                     # environment and database credentials are never printed.
                     edge_log = root / 'edge-error.log'
                     detail = edge_log.read_text()[-4000:] if edge_log.exists() else ''
+                    reason = re.search(rb'<p role="status">([^<]{0,512})</p>', last_body)
+                    public_reason = html.unescape(reason.group(1).decode('utf-8', errors='replace')) if reason else ''
                     raise AssertionError(f'Owned HTTPS readiness failed: status={last_status}, '
-                                         f'error={last_error}, socket={path.exists()}, edge={detail}')
+                                         f'error={last_error}, reason={public_reason!r}, '
+                                         f'socket={path.exists()}, edge={detail}')
                 time.sleep(0.05)
             with socket.socket() as probe:
                 assert probe.connect_ex(('127.0.0.1', unused_port)) != 0, 'Unexpected public TCP listener'

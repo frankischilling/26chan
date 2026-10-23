@@ -353,6 +353,18 @@ impl PostView {
         .then_some(self.post.since4pass)
     }
 
+    pub fn stock_badge(&self) -> Option<&'static str> {
+        if self
+            .post
+            .capcode
+            .as_deref()
+            .is_some_and(|value| !value.is_empty())
+        {
+            return None;
+        }
+        board_domain::source_events::stock_identity(i64::from(self.post.since4pass))
+    }
+
     pub fn capcode(&self) -> Option<board_domain::capcode::PublicCapcode> {
         self.post
             .capcode

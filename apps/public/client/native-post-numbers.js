@@ -86,7 +86,7 @@ function validateMobileHeader(mobile, desktop, post, no, thread, all) {
   };
   const prefix = desktopBadge ? [...desktopBadge.children] : [name];
   prefix[0] = makeLabel(name);
-  if (!desktopBadge) for (const token of ['postertrip', 'posteruid', 'flag', 'bfl']) {
+  if (!desktopBadge) for (const token of ['n-pu', 'n-xa24', 'postertrip', 'posteruid', 'flag', 'bfl']) {
     const value = own(desktop.children, token);
     if (value) prefix.push(' ', value);
   }

@@ -213,3 +213,53 @@ test('opt-in Pass badges survive remote and local quote recipes without broadeni
   }
   assert.equal(parse('<span title="Pass user since 2020" class="n-pu"></span>').status, 'invalid-snapshot', 'comments cannot claim membership');
 });
+
+test('stored source stock badges remain finite inert identity markup in every recipe', async () => {
+  const fixture = JSON.parse(await readFile(new URL('../../fixtures/event-reference.json', import.meta.url), 'utf8'));
+  const rows = fixture.cases.stock.filter(row => row.stock);
+  assert.equal(rows.length, 18);
+  const released = await import('../../apps/public/static/native-filter.v1.js');
+  const searchRelease = await import('../../apps/public/static/global-search.v1.js');
+  const stockPost = row => {
+    const value = post('Owned stock identity');
+    value.html = value.html.replace('postContainer opContainer', `postContainer opContainer${row.class}`)
+      .replace('<span class="name">Anonymous</span>', `<span class="name">Anonymous</span>${row.badge}${row.badge}`);
+    return value;
+  };
+  for (const row of rows) {
+    const value = stockPost(row);
+    const parsed = parseUpdaterSnapshot(JSON.stringify(updater(value)), context);
+    assert.equal(parsed.status, 'ok', row.stock);
+    const tree = parsed.snapshot.posts[0].tree;
+    assert.doesNotThrow(() => released.validatePostTree(tree, context, no));
+    for (const reader of [localQuoteTree, released.localQuoteTree]) {
+      const local = reader(dom(tree), context, no);
+      assert.equal(local.attrs.class, `postContainer opContainer${row.class}`);
+      const badges = local.children[0].children[0].children.filter(node => node.attrs?.['data-tip']);
+      assert.equal(badges.length, 2);
+      assert.ok(badges.every(node => node.attrs.class === `n-xa24 n-xa24-${row.stock}` && node.attrs['data-tip'] === row.stock && node.children.length === 0));
+    }
+    assert.equal(parseQuotePreviewSnapshot(JSON.stringify(preview(value)), { ...context, post: no }).status, 'ok');
+    assert.equal(parseBoardPageSnapshot(JSON.stringify(page(value)), { ...context, page: 0 }).status, 'ok');
+    assert.doesNotThrow(() => parseSearchPayload(JSON.stringify(search(value)), context));
+    assert.doesNotThrow(() => searchRelease.parseSearchPayload(JSON.stringify(search(value)), context));
+  }
+  const good = stockPost(rows[0]);
+  for (const change of [
+    html => html.replaceAll('PEPE', 'UNKNOWN'),
+    html => html.replaceAll('PEPE', 'pepe'),
+    html => html.replace('p-xa24-PEPE', 'p-xa24-WOJK'),
+    html => html.replace('data-tip="PEPE"', 'data-tip="WOJK"'),
+    html => html.replace('data-tip="PEPE"', 'data-tip="PEPE" onclick="owned()"'),
+    html => html.replace(rows[0].badge, ''),
+    html => html.replace(rows[0].badge, rows[0].badge.repeat(2)),
+    html => html.replace(' p-xa24-PEPE', ''),
+    html => html.replace('Owned stock identity', rows[0].badge),
+    html => html.replace('Owned stock identity', '<span class="n-pu" title="Pass user since 2020"></span>'),
+    html => html.replace('<span class="name">Anonymous</span>', '<span class="name">Anonymous</span><span class="n-pu" title="Pass user since 2020"></span>'),
+  ]) {
+    const value = { ...good, html: change(good.html) };
+    assert.equal(parseUpdaterSnapshot(JSON.stringify(updater(value)), context).status, 'invalid-snapshot');
+  }
+  assert.equal(parse(rows[0].badge).status, 'invalid-snapshot');
+});

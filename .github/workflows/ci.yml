@@ -149,7 +149,7 @@ jobs:
       - name: Qualify verified client identity through the actual HTTPS proxy
         run: |
           source .local/database.env
-          cargo test -p board-public --lib --test proxy_https --all-features --locked
+          cargo test -p board-public --lib --test event_readiness --test proxy_https --all-features --locked
       - name: Exercise janitor request and review forms in real browsers
         run: |
           php -n scripts/test-pass-policy-source.php

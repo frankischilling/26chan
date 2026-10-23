@@ -15,6 +15,7 @@ const prerequisites = [
   'cargo test -p board-public --all-features --locked --test upload_browser',
   'cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture',
   'cargo test -p board-store -p board-verification --all-features --locked',
+  'cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture',
   'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact',
   'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact',
   'cargo test -p board-public --all-features --locked --lib pass_auth::database_tests::public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_recovery::database_tests::public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token -- --ignored --exact',
@@ -72,6 +73,7 @@ cargo build -p board-public --example deletion-quota-fixture --features browser-
 cargo test -p board-public --all-features --locked --test upload_browser
 cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture
 cargo test -p board-store -p board-verification --all-features --locked
+cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture
 cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact
 cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact
 cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact
@@ -158,7 +160,7 @@ name=\${0##*/}
 command="$name $*"
 printf '%s\\n' "$command" >> "$VERIFY_TEST_LOG"
 printf '%s\\t%s\\t%s\\t%s\\n' "$command" "\${AZURE_CONFIG_DIR-}" "\${SSH_AUTH_SOCK-}" "\${EXTRA_DATABASE_URL-}" >> "$VERIFY_TEST_ENV_LOG"
-printf '%s\\t%s\\t%s\\n' "$command" "\${TEST_VERIFICATION_DATABASE_URL-}" "\${TEST_VERIFICATION_MAIL_DATABASE_URL-}" >> "$VERIFY_TEST_VERIFICATION_LOG"
+printf '%s\\t%s\\t%s\\t%s\\n' "$command" "\${TEST_VERIFICATION_DATABASE_URL-}" "\${TEST_VERIFICATION_MAIL_DATABASE_URL-}" "\${RUN_SCORE_BROWSER-}" >> "$VERIFY_TEST_VERIFICATION_LOG"
 if [[ "$command" == "$VERIFY_TEST_FAIL" ]]; then exit 73; fi
 if [[ "$name" == timeout ]]; then
   shift
@@ -385,8 +387,19 @@ test('only explicit verification tests receive isolated verification database cr
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.verificationEnvironments.length, result.commands.length);
     for (const [command, issuer, mailer] of result.verificationEnvironments) {
-      assert.deepEqual([issuer, mailer], ['cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture', 'cargo test -p board-store -p board-verification --all-features --locked', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_auth::database_tests::public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_recovery::database_tests::public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact', 'cargo test -p board-public --all-features --locked --test network_hints report_routes_keep_get_advice_and_apply_parser_hints_before_commit -- --ignored --exact'].includes(command)
+      assert.deepEqual([issuer, mailer], ['cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture', 'cargo test -p board-store -p board-verification --all-features --locked', 'cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_auth::database_tests::public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_recovery::database_tests::public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact', 'cargo test -p board-public --all-features --locked --test network_hints report_routes_keep_get_advice_and_apply_parser_hints_before_commit -- --ignored --exact'].includes(command)
         ? ['owned-issuer-trace', 'owned-mail-trace'] : ['', ''], command);
+    }
+  }
+});
+
+test('the score browser gate is enabled only for its explicit verifier fixture', options, t => {
+  const command = 'cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture';
+  for (const suite of ['all', ...suites]) {
+    const result = runRunner(t, { args: [suite] });
+    assert.equal(result.status, 0, result.stderr);
+    for (const [invocation, , , flag] of result.verificationEnvironments) {
+      assert.equal(flag, invocation === command ? '1' : '', invocation);
     }
   }
 });
