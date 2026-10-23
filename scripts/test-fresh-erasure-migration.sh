@@ -496,6 +496,10 @@ WHERE relation='media.jobs';
 -- Video adds nullable metadata only; historical non-video assets retain every prior field.
 UPDATE public.independent_rows SET value=value||jsonb_build_object('video_duration_micros',NULL,'video_has_audio',NULL,'still_profile',NULL,'thumbnail_format','png','mobile_sha256',NULL,'mobile_bytes',NULL,'mobile_width',NULL,'mobile_height',NULL)
 WHERE relation='media.assets';
+-- 0246 adds nullable EXIF provenance. Historical assets must remain unknown;
+-- their earlier fields stay part of the exact comparison.
+UPDATE public.independent_rows SET value=value||jsonb_build_object('exif_text',NULL,'exif_mode',NULL)
+WHERE relation='media.assets';
 -- Every attachment identity remains byte-exact; only erased payload changes.
 UPDATE public.independent_rows SET value=value||jsonb_build_object('metadata_erased',true,
  'filename','[deleted]','bytes',1,'width',1,'height',1,'spoiler',false,'file_deleted',true,'created_at','epoch'::timestamptz)
