@@ -63,7 +63,7 @@ Contact addresses do not inherit the sign-in provider allowlist or alias ban.
 Application identity and initial-review answers have separate Rust structures.
 
 Private tables and bounded configuration readers are in place. Runtime roles
-cannot read submission rows; the configuration function owner currently has
+cannot read the private tables directly; the configuration function owner currently has
 access to profiles, its authority catalog, and the record identifiers/state
 needed to check whether a submission action is open. The feedback writer can
 insert feedback and read its bounded quota metadata, but cannot read feedback
@@ -77,9 +77,10 @@ On an existing installation, bootstrap the NOLOGIN owner with
 `deploy/site-submission-role.sql` before migration 0258. This migration leaves
 all campaigns closed and adds no historical submissions.
 
-Remaining implementation includes application and contest writes, ownership
-checks, application/contest staff actions, upload processing, their native forms, and browser
-qualification. No application automatically grants staff access. No contest
+Remaining implementation includes contest submission and withdrawal, private
+image processing and review, and application onboarding after selection.
+Public application forms and blind staff review are implemented; browser
+qualification and the missing visual assets remain separate checks. No application automatically grants staff access. No contest
 entry automatically earns a Pass. Missing original styles and artwork remain
 separate visual-parity gaps.
 
@@ -115,8 +116,8 @@ and expiry. Direct public consumption is denied. Local integration tests cover
 six scope/target pairs, wrong context, cross-action use, closure, expiry,
 transaction rollback, and one-use replay. The domain suite passes 345 tests,
 and the original public readiness contract still passes with these scopes. Contest voting is excluded from CAPTCHA issuance;
-its separate Pass-only receipts are described below. Application and contest
-forms still need their write workflows.
+its separate Pass-only receipts are described below. Public application forms now use the ownership APIs described below. Contest
+submission forms still need their isolated media and ownership workflows.
 
 
 ## Contest membership receipts
@@ -451,3 +452,34 @@ Concurrent attempts to open the same schedule admit one campaign. Closing an
 ID disables its readers and actions while retaining entries and votes. The
 operator permits at most 10,000 retained campaigns. No campaign is opened by a
 migration, and no prize or entitlement is issued by these commands.
+
+
+## Blind application review
+
+Migration 0265 adds staff-only application lists and details at /applications.
+Administrators can review them; other staff need the explicit global
+application_review flag. This is a native permission, not a recovered source
+role assignment. Pages use 25-row ID cursors and retain closed campaign access.
+They omit the separate name, handle, email, ownership hash, and actor hash.
+Applicants can still identify themselves in their written answers; those answers
+are displayed literally and HTML-escaped, not redacted.
+
+Only a recently authenticated administrator can select or decline an applicant.
+The decision must match the current revision and pending state. Row locks and a
+second authentication check prevent competing decisions or an edit during review
+from approving a stale record. One private audit row records the administrator,
+revision, decision, and time. The native declined state is 1; selected state 2
+matches the source agreement eligibility gate. No selection creates a staff
+account, signs an agreement, or sends mail.
+
+Selected contact fields require a separate request and recent administrator
+authentication. The blind reviewer has no identity-table privileges. The
+existing application owner supplies that narrow read for selected or signed
+records only; it never returns ownership or actor hashes. All staff responses
+remain private and non-cacheable.
+
+The review layout is a native fallback because an application-review template
+was not supplied. Native forms require no JavaScript. CI includes desktop/mobile
+runs with scripts enabled and disabled, including selection, decline, reload,
+and the separate contact view. Those browser checks cannot run in this local
+environment. Agreement onboarding remains unfinished.

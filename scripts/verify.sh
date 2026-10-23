@@ -86,6 +86,7 @@ rust_checks() {
   cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked
   cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
   RUN_STAFF_FEEDBACK_BROWSER=1 cargo test -p board-staff --features database-tests --test feedback --locked -- --nocapture
+  RUN_STAFF_APPLICATION_BROWSER=1 cargo test -p board-staff --features database-tests --test applications --locked -- --nocapture
   cargo test -p board-public --example deletion-fixture --features database-tests --locked
   cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
 }

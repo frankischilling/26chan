@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 pub mod access;
+mod applications;
 mod audit_snapshot;
 pub mod auth;
 pub mod cleared_report_queue;
@@ -213,6 +214,12 @@ pub fn router(state: Arc<AppState>) -> Router {
                 .layer(DefaultBodyLimit::max(8192)),
         )
         .route("/feedback-native.css", get(feedback::stylesheet))
+        .route(
+            "/applications",
+            get(applications::page)
+                .post(applications::action)
+                .layer(DefaultBodyLimit::max(8192)),
+        )
         .route("/ban-requests", get(request_review::queue))
         .route("/ban-requests/history/{id}", get(request_history::show))
         .route(

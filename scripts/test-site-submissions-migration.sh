@@ -105,6 +105,7 @@ INSERT INTO submission_private.application_identity(application_id,campaign_id,o
 SELECT id,777,decode(repeat('a1',32),'hex'),decode(repeat('b2',32),'hex'),'Owned','Owned handle','owned@example.test','owned@example.test'
 FROM submission_private.applications WHERE campaign_id=777;
 CREATE TABLE public.owned_submission_identity_before AS SELECT * FROM submission_private.application_identity;
+CREATE TABLE public.owned_submission_answers_before AS SELECT * FROM submission_private.applications;
 SQL
 if "${migrator[@]}" --single-transaction -c 'GRANT USAGE ON SCHEMA public TO board_application_owner;' \
  -f migrations/0263_application_ownership.sql >"$cluster/application-owner-rejected.log" 2>&1; then
@@ -144,6 +145,14 @@ grep -q 'Submission authority drifted' "$cluster/contest-rejected.log" || { cat 
 "${migrator[@]}" -c BEGIN -f migrations/0264_contest_voting.sql -c ROLLBACK >"$cluster/contest-rollback.log" 2>&1 || { cat "$cluster/contest-rollback.log" >&2; exit 1; }
 "${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('submission_api.contest_vote(bigint,bigint,bytea,bytea,bytea,bytea)') IS NOT NULL OR to_regclass('submission_private.one_enabled_contest_per_kind') IS NULL THEN RAISE EXCEPTION 'Rollback retained contest voting'; END IF; END \$\$;" >/dev/null
 "${migrator[@]}" --single-transaction -f migrations/0264_contest_voting.sql >"$cluster/contest-accepted.log" 2>&1 || { cat "$cluster/contest-accepted.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT(email) ON submission_private.application_identity TO board_submission_review_owner;' \
+ -f migrations/0265_application_review.sql >"$cluster/application-review-rejected.log" 2>&1; then
+ echo 'Application review accepted identity authority drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/application-review-rejected.log" || { cat "$cluster/application-review-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0265_application_review.sql -c ROLLBACK >"$cluster/application-review-rollback.log" 2>&1 || { cat "$cluster/application-review-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regclass('submission_private.application_review_log') IS NOT NULL OR to_regprocedure('submission_api.application_review_action(bytea,bytea,integer,bigint,integer,text)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained application review'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0265_application_review.sql >"$cluster/application-review-accepted.log" 2>&1 || { cat "$cluster/application-review-accepted.log" >&2; exit 1; }
 cat >"$cluster/check.sql" <<'SQL'
 DO $$ BEGIN
  IF (SELECT boards FROM public.owned_submissions_before) IS DISTINCT FROM
@@ -154,6 +163,8 @@ DO $$ BEGIN
   (SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM content.threads t)
  OR EXISTS((SELECT * FROM submission_private.application_identity EXCEPT SELECT * FROM public.owned_submission_identity_before)
   UNION ALL (SELECT * FROM public.owned_submission_identity_before EXCEPT SELECT * FROM submission_private.application_identity))
+ OR EXISTS((SELECT * FROM submission_private.applications EXCEPT SELECT * FROM public.owned_submission_answers_before)
+  UNION ALL (SELECT * FROM public.owned_submission_answers_before EXCEPT SELECT * FROM submission_private.applications))
  OR EXISTS((SELECT * FROM submission_private.feedback EXCEPT SELECT * FROM public.owned_feedback_before)
   UNION ALL (SELECT * FROM public.owned_feedback_before EXCEPT SELECT * FROM submission_private.feedback))
  OR (SELECT campaigns FROM public.owned_contest_before) IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM submission_private.contest_campaigns c)
