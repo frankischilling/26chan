@@ -141,3 +141,7 @@ body.publicPageChrome.is_catalog #boardNavDesktopFoot a:hover { color: rgb(95, 1
 
 /* Pinned source EXIF cell color. */
 :root { --exif-color: #999; }
+
+:root { --flash-header-height: 20px; --flash-subject: #b294bb; }
+
+:root { --flash-old-color: #c5c8c6; --flash-old-weight: bold; }

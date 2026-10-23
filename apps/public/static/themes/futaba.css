@@ -146,3 +146,7 @@ body.publicPageChrome.is_catalog #boardNavDesktopFoot a:hover { color: rgb(255, 
 /* Source leaves blotter table spacing, cell padding and divider to the UA. */
 :root { --blotter-spacing: 2px; --blotter-cell-padding: 1px; }
 #blotter .aboveMidAd { border: revert; height: revert; }
+
+:root { --flash-header-height: 20px; --flash-margin: 0 auto; --flash-cell-size: 12pt; --flash-header-size: 12pt; }
+
+:root { --flash-old-color: #f00000; --flash-old-font: serif; }

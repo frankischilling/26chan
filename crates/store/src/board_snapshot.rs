@@ -96,6 +96,7 @@ pub struct CatalogReply {
 }
 
 pub struct BoardSnapshot {
+    pub upload_board_old_ids: Vec<i64>,
     pub quote_targets: crate::QuoteTargets,
     pub board: Board,
     pub threads: Vec<ThreadPreview>,
@@ -220,7 +221,11 @@ async fn read_board_snapshot(
     }
     let per_page = i64::from(board.threads_per_page);
     let maximum = i64::from(board.thread_limit);
-    let max_pages = (maximum + per_page - 1) / per_page;
+    let max_pages = if board.upload_board && matches!(replies, PreviewSelection::SourceHtml) {
+        1
+    } else {
+        (maximum + per_page - 1) / per_page
+    };
     let complete = matches!(selection, BoardSelection::All);
     let (offset, limit, later_page) = match selection {
         BoardSelection::Page(page) if (1..=max_pages).contains(&page) => {
@@ -345,6 +350,11 @@ async fn read_board_snapshot(
         include_navigation && board.show_blotter && !complete,
     )
     .await?;
+    let upload_board_old_ids = if include_navigation {
+        upload_board_old_threads(&mut tx, &board).await?
+    } else {
+        Vec::new()
+    };
     tx.commit().await?;
 
     let counts: BTreeMap<_, _> = counts
@@ -372,6 +382,7 @@ async fn read_board_snapshot(
         .collect();
     Ok(PageSnapshot {
         snapshot: BoardSnapshot {
+            upload_board_old_ids,
             quote_targets,
             board,
             threads,
@@ -398,6 +409,21 @@ fn snapshot_byte_limits(
         * (board_domain::post_notice::MAX_NOTICE_BYTES * 2 + 4)
         * slots;
     (body, notices, (body + notices).min(overall))
+}
+
+/// Oldest upload-board IDs are selected across the whole board, not just the
+/// current 30-row display window. Keep this read in the page snapshot.
+pub(crate) async fn upload_board_old_threads(
+    connection: &mut sqlx::PgConnection,
+    board: &Board,
+) -> Result<Vec<i64>, StoreError> {
+    if !board.upload_board {
+        return Ok(Vec::new());
+    }
+    let capacity = i64::from(board.threads_per_page);
+    let threshold = (capacity * 83 + 50) / 100;
+    Ok(sqlx::query_scalar("SELECT id FROM content.visible_threads WHERE board=$1 AND archived_at IS NULL AND (SELECT count(*) FROM content.visible_threads WHERE board=$1 AND archived_at IS NULL)>$3 ORDER BY id LIMIT $2")
+       .bind(&board.slug).bind(capacity-threshold).bind(threshold).fetch_all(connection).await?)
 }
 
 #[cfg(test)]

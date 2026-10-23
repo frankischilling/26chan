@@ -28,6 +28,11 @@ async fn source_upload_board_consumes_swf_and_serializes_filename_claims() {
         assert!(board.check_attachment_allowed(0, false).is_err());
         assert!(board.check_attachment_allowed(1, true).is_err());
         assert!(board.check_attachment_allowed(1, false).is_ok());
+        let nonce: Vec<u8> =
+            sqlx::query_scalar("SELECT decode(replace(gen_random_uuid()::text,'-',''),'hex')")
+                .fetch_one(&admin)
+                .await
+                .unwrap();
         let mut assets = Vec::new();
         let mut jobs = Vec::new();
         let mut posts = Vec::new();
@@ -47,12 +52,18 @@ async fn source_upload_board_consumes_swf_and_serializes_filename_claims() {
             let job = queue.claim().await.unwrap().unwrap();
             assert_eq!(job.id, upload.id, "Use an idle disposable queue");
             let token = job.lease_token.as_deref().unwrap();
-            let sha = number.to_string().repeat(64);
+            let mut digest: [u8; 16] = nonce.clone().try_into().unwrap();
+            digest[0] ^= number as u8;
+            let sha = digest
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+                .repeat(2);
             let input = InputReceipt {
                 component: InputComponent::Upload,
                 sha256: sha.clone(),
                 bytes: 100,
-                md5: [number as u8; 16],
+                md5: digest,
             };
             let metadata = OutputMetadata {
                 sha256: sha,
@@ -206,4 +217,77 @@ async fn claimed_name(admin: &sqlx::PgPool, id: i64) -> Option<String> {
         .unwrap();
     tx.rollback().await.unwrap();
     value
+}
+
+mod support;
+#[tokio::test]
+async fn concurrent_upload_board_filename_claims_have_one_winner() {
+    let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let public = sqlx::PgPool::connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let board = "xs".to_owned();
+    let before=support::borrow_empty_source_board(&owner,&board,serde_json::json!({"title":"Owned filename race","image_limit":100,"text_only":false,"upload_board":true,"captcha_enabled":false,"posting_thread_seconds":0,"posting_image_seconds":0,"user_thread_limit":100,"threads_per_page":30})).await;
+    let first = support::owned_swf(&board, 14, "owned-race.swf").await;
+    let second = support::owned_swf(&board, 15, "owned-race.swf").await;
+    let jobs = vec![first.upload.id.clone(), second.upload.id.clone()];
+    let test_public = public.clone();
+    let test_board = board.clone();
+    let result = tokio::spawn(async move {
+        let post = board_store::NewPost {
+            name: "Owned".into(),
+            subject: "4|Race".into(),
+            comment: "Owned filename contender".into(),
+            deletion_hash: "owned-hash".into(),
+            sage: false,
+        };
+        let submit = |file, peer| {
+            support::create_post_with_context(
+                &test_public,
+                &test_board,
+                0,
+                &post,
+                Some(file),
+                board_store::PostingContext {
+                    request_start: chrono::Utc::now(),
+                    peer: Some(std::net::Ipv4Addr::new(192, 0, 2, peer).into()),
+                    op_password_proof: None,
+                },
+            )
+        };
+        let (left, right) = tokio::join!(submit(&first, 170), submit(&second, 171));
+        assert_eq!(
+            usize::from(left.is_ok()) + usize::from(right.is_ok()),
+            1,
+            "{left:?} {right:?}"
+        );
+        let failure = left.err().or_else(|| right.err()).unwrap();
+        assert!(
+            matches!(
+                failure,
+                board_store::StoreError::Invalid("Filename already exists.")
+            ),
+            "{failure:?}"
+        );
+    })
+    .await;
+    for sql in [
+        "DELETE FROM content.post_media WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",
+        "DELETE FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",
+        "DELETE FROM content.posts WHERE board=$1",
+        "DELETE FROM content.threads WHERE board=$1",
+        "DELETE FROM post_secrets.posting_thread_actions WHERE board=$1",
+    ] {
+        sqlx::query(sql).bind(&board).execute(&owner).await.unwrap();
+    }
+    for sql in [
+        "DELETE FROM media.assets WHERE job_id=ANY($1)",
+        "DELETE FROM media.jobs WHERE id=ANY($1)",
+    ] {
+        sqlx::query(sql).bind(&jobs).execute(&owner).await.unwrap();
+    }
+    support::restore_empty_source_board(&owner, &board, &before).await;
+    result.unwrap();
 }

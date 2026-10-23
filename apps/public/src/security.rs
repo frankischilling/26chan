@@ -426,7 +426,9 @@ fn headers(
     };
     let script = if flash {
         format!(
-            "{script} {}{} {}{}",
+            "{script} {}{} {}{} {}{}",
+            state.origin,
+            crate::ui_assets::NATIVE_UPLOAD_POST_PATH,
             state.origin,
             crate::ui_assets::NATIVE_SWF_PATH,
             state.origin,

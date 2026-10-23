@@ -203,7 +203,7 @@ async fn historical_upload_subjects_keep_tags_on_ops_only() {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,upload_board,catalog_enabled) VALUES($1,'Owned upload subjects','',500,100,99,100,10,true,false)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,upload_board,catalog_enabled) VALUES($1,'Owned upload subjects','',500,100,99,100,10,false,false)")
         .bind(&slug).execute(&owner).await.unwrap();
     let owned = owner.clone();
     let runtime = public.clone();
@@ -211,11 +211,19 @@ async fn historical_upload_subjects_keep_tags_on_ops_only() {
     let result=tokio::spawn(async move {
         let source:Value=serde_json::from_str(include_str!("../../../fixtures/json-post-state-reference.json")).unwrap();
         let (html,api)=board_public::routers_with_media(runtime,"http://127.0.0.1:3000".into(),false,None);
+        let mut historical=Vec::new();
+        // Seed retained subjects before the operator changes this owned board
+        // to upload mode. New upload-board OPs require an approved SWF.
         for case in source["upload_cases"].as_array().unwrap() {
             let subject=case["media"]["sub"].as_str().unwrap();
             let id:i64=sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id").bind(&board).fetch_one(&owned).await.unwrap();
             sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous',$3,'plain')").bind(id).bind(&board).bind(subject).execute(&owned).await.unwrap();
             sqlx::query("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Anonymous',$3,'reply')").bind(&board).bind(id).bind(subject).execute(&owned).await.unwrap();
+            historical.push((id,case.clone()));
+        }
+        sqlx::query("UPDATE content.boards SET upload_board=true WHERE slug=$1").bind(&board).execute(&owned).await.unwrap();
+        for (id,case) in historical {
+            let subject=case["media"]["sub"].as_str().unwrap();
             for app in [&html,&api] {
                 let (status,actual)=get(app,&format!("/{board}/thread/{id}.json")).await;
                 assert_eq!(status,StatusCode::OK);

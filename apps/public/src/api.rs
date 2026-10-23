@@ -460,6 +460,7 @@ pub async fn thread_selection(
     tail: bool,
 ) -> Result<Response, AppError> {
     let board_store::ThreadSnapshot {
+        upload_board_old_ids: _,
         board,
         thread,
         posts,

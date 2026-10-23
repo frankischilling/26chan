@@ -199,6 +199,7 @@ mod tests {
 
     fn page(boards: Vec<Board>, current: Board) -> super::super::BoardPage {
         super::super::BoardPage {
+            flash_old_ids: Vec::new(),
             captcha: Default::default(),
             announcement: None,
             public_origin: String::new(),

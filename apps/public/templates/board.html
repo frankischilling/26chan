@@ -69,7 +69,7 @@
 {% if catalog %}{% call catalog_cards::card(view, board, media_origin, catalog_options, self.catalog_spoiler_thumbnail()) %}{% endcall %}{% else %}
 <section class="thread" id="t{{ view.thread.id }}" data-sticky="{{ view.thread.sticky }}" data-closed="{{ view.thread.closed }}" data-archived="{{ view.thread.archived_at.is_some() }}" data-tail-size="{{ view.tail_size }}" aria-label="Thread {{ view.thread.id }}">
 {% for item in view.posts %}
-{% if board.upload_board %}{% include "flash_post_content.html" %}{% else %}{% include "post_content.html" %}{% endif %}
+{% if board.upload_board %}{% include "flash_post_content.html" %}{% if item.post.id == view.thread.id && !view.thread.sticky && self.flash_old(view.thread.id) %}<span class="oldpost">Marked for deletion (old).</span>{% endif %}{% else %}{% include "post_content.html" %}{% endif %}
 {% endfor %}
 {% if view.omitted > 0 %}<p class="omitted">{{ view.omitted }} posts omitted. <a href="/{{ board.slug }}/thread/{{ view.thread.id }}">View thread</a></p>{% endif %}
 </section>
@@ -93,12 +93,12 @@
 {% call thread_navigation::desktop(board.slug, true) %}{% endcall %}
 {% call thread_navigation::mobile(board.slug, parent, board.worksafe, true) %}{% endcall %}
 </div>
-{% else %}
+{% else if !board.upload_board %}
 <nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}" rel="prev">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}" rel="next">Next</a>{% endif %}</nav>
 {% endif %}
 {% if catalog %}<template id="catalogFiltered">{% if board.text_only %}<table><tbody>{% for view in catalog_hidden %}{% call catalog_text_rows::row(view, board) %}{% endcall %}{% endfor %}</tbody></table>{% else %}{% for view in catalog_hidden %}{% call catalog_cards::card(view, board, media_origin, catalog_options, self.catalog_spoiler_thumbnail()) %}{% endcall %}{% endfor %}{% endif %}</template>{% endif %}
 <div id="watcher-context" hidden{% if board.math_tags && !catalog %} data-math-tags="1"{% endif %} data-public-origin="{{ public_origin }}" data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}" data-worksafe="{{ board.worksafe }}" data-media-origin="{{ media_origin }}" data-upload-board="{{ board.upload_board }}"></div>
 <script type="module" src="/static/thread-watcher.v1.js"></script>
-{% if board.upload_board && !catalog && !media_origin.is_empty() %}<script type="module" src="/static/native-swf.v1.js"></script>{% endif %}
+{% if board.upload_board && !catalog && !media_origin.is_empty() %}<script type="module" src="/static/native-swf.v1.js"></script>{% if parent == 0 %}<script type="module" src="/static/native-upload-post.v1.js"></script>{% endif %}{% endif %}
 {% if board.oekaki_replays && !catalog && !media_origin.is_empty() %}<script type="module" src="/static/native-replay/player.v1.js"></script>{% endif %}
 {% endblock %}

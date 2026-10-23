@@ -48,6 +48,11 @@ async fn source_upload_board_html_json_and_player_policy_follow_posted_swf() {
             false,
             Some(media),
         );
+        let nonce: Vec<u8> =
+            sqlx::query_scalar("SELECT decode(replace(gen_random_uuid()::text,'-',''),'hex')")
+                .fetch_one(&admin)
+                .await
+                .unwrap();
         let mut assets = Vec::new();
         let mut jobs = Vec::new();
         let mut posts = Vec::new();
@@ -67,12 +72,18 @@ async fn source_upload_board_html_json_and_player_policy_follow_posted_swf() {
             let job = queue.claim().await.unwrap().unwrap();
             assert_eq!(job.id, upload.id, "Use an idle disposable queue");
             let token = job.lease_token.as_deref().unwrap();
-            let sha = number.to_string().repeat(64);
+            let mut digest: [u8; 16] = nonce.clone().try_into().unwrap();
+            digest[0] ^= number as u8;
+            let sha = digest
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+                .repeat(2);
             let input = InputReceipt {
                 component: InputComponent::Upload,
                 sha256: sha.clone(),
                 bytes: 100,
-                md5: [number as u8; 16],
+                md5: digest,
             };
             let metadata = OutputMetadata {
                 sha256: sha,
@@ -133,6 +144,10 @@ async fn source_upload_board_html_json_and_player_policy_follow_posted_swf() {
             if number != 2 {
                 let id = result.unwrap();
                 posts.push(id);
+                #[cfg(feature = "browser-tests")]
+                if number == 1 {
+                    browser_controls(&public, id).await;
+                }
                 let index = web
                     .clone()
                     .oneshot(Request::get("/f/").body(Body::empty()).unwrap())
@@ -315,4 +330,55 @@ async fn claimed_name(admin: &sqlx::PgPool, id: i64) -> Option<String> {
         .unwrap();
     tx.rollback().await.unwrap();
     value
+}
+
+#[cfg(feature = "browser-tests")]
+async fn browser_controls(public: &sqlx::PgPool, id: i64) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let media = board_config::PublicMediaSettings::development(
+        "127.0.0.1:9",
+        &"a".repeat(64),
+        "http://localhost:3002",
+    )
+    .unwrap();
+    let (web, _) =
+        posting::routers_with_media(public.clone(), "f", origin.clone(), false, Some(media));
+    let server = tokio::spawn(async move {
+        axum::serve(listener, web).await.unwrap();
+    });
+    let mut command = tokio::process::Command::new("node");
+    command.env_clear().kill_on_drop(true);
+    for key in [
+        "PATH",
+        "SystemRoot",
+        "WINDIR",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+        "HOME",
+        "LOCALAPPDATA",
+        "APPDATA",
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "LANG",
+    ] {
+        if let Some(value) = std::env::var_os(key) {
+            command.env(key, value);
+        }
+    }
+    command
+        .arg("tests/browser/swf-board-controls.mjs")
+        .arg(origin)
+        .arg(id.to_string())
+        .current_dir(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."));
+    let result = tokio::time::timeout(std::time::Duration::from_secs(90), command.output()).await;
+    server.abort();
+    let _ = server.await;
+    let output = result.expect("Upload-board browser deadline").unwrap();
+    assert!(
+        output.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }

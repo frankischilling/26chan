@@ -151,16 +151,7 @@ impl PostView {
 }
 impl BoardPage {
     pub fn flash_old(&self, id: &i64) -> bool {
-        let capacity = self.board.threads_per_page as usize;
-        let threshold = (capacity as f64 * 0.83).round() as usize;
-        if self.threads.len() <= threshold {
-            return false;
-        }
-        let mut ids: Vec<_> = self.threads.iter().map(|view| view.thread.id).collect();
-        ids.sort_unstable();
-        ids.into_iter()
-            .take(capacity.saturating_sub(threshold))
-            .any(|candidate| candidate == *id)
+        self.flash_old_ids.contains(id)
     }
 }
 

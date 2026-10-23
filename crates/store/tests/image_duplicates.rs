@@ -12,22 +12,40 @@ async fn active_image_scopes_repost_limits_and_concurrent_attempts() {
     let public = connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
         .await
         .unwrap();
-    let board: String =
-        sqlx::query_scalar("SELECT 'du'||substr(replace(gen_random_uuid()::text,'-',''),1,8)")
-            .fetch_one(&owner)
-            .await
-            .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,text_only,captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,image_limit,archive_retention_seconds) VALUES($1,'Owned duplicates','Synthetic',2000,100,100,100,10,true,false,0,0,0,100,100,3600)")
-        .bind(&board).execute(&owner).await.unwrap();
-    let alias_board = format!("h{}", &board[1..]);
+    let board = "qb".to_owned();
+    let alias_board = "qa".to_owned();
+    let before=support::borrow_empty_source_board(&owner,&board,serde_json::json!({"title":"Owned duplicates","text_only":true,"captcha_enabled":false,"posting_reply_seconds":0,"posting_image_seconds":0,"posting_thread_seconds":0,"user_thread_limit":100,"image_limit":100,"archive_retention_seconds":3600})).await;
+    let alias_before=support::borrow_empty_source_board(&owner,&alias_board,serde_json::json!({"title":"Owned shared history","text_only":false,"captcha_enabled":false,"posting_reply_seconds":0,"posting_image_seconds":0,"posting_thread_seconds":0,"user_thread_limit":100,"image_limit":100,"upload_board":true})).await;
     let mut uploads = Vec::new();
     for digest in [7, 7, 7, 7, 7, 8, 8] {
         uploads.push(Arc::new(owned_upload(Some(digest)).await));
     }
     uploads.push(Arc::new(owned_upload(None).await));
-    for digest in [9, 9, 10, 11, 12, 12] {
-        uploads.push(Arc::new(owned_upload(Some(digest)).await));
+    // Reserve the later history fixtures with real upload-board provenance.
+    sqlx::query("UPDATE content.boards SET upload_board=true,text_only=false WHERE slug=$1")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
+
+    for (offset, digest) in [9, 9, 10, 11, 12, 12].into_iter().enumerate() {
+        let file = if digest == 11 {
+            owned_upload(Some(digest)).await
+        } else {
+            support::owned_swf(
+                if offset == 5 { &alias_board } else { &board },
+                digest,
+                &format!("owned-history-{offset}.swf"),
+            )
+            .await
+        };
+        uploads.push(Arc::new(file));
     }
+    sqlx::query("UPDATE content.boards SET upload_board=false,text_only=true WHERE slug=$1")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
     let jobs: Vec<String> = uploads.iter().map(|file| file.upload.id.clone()).collect();
     let work = {
         let public = public.clone();
@@ -226,8 +244,12 @@ async fn active_image_scopes_repost_limits_and_concurrent_attempts() {
                 .execute(&owner)
                 .await
                 .unwrap();
-            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,text_only,captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,image_limit,upload_board,image_history_scope) VALUES($1,'Owned shared history','Synthetic',2000,100,100,100,10,false,false,0,0,0,100,100,true,$2)")
-                .bind(&alias_board).bind(&board).execute(&owner).await.unwrap();
+            sqlx::query("UPDATE content.boards SET image_history_scope=$2 WHERE slug=$1")
+                .bind(&alias_board)
+                .bind(&board)
+                .execute(&owner)
+                .await
+                .unwrap();
             let independent = NewPost {
                 name: "Anonymous".into(),
                 subject: "Owned shared history".into(),
@@ -303,7 +325,6 @@ async fn active_image_scopes_repost_limits_and_concurrent_attempts() {
         "DELETE FROM content.posts WHERE board=$1",
         "DELETE FROM content.threads WHERE board=$1",
         "DELETE FROM post_secrets.posting_thread_actions WHERE board=$1",
-        "DELETE FROM content.boards WHERE slug=$1",
     ] {
         for owned_board in [&board, &alias_board] {
             sqlx::query(statement)
@@ -327,6 +348,8 @@ async fn active_image_scopes_repost_limits_and_concurrent_attempts() {
         }
     }
     tx.commit().await.unwrap();
+    support::restore_empty_source_board(&owner, &board, &before).await;
+    support::restore_empty_source_board(&owner, &alias_board, &alias_before).await;
     public.close().await;
     owner.close().await;
     result.unwrap();

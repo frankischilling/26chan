@@ -99,8 +99,34 @@ The real-browser player test uses owned FWS/CWS movies and checks visible
 playback, opaque-origin storage denial, network blocking and original-byte
 downloads. The test must pass in CI; local unit checks do not establish playback.
 
-The ordinary posting page still has a separate upload step. Source single-submit
-posting, Quick Reply details, all-theme visual comparison and full browser
-qualification remain open. Ruffle is a replacement runtime, not evidence that
+The JavaScript-enabled `/f/` form submits the selected file and category through
+the isolated upload service, waits for approval, then posts once. An expired
+CAPTCHA keeps the approved file while requesting fresh proof. A lost posting
+response blocks a duplicate attempt in that page session. Without JavaScript,
+the separate upload step remains; source no-script single-submit behavior is
+still open under #197. Quick Reply replies remain attachment-free. All-theme
+visual comparison and final-head browser qualification remain open. Ruffle is a replacement runtime, not evidence that
 every historical Flash movie behaves identically. External networking and
 persistent Flash storage are intentionally unavailable.
+
+## Enable the local player
+
+Prepare the pinned runtime once, then give the separate media reader its
+absolute directory:
+
+```bash
+python3 scripts/media/prepare-swf-player.py .local/swf-player
+export MEDIA_PLAYER_DIR="$PWD/.local/swf-player"
+```
+
+Set this variable in the reader's environment, alongside `MEDIA_APPROVED_DIR`,
+`MEDIA_ORIGIN`, `MEDIA_BIND_ADDR` and its restricted reader database URL.
+`PUBLIC_ORIGIN` must match the public site's origin; it controls which page may
+frame the player. Follow [the reader setup](media-http.md) for separate roles
+and storage. Do not pass writer or migration credentials to the reader.
+
+An omitted player directory disables player routes without disabling original
+SWF downloads. A relative directory or a runtime file that fails the compiled
+hash manifest makes startup fail. The browser UI only receives the media
+origin, never the directory, database credentials or upload capabilities from
+other posts.

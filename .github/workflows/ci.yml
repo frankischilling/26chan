@@ -58,7 +58,7 @@ jobs:
           python3 scripts/extract-upload-board-reference.py --check --php php
           python3 scripts/extract-upload-row-reference.py --check --php php
           node scripts/extract-swf-embed-reference.mjs --check
-          node --test tests/browser/native-swf-core.test.mjs tests/browser/swf-player-bootstrap.test.mjs
+          node --test tests/browser/native-swf-core.test.mjs tests/browser/native-swf-controls.test.mjs tests/browser/swf-player-bootstrap.test.mjs tests/browser/native-upload-post-session.test.mjs tests/browser/native-upload-post-transport.test.mjs
       - name: Qualify isolated source page-title function
         run: python3 scripts/extract-page-title-reference.py --fixture-check fixtures/page-title-reference.json --php php
       - name: Qualify isolated source quote callbacks

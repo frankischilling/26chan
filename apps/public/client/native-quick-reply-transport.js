@@ -128,20 +128,21 @@ async function uploadRequest({ url, body, signal, fetcher, timeout, failure, par
 export async function uploadQuickReplyFile({
   board, thread, file, badged = false, signal, origin = location.origin, fetcher = fetch,
 }) {
-  const context = uploadContext(board, thread, origin);
+  uploadContext(board, thread, origin);
   if (!(file instanceof Blob) || typeof file.name !== 'string' || !file.name || file.name.length > 255
     || [...file.name].some(char => /[\u0000-\u001f\u007f]/.test(char))) throw new Error('Choose one file.');
   if (file.size < 1) throw new Error('Choose one non-empty file.');
-  if (file.size > QUICK_REPLY_UPLOAD_LIMITS.bytes) throw new Error('The file exceeds the 8 MiB upload limit.');
+  const maximum = board === 'f' && thread === '0' ? 10_485_760 : QUICK_REPLY_UPLOAD_LIMITS.bytes;
+  if (file.size > maximum) throw new Error(`File exceeds ${maximum / 1_048_576} MiB upload limit.`);
   const form = new FormData();
-  form.append('resto', context.thread);
+  form.append('resto', thread);
   if (badged) form.append('vip_image', '1');
   form.append('upfile', file, file.name);
   return uploadRequest({
-    url: `${context.origin}/${context.board}/upload`, body: form, signal, fetcher,
+    url: `${origin}/${board}/upload`, body: form, signal, fetcher,
     timeout: QUICK_REPLY_UPLOAD_LIMITS.uploadMs,
     failure: 'Upload failed. Choose the file again.',
-    parse: text => parseQuickReplyUpload(text, context.thread),
+    parse: text => parseQuickReplyUpload(text, thread),
   });
 }
 
@@ -259,6 +260,10 @@ export function schedulePostingRedirect(result, board, { navigate = path => loca
 
 export function sendQuickReply(options) { return sendPost(options, false); }
 export function sendDrawingPost(options) { return sendPost(options, true); }
+export function sendUploadBoardPost(options) {
+  if (options.board !== 'f' || options.thread !== '0' || !options.fields.upload_id || !options.fields.upload_capability) throw new Error('Invalid upload-board target.');
+  return sendPost(options, true);
+}
 
 async function sendPost({ board, thread, fields, signal, origin = location.origin, fetcher = fetch }, allowNew) {
   if (!/^[a-z0-9]{1,10}$/.test(board) || !(allowNew ? uploadTarget(thread) : postId(thread))) throw new Error('Invalid posting target.');
@@ -271,7 +276,7 @@ async function sendPost({ board, thread, fields, signal, origin = location.origi
     || !fields.upload_id || !fields.upload_capability)) throw new Error('Invalid drawing annotation.');
   const form = new FormData();
   let bytes = 0;
-  for (const name of ['name', 'email', ...(allowNew ? ['sub'] : []), 'com', 'pwd', 'upload_id', 'upload_capability', 'spoiler', 'flag', 'captcha-csrf', 't-challenge', 't-response', 'captcha-credit',
+  for (const name of ['name', 'email', ...(allowNew ? ['sub', 'filetag'] : []), 'com', 'pwd', 'upload_id', 'upload_capability', 'spoiler', 'flag', 'captcha-csrf', 't-challenge', 't-response', 'captcha-credit',
     ...(annotated ? ['oe_time', 'oe_src'] : [])]) {
     const value = fields[name] ?? '';
     if (typeof value !== 'string') throw new Error('Invalid posting form.');

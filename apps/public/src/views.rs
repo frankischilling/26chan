@@ -54,6 +54,7 @@ impl Home {
 #[derive(Template)]
 #[template(path = "board.html")]
 pub struct BoardPage {
+    pub flash_old_ids: Vec<i64>,
     pub captcha: CaptchaView,
     pub announcement: Option<board_store::site_content::SitePage>,
     /// Fixed configured public origin; never derived from a request Host header.

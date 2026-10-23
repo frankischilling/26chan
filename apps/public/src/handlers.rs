@@ -798,6 +798,7 @@ async fn board_page(
     let response = crate::output::html(
         state,
         &BoardPage {
+            flash_old_ids: snapshot.upload_board_old_ids,
             captcha,
             announcement: board_store::site_content::site_page(&state.pool, "announcement").await?,
             public_origin: state.origin.clone(),
@@ -864,6 +865,7 @@ pub async fn thread(
         blotter,
     } = board_store::thread_page_snapshot(&state.pool, &board, id).await?;
     let board_store::ThreadSnapshot {
+        upload_board_old_ids,
         board,
         thread,
         posts,
@@ -929,6 +931,7 @@ pub async fn thread(
     let response = crate::output::html(
         &state,
         &BoardPage {
+            flash_old_ids: upload_board_old_ids,
             captcha,
             announcement: board_store::site_content::site_page(&state.pool, "announcement").await?,
             public_origin: state.origin.clone(),

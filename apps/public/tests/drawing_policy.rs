@@ -27,6 +27,7 @@ async fn directory(api: &Router) -> Value {
 
 fn page(board: Board, media_enabled: bool) -> BoardPage {
     BoardPage {
+        flash_old_ids: Vec::new(),
         captcha: Default::default(),
         announcement: None,
         public_origin: String::new(),
