@@ -1,9 +1,10 @@
 # Feedback, applications, and contests
 
 This work covers the remaining submission workflows in issue #225. Poll pages
-and voting already have separate implementations. Feedback submission has a protected native form. Feedback review, janitor
-applications, and banner contests are still being built; their domain models
-and source-template checks do not make those routes functional.
+and voting already have separate implementations. Feedback submission and protected staff review have native forms. Janitor
+applications and banner contests are still being built; their domain models
+and source-template checks do not make those routes functional. Feedback
+search shortcuts, original client assets, and visual qualification remain open.
 
 ## What the supplied source establishes
 
@@ -66,7 +67,9 @@ cannot read submission rows; the configuration function owner currently has
 access to profiles, its authority catalog, and the record identifiers/state
 needed to check whether a submission action is open. The feedback writer can
 insert feedback and read its bounded quota metadata, but cannot read feedback
-message bodies or application contact fields. The catalog fingerprints
+message bodies or application contact fields. A separate review owner can read
+feedback after staff authorization; it cannot read application identity. The
+catalog fingerprints
 permissions and definitions, using names rather than transient database object
 IDs so restoration can be checked without accepting fresh authority.
 
@@ -75,7 +78,7 @@ On an existing installation, bootstrap the NOLOGIN owner with
 all campaigns closed and adds no historical submissions.
 
 Remaining implementation includes application and contest writes, ownership
-checks, staff actions, upload processing, their native forms, and browser
+checks, application/contest staff actions, upload processing, their native forms, and browser
 qualification. No application automatically grants staff access. No contest
 entry automatically earns a Pass. Missing original styles and artwork remain
 separate visual-parity gaps.
@@ -203,3 +206,50 @@ An enabled profile must be explicitly closed before another is opened. Closing
 retains submissions and categories. New profiles have new IDs, so forms for an
 old profile cannot submit into its replacement. Concurrent opens admit exactly
 one profile. At most 10,000 profiles can be retained through this tool.
+
+
+## Protected feedback review
+
+The staff listener serves `/feedback` separately from the public form. It has
+the source pending, answered, dismissed, and draft filters, category navigation,
+ID-cursor pagination, and a private detail page with the address, user agent,
+and language. Each page contains at most 25 entries. Profile selection defaults
+to the enabled profile, or the newest retained profile when feedback is closed.
+Use `?profile=ID` to review an older profile. Category counts show pending
+submissions. These paging and profile-selection rules are native choices where
+the supplied controllers are absent.
+
+Bootstrap `deploy/site-submission-review-role.sql` before migration 0262 on an
+existing installation. The review owner has no login and no application-identity
+access. The authentication service can call its scoped APIs, but cannot read
+the tables directly. Public and content-service logins cannot call review APIs.
+The catalog also fingerprints the delegated staff-session function.
+
+Administrators can review feedback. Other staff need the explicit
+`feedback_review` global flag; pending dismissal additionally needs
+`feedback_dismiss`. Only administrators can approve or dismiss drafts. These
+flags are native permission controls, not recovered source role assignments.
+Actions require matching CSRF and recent authentication within ten minutes,
+checked again after row-lock waits. A completed action changes only state and
+update time and appends one private audit record. Repeated or competing actions
+cannot add another transition. Feedback and reply text stay unchanged. The
+source's commented-out reply form remains absent.
+
+The APIs reject oversized inventories before constructing pages: at most
+10,000 profiles and 100,000 feedback rows per profile. Upgrade checks preserve
+existing feedback, reject pre-existing owner grants and authority drift, and
+restore the catalog without resealing it. Tests cover same-account and
+cross-account competing requests, insufficient permissions, wrong CSRF, stale
+authentication, expiry during a lock wait, and extra identity grants. HTTP
+tests cover escaped text, private responses, source action visibility, origin
+checks, redirects, and staff readiness. Rendered controls match all 64 captured
+review-template states. Required CI fixtures exercise public and staff forms
+on desktop/mobile with scripts on and off; those browser runs have not been
+executed in this local environment.
+
+The review stylesheet is a native fallback. The original review CSS/client and
+status icons have not been recovered. IP-search and ban-search shortcuts still
+depend on the broader staff-search work; the current detail page does not link
+to unfinished or external search services. Pass credentials are never stored
+in feedback, and credential-based search links are intentionally omitted.
+These pages do not establish complete source visual parity.

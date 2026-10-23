@@ -77,6 +77,26 @@ grep -q 'Submission authority drifted' "$cluster/feedback-rejected.log" || { cat
 "${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('submission_api.submit_feedback(bigint,integer,text,text,inet,text,text,bytea,bytea,bytea,bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained feedback writes'; END IF; END \$\$;" >/dev/null
 "${migrator[@]}" --single-transaction -f migrations/0261_feedback_submission.sql >"$cluster/feedback-accepted.log" 2>&1 || { cat "$cluster/feedback-accepted.log" >&2; exit 1; }
 "${migrator[@]}" <<'SQL'
+INSERT INTO submission_private.feedback_profiles(id,subject_limit,message_limit,capacity,received) VALUES(778,150,2000,100,1);
+INSERT INTO submission_private.feedback_categories VALUES(778,1,0,'Owned retained','Owned');
+INSERT INTO submission_private.feedback(profile_id,category,subject,message,actor_hash,peer,user_agent,language,created_at,updated_at)
+VALUES(778,1,'Retained subject','Retained private body',decode(repeat('a1',32),'hex'),'192.0.2.225','Owned agent','en',100,100);
+CREATE TABLE public.owned_feedback_before AS SELECT * FROM submission_private.feedback;
+SQL
+if "${migrator[@]}" --single-transaction -c 'GRANT USAGE ON SCHEMA public TO board_submission_review_owner;' \
+ -f migrations/0262_feedback_review.sql >"$cluster/review-owner-rejected.log" 2>&1; then
+ echo 'Feedback review accepted pre-existing owner authority' >&2; exit 1
+fi
+grep -q 'Submission review owner has unexpected existing authority' "$cluster/review-owner-rejected.log" || { cat "$cluster/review-owner-rejected.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT ON submission_private.feedback TO board_public;' \
+ -f migrations/0262_feedback_review.sql >"$cluster/review-rejected.log" 2>&1; then
+ echo 'Feedback review accepted private submission drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/review-rejected.log" || { cat "$cluster/review-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0262_feedback_review.sql -c ROLLBACK >"$cluster/review-rollback.log" 2>&1 || { cat "$cluster/review-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regclass('submission_private.feedback_review_log') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained feedback review log'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0262_feedback_review.sql >"$cluster/review-accepted.log" 2>&1 || { cat "$cluster/review-accepted.log" >&2; exit 1; }
+"${migrator[@]}" <<'SQL'
 INSERT INTO submission_private.application_campaigns(id,starts_at,ends_at,boards,questions,field_limit,answer_limit,capacity)
 VALUES(777,100,200,ARRAY['g'],ARRAY['Owned one','Owned two','Owned three','Owned four'],150,2000,100);
 INSERT INTO submission_private.applications(campaign_id,age,timezone,hours,times,board1,answers,created_at,updated_at)
@@ -96,6 +116,8 @@ DO $$ BEGIN
   (SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM content.threads t)
  OR EXISTS((SELECT * FROM submission_private.application_identity EXCEPT SELECT * FROM public.owned_submission_identity_before)
   UNION ALL (SELECT * FROM public.owned_submission_identity_before EXCEPT SELECT * FROM submission_private.application_identity))
+ OR EXISTS((SELECT * FROM submission_private.feedback EXCEPT SELECT * FROM public.owned_feedback_before)
+  UNION ALL (SELECT * FROM public.owned_feedback_before EXCEPT SELECT * FROM submission_private.feedback))
  THEN RAISE EXCEPTION 'Submission migration or restore changed retained data'; END IF;
 END $$;
 SQL

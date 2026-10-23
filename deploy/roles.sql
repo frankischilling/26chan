@@ -94,3 +94,6 @@ GRANT board_event_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
 -- Bootstrap before 0258. Submission identities remain outside public/staff reads.
 CREATE ROLE board_submission_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT board_submission_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+-- Bootstrap before 0262. Feedback review has no public write authority.
+CREATE ROLE board_submission_review_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_submission_review_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
