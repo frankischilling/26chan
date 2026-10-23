@@ -258,7 +258,7 @@ These pages do not establish complete source visual parity.
 
 Migration 0263 adds application creation and owner authentication/editing in the
 store. Bootstrap `deploy/application-owner-role.sql` first on an existing
-installation. These APIs are not yet wired to a public application page.
+installation. The public listener serves `/janitorapp` with these APIs.
 
 The source form asks for contact email on initial submission. Its later email
 prompt asks the holder of the private edit URL to repeat that address. It does
@@ -298,8 +298,7 @@ proof separation/replay, full-campaign editing, stale and competing revisions,
 accepted/signed records, closure during a proof-lock wait, duplicate-email
 rollback, and competing requests for the last capacity slot. Migration checks reject existing
 owner authority and identity-grant drift, roll back cleanly, preserve prior
-records, and verify a restored catalog without resealing it. Public application
-forms, blind staff review, selection, and visual qualification remain unfinished.
+records, and verify a restored catalog without resealing it. Blind staff review, selection, and full visual qualification remain unfinished.
 
 ### Application campaign commands
 
@@ -333,3 +332,43 @@ enabled campaign must be explicitly closed before another can open, including
 when its date window has ended. At most 10,000 campaigns may be retained through
 this tool. Concurrent opens admit one campaign. The exclusive campaign-table
 lock also excludes row-lock acquisition, avoiding a counter-update lock cycle.
+
+### Public application forms
+
+`/janitorapp` follows the source closed, desktop-required, matching-email,
+new-application, and edit states. The private capability appears in the success
+page's edit URL and in the edit form, never in a database row as plaintext. The
+success response is HTML after POST, as in the supplied template; repeating the
+POST cannot create another record. The native route uses the source fixture's
+`WEB_ROOT` because the original controller configuration is absent.
+
+The form keeps the source field names, required fields, board selectors, four
+questions, UTC-12 through UTC+13 options, and literal escaped values. Its
+extracted timezone script uses the source's integer-hour truncation and leaves
+an existing application's timezone alone. Forms work without that script.
+When CAPTCHA issuance is rate-limited after authentication, the editable fields
+remain visible. The native refresh button posts those fields back without
+reading private answers or changing the record. A later submission still needs
+the correct email, capability, revision, CSRF, and fresh editing proof.
+
+The desktop check is a native user-agent classification for the visible gate,
+not a security boundary. The original classification function and rejection
+text were not supplied. Responses use private/no-store caching and strict-origin
+referrers so private URL queries do not leak through navigation. The source
+success page's no-referrer metadata remains. CSRF and same-origin checks,
+a 768 KiB encoded-body limit, strict form decoding, and the accepted-record edit
+restriction are native security differences. Script policy permits only the
+fixed application script on the new/edit pages; uploads gain no script authority.
+
+The form's inline CSS is preserved in a local stylesheet. Its referenced
+YUI/global/generic sheets, logo, and timezone display-name map are absent. The
+page shell uses a labeled native fallback and UTC offsets without invented city
+names. These pages do not establish complete visual parity.
+
+HTTP tests cover closed/mobile gates, escaped questions and applicant fields,
+private-link authentication, CSRF/origin rejection, CAPTCHA cooldown recovery,
+email changes, and replay. Control names/order and gates match all 32 captured
+source-template states. Browser fixtures exercise desktop create/authenticate/
+edit with scripts enabled and disabled, and both mobile rejection modes. They
+run only in the explicit `RUN_APPLICATION_BROWSER=1` CI fixture; they have not
+been executed locally.

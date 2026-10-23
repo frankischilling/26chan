@@ -1,4 +1,5 @@
 //! Source site forms use their own purpose-bound verification receipts.
+pub(crate) mod applications;
 mod forms;
 use crate::{
     AppState, anonymous_session::Session, handlers::AppError, security::RequestPeer,
@@ -23,7 +24,12 @@ use board_store::site_submissions::{
 use board_verification_client::protocol;
 
 pub(crate) fn routes() -> Router<AppState> {
-    Router::new().route("/feedback", get(page).post(page))
+    Router::new()
+        .route("/feedback", get(page).post(page))
+        .route(
+            "/janitorapp",
+            get(applications::page).post(applications::page),
+        )
 }
 #[derive(Template)]
 #[template(path = "site-feedback.html")]

@@ -572,4 +572,47 @@ pub(super) async fn exercise(
     .await
     .unwrap();
     assert_eq!(received, 2);
+    // UTF-16 field limits still admit three-byte UTF-8 characters at their maxima.
+    sqlx::query("UPDATE submission_private.application_campaigns SET capacity=100,field_limit=512,answer_limit=16000 WHERE id=$1").bind(campaign).execute(owner).await.unwrap();
+    let maximum_profile = board_store::site_submissions::application_profile(public)
+        .await
+        .unwrap()
+        .unwrap();
+    let text = "€".repeat(512);
+    let answer = "€".repeat(16000);
+    let maximum = domain::Submission::prepare(
+        &maximum_profile.form,
+        domain::Input {
+            firstname: &text,
+            handle: &text,
+            email: "maximum@example.org",
+            age: 25,
+            timezone: 0,
+            hours: 1,
+            times: &text,
+            board1: "g",
+            board2: "",
+            answers: [&answer, &answer, &answer, &answer],
+        },
+    )
+    .unwrap();
+    let maximum_cap = Ownership::generate(Kind::Application).unwrap();
+    let receipt = f.receipt().await;
+    let saved = applications::submit(
+        public,
+        campaign,
+        &maximum_cap,
+        &maximum,
+        &f.proof(&receipt, &peer, &hash),
+    )
+    .await
+    .unwrap();
+    let answer_bytes: i32 = sqlx::query_scalar(
+        "SELECT octet_length(answers[1]) FROM submission_private.applications WHERE id=$1",
+    )
+    .bind(saved)
+    .fetch_one(owner)
+    .await
+    .unwrap();
+    assert_eq!(answer_bytes, 48000);
 }

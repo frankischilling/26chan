@@ -87,7 +87,7 @@ SET LOCAL ROLE board_application_owner;
 CREATE FUNCTION submission_api.application_fields_valid(p submission_private.application_campaigns,f jsonb)
 RETURNS boolean LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
- IF f IS NULL OR octet_length(f::text)>131072 OR jsonb_typeof(f)<>'object' THEN RETURN false; END IF;
+ IF f IS NULL OR octet_length(f::text)>262144 OR jsonb_typeof(f)<>'object' THEN RETURN false; END IF;
  IF (SELECT count(*) FROM jsonb_object_keys(f))<>11 OR NOT f ?& ARRAY['firstname','handle','email','age','timezone','hours','times','board1','board2','answers','version']
   OR EXISTS(SELECT 1 FROM jsonb_each(f) e WHERE e.key IN('firstname','handle','email','times','board1','board2') AND jsonb_typeof(e.value)<>'string')
   OR f->'version' IS DISTINCT FROM '1'::jsonb

@@ -1,0 +1,25 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% if mode == 5 %}Success{% else %}Janitor Applications{% endif %} - 4chan</title><link rel="stylesheet" href="/static/application-form.v1.css">{% if mode == 3 || mode == 4 %}<script src="/static/application-form.v1.js" defer></script>{% endif %}{% if mode == 5 %}<meta name="referrer" content="never">{% endif %}</head><body>
+{% if mode == 5 %}<div id="success">Application submitted.</div><div class="success-sub"><p>You can edit your application using the URL below. Make sure to keep it private.</p><p><a href="/janitorapp?id={{ owner }}">{{ origin }}/janitorapp?id={{ owner }}</a></p></div>
+{% else %}<div id="doc"><div id="hd"><div id="logo-fp"><a href="/" title="Home">4chan</a></div></div><div id="content">
+<div class="box-outer top-box"><div class="box-inner"><div class="boxbar"><h2>Janitor Applications</h2></div><div class="boxcontent">{% include "application-about.html" %}</div></div></div>
+<div class="box-outer top-box"><div class="box-inner"><div class="boxbar"><h2>Application Form</h2></div><div class="boxcontent">
+{% if let Some(error) = error %}<p class="application-error">{{ error }}</p>
+{% else if mode == 0 %}<div class="closed-msg"><p>We are not accepting applications this time.</p><p>An announcement will be posted on the boards when we begin accepting them.</p></div>
+{% else if mode == 1 %}<div class="closed-msg"><p>Please use a desktop browser to submit or edit an application.</p></div>
+{% else if let Some(profile) = profile %}
+{% if mode == 2 %}<form action="/janitorapp?id={{ owner }}" method="post"><label>To edit this application, enter the E-Mail you used to submit it</label><input maxlength="{{ profile.form.field_limit }}" type="email" name="auth_email" required>
+<div id="captcha-cnt"><label>Verification:</label>{% if wait > 0 %}<p>Please wait {{ wait }} seconds, then <a href="/janitorapp?id={{ owner }}">reload verification</a>.</p>{% else %}<img src="data:image/png;base64,{{ image }}" alt="Verification challenge"><input name="answer" autocomplete="off" maxlength="64" required>{% endif %}</div>
+<input type="hidden" name="_cf_fuid" value="{{ csrf }}"><input type="hidden" name="challenge" value="{{ token }}"><button type="submit"{% if wait > 0 %} disabled{% endif %}>Submit</button></form>
+{% else %}<form id="application-form" action="/janitorapp" method="post">
+{% for (name,label,kind) in text_fields() %}<label>{{ label }}</label><input maxlength="{{ profile.form.field_limit }}" type="{{ kind }}" name="{{ name }}"{% if mode == 4 || !value(name).is_empty() %} value="{{ value(name) }}"{% endif %} required>{% endfor %}
+<label>Age</label><input maxlength="{{ profile.form.field_limit }}" min="1" max="150" type="number" name="age" value="{{ value("age") }}" required>
+<label>Timezone</label><select name="tz" id="js-tz"{% if mode == 4 %} data-edit{% endif %}>{% for (zone,label) in zones() %}<option{% if is_zone(*zone) %} selected{% endif %} value="{{ zone }}">{{ label }}</option>{% endfor %}</select>
+<label>Hours per day spent browsing 4chan</label><input maxlength="{{ profile.form.field_limit }}" type="number" name="hours" min="1" max="24" value="{{ value("hours") }}" required>
+<label>Hours available for janitoring (time frames in your local timezone, ie. 4pm-9pm)</label><input maxlength="{{ profile.form.field_limit }}" type="text" name="times" value="{{ value("times") }}" required>
+<label>Board applying for</label><select name="board1" required><option value=""></option>{% for board in profile.form.boards %}<option{% if value("board1") == board %} selected{% endif %} value="{{ board }}">/{{ board }}/</option>{% endfor %}</select>
+<label>Second choice (optional)</label><select name="board2"><option value=""></option>{% for board in profile.form.boards %}<option{% if value("board2") == board %} selected{% endif %} value="{{ board }}">/{{ board }}/</option>{% endfor %}</select>
+{% for (name,question) in questions() %}<label>{{ question }}</label><textarea maxlength="{{ profile.form.answer_limit }}" name="{{ name }}" required>{{ value(name) }}</textarea>{% endfor %}
+<div id="captcha-cnt"><label>Verification:</label>{% if wait > 0 %}<p>Please wait {{ wait }} seconds before refreshing verification.</p>{% else %}<img src="data:image/png;base64,{{ image }}" alt="Verification challenge"><input name="answer" autocomplete="off" maxlength="64" required>{% endif %}<button type="submit" name="action" value="challenge" formnovalidate>Refresh verification</button></div>
+<input type="hidden" name="_cf_fuid" value="{{ csrf }}"><input type="hidden" name="campaign" value="{{ profile.id }}"><input type="hidden" name="challenge" value="{{ token }}">{% if mode == 4 %}<input type="hidden" name="id" value="{{ owner }}"><input type="hidden" name="auth_email" value="{{ auth_email }}"><input type="hidden" name="revision" value="{{ revision }}">{% endif %}<button type="submit" name="action" value="submit"{% if wait > 0 %} disabled{% endif %}>Submit</button></form>
+{% endif %}{% endif %}</div></div></div></div></div>{% endif %}
+</body></html>
