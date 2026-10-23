@@ -198,6 +198,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 op_password_proof: None,
             },
             board_store::PostMetadata {
+                event_scores: false,
                 keys: board_store::PostIdentityKeys {
                     tripcode: None,
                     poster_id: None,

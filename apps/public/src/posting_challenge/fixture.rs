@@ -20,6 +20,7 @@ pub(crate) fn response(mode: &str, origin: &str) -> Result<Response, String> {
         return Err("Invalid CAPTCHA fixture.".into());
     }
     let state = AppState {
+        event_workflows: false,
         asn_database: None,
         browser_hint_key: None,
         posting_browser_compat_key: None,

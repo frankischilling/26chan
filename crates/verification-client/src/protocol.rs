@@ -57,6 +57,7 @@ pub enum Purpose {
     Thread,
     Reply,
     Report,
+    Like,
     EmailRequest,
     EmailVerify,
     Ticket,

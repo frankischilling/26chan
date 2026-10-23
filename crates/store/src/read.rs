@@ -169,15 +169,15 @@ async fn read_thread_snapshot(
     .ok_or(StoreError::NotFound)?;
     let (configured, undead): (i32, bool) = sqlx::query_as("SELECT b.json_tail_size,t.undead FROM content.boards b JOIN content.threads t ON t.board=b.slug WHERE b.slug=$1 AND t.id=$2")
         .bind(slug).bind(id).fetch_one(&mut *tx).await?;
-    // Materialize the bounded reply IDs once before the security-barrier media
-    // projection; a per-post left join can repeatedly scan that projection.
-    let (reply_count, image_count): (i64, i64) = sqlx::query_as("WITH replies AS MATERIALIZED (SELECT id FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted) SELECT (SELECT count(*) FROM replies),(SELECT count(*) FROM content.visible_post_media m WHERE NOT m.file_deleted AND m.post_id IN (SELECT id FROM replies))")
-        .bind(slug).bind(id).fetch_one(&mut *tx).await?;
-    if !(0..=1500).contains(&reply_count) || !(0..=500).contains(&configured) {
+    // Fetch a bounded identity list before loading media. Counting through a
+    // large security-barrier semi-join can select an expensive generic plan
+    // after unrelated archive/import workloads change table statistics.
+    let reply_ids: Vec<i64> = sqlx::query_scalar("SELECT id FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted ORDER BY id LIMIT 1501")
+        .bind(slug).bind(id).fetch_all(&mut *tx).await?;
+    if reply_ids.len() > 1500 || !(0..=500).contains(&configured) {
         return Err(StoreError::Invalid("Thread exceeds snapshot limits."));
     }
-    let replies = reply_count as usize;
-    let images = image_count as usize;
+    let replies = reply_ids.len();
     let tail_size =
         board_domain::thread_tail_size(configured as u16, metadata.sticky, undead, replies);
     if tail && tail_size == 0 {
@@ -205,6 +205,22 @@ async fn read_thread_snapshot(
         return Err(StoreError::Invalid("Incomplete thread snapshot."));
     }
     crate::post_media::load(&mut tx, &mut entries).await?;
+    let images = if tail {
+        crate::post_media::count_reply_images(&mut tx, &reply_ids).await?
+    } else {
+        // Full snapshots already contain every visible attachment in this
+        // repeatable-read transaction, including deleted-file markers.
+        entries
+            .iter()
+            .filter(|post| {
+                post.id != id
+                    && post
+                        .attachment
+                        .as_ref()
+                        .is_some_and(|file| !file.file_deleted)
+            })
+            .count()
+    };
     let quote_targets = if board.staff_only {
         crate::QuoteTargets::default()
     } else {
@@ -328,7 +344,7 @@ pub async fn search(
     let rows: Vec<SearchHitRow> = sqlx::query_as(
         "WITH candidates AS MATERIALIZED (\
             SELECT p.board,p.thread_id,p.id,p.subject,\
-                coalesce(p.saved_presentation_search,p.wordfilter_search,p.comment) || coalesce(E'\\n' || content.drawing_search_text(p.drawing_time_seconds,p.drawing_source_post_id),'') || CASE WHEN cardinality(p.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(p.staff_notices,E')\\n\\n(') || ')' END AS comment \
+                coalesce(p.saved_presentation_search,p.wordfilter_search,p.comment) || coalesce(content.event_perk_text(p.event_perk),'') || coalesce(E'\\n' || content.drawing_search_text(p.drawing_time_seconds,p.drawing_source_post_id),'') || CASE WHEN cardinality(p.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(p.staff_notices,E')\\n\\n(') || ')' END AS comment \
             FROM content.posts p \
             JOIN content.visible_threads t ON t.board=p.board AND t.id=p.thread_id \
             WHERE NOT p.deleted AND ($2::text IS NULL OR p.board=$2) \
@@ -403,7 +419,7 @@ pub async fn search(
                 (SELECT reply.* FROM content.posts reply \
                  WHERE reply.thread_id=selected.thread_id AND reply.id<>selected.thread_id \
                    AND NOT reply.deleted \
-                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.saved_presentation_search,reply.wordfilter_search,reply.comment) || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'') || CASE WHEN cardinality(reply.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(reply.staff_notices,E')\\n\\n(') || ')' END), lower($2)) > 0 \
+                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.saved_presentation_search,reply.wordfilter_search,reply.comment) || coalesce(content.event_perk_text(reply.event_perk),'') || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'') || CASE WHEN cardinality(reply.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(reply.staff_notices,E')\\n\\n(') || ')' END), lower($2)) > 0 \
                  ORDER BY reply.id DESC LIMIT $3)\
             ) picked ORDER BY picked.id\
          ) p",
@@ -418,7 +434,7 @@ pub async fn search(
     }
 
     let mut posts: Vec<Post> = sqlx::query_as(
-        "SELECT p.id,p.board,p.thread_id,p.name,p.trip,p.poster_id,p.json_op_poster_id,p.since4pass,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,\
+        "SELECT p.id,p.board,p.thread_id,p.name,p.trip,p.poster_id,p.json_op_poster_id,p.since4pass,p.event_perk,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,\
                 p.subject,p.image_spoiler,\
                 CASE WHEN char_length(p.comment) <= $4 THEN p.comment \
                      WHEN strpos(lower(p.comment), lower($2)) > 0 THEN \
@@ -434,7 +450,7 @@ pub async fn search(
                 (SELECT reply.* FROM content.posts reply \
                  WHERE reply.thread_id=selected.thread_id AND reply.id<>selected.thread_id \
                    AND NOT reply.deleted \
-                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.saved_presentation_search,reply.wordfilter_search,reply.comment) || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'') || CASE WHEN cardinality(reply.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(reply.staff_notices,E')\\n\\n(') || ')' END), lower($2)) > 0 \
+                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.saved_presentation_search,reply.wordfilter_search,reply.comment) || coalesce(content.event_perk_text(reply.event_perk),'') || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'') || CASE WHEN cardinality(reply.staff_notices)=0 THEN '' ELSE E'\\n\\n(' || array_to_string(reply.staff_notices,E')\\n\\n(') || ')' END), lower($2)) > 0 \
                  ORDER BY reply.id DESC LIMIT $3)\
             ) picked ORDER BY picked.id\
          ) p ORDER BY selected.ord,p.id",

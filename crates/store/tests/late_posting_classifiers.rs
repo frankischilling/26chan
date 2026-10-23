@@ -171,7 +171,8 @@ async fn late_refusals_keep_only_source_state_and_do_not_consume_provisional_con
             let facts=if attempt==0 || attempt==6 {None} else {Some(RequestFacts::new(posting,if attempt==5 {1} else {0},&b,A(score(attempt==1)),A(*b"US"),A(None)))};
             let outcome=create_post_with_challenge(&p,&b,0,&NewPost {name:"Anonymous".into(),subject:"Owned subject".into(),comment:comment.into(),deletion_hash:"owned-fixture".into(),sage:false},None,
                 ProtectedPostingContext {request_facts:facts,anonymous:AnonymousPostingContext {posting,session:PostingSession {fingerprints:changed,minted:false,now}},challenge:if attempt==6 {None} else {WriteChallengeProof::from_issuer(&current.encode(),peer_hash,context_hash)}},
-                PostMetadata {drawing:None,spoiler:false,keys:PostIdentityKeys {tripcode:None,poster_id:Some(&poster_key)},country_database:None,flag:"",options:""}).await;
+                PostMetadata {
+            event_scores: false,drawing:None,spoiler:false,keys:PostIdentityKeys {tripcode:None,poster_id:Some(&poster_key)},country_database:None,flag:"",options:""}).await;
             match attempt {
                 0|5=>assert!(matches!(outcome,Err(StoreError::Database(_))),"{outcome:?}"),
                 1=>match outcome {Err(StoreError::PostingClassifierRejected(refusal))=>{assert!(refusal.quiet_post().is_some());assert!(!refusal.cookie_refreshed());},other=>panic!("Expected quiet refusal: {other:?}")},

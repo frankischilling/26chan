@@ -24,6 +24,7 @@
 {% if let Some(stats) = snapshot.statistics %}<dl><div><dt>Recorded posts</dt><dd>{{ stats.recorded_posts }}</dd></div><div><dt>Active content</dt><dd>{{ stats.active_content_bytes }} bytes</dd></div><div><dt>Recent posting sessions</dt><dd>{{ stats.active_sessions }}</dd></div></dl><p>Updated {{ stats.date() }}.{% if stats.stale() %} This snapshot is more than 15 minutes old.{% endif %}</p><p>Local public-board totals. Sessions are not a count of people or visitors.</p>
 {% else %}<p>Statistics are not available yet.</p>{% endif %}</section>
 {% if !news.is_empty() %}<section class="homePanel siteNews" aria-labelledby="home-news-title"><h2 id="home-news-title"><a href="/news">News</a></h2>{% for item in news %}<article><h3><a href="/news?item={{ item.id }}#{{ item.id }}">{{ item.title }}</a></h3><p>{{ item.date() }}{% if !item.author.is_empty() %} · {{ item.author }}{% endif %}</p><div class="siteBody">{{ item.body }}</div></article>{% endfor %}</section>{% endif %}
+{% if event_workflows %}<section class="homePanel" aria-labelledby="home-events-title"><h2 id="home-events-title">Local events</h2><p><a href="/event-market.html">Market</a> · <a href="/event-emotes.html">Emotes</a> · <a href="/event-perks.html">Scores and perks</a></p></section>{% endif %}
 {% include "site_navigation.html" %}
 {% endblock %}
 {% block page_footer %}<footer class="homeFooter"><p>26chan development build.</p></footer>{% endblock %}

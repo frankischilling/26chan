@@ -1,0 +1,1895 @@
+{
+  "source_sha256": "f62362649585ec9956cf412c8de9174ebdf6cac6c9b46f0d1a41bc4a2f835992",
+  "scope": "Pin every glyph of the source's 19 unlocked score perks; no historical image fetches.",
+  "function": "function like_build_perk_html($perk) {\n  $cnt_attrs = '';\n  \n  switch ($perk) {\n    case 'animal':\n      $ary = array('&#x1F42D;','&#x1F439;','&#x1F430;','&#x1F436;','&#x1F43A;','&#x1F98A;','&#x1F435;','&#x1F438;','&#x1F648;','&#x1F649;','&#x1F64A;','&#x1F42F;','&#x1F981;','&#x1F993;','&#x1F992;','&#x1F434;','&#x1F42E;','&#x1F437;','&#x1F43B;','&#x1F43C;','&#x1F432;','&#x1F984;','&#x1F431;','&#x1F638;','&#x1F639;','&#x1F63A;','&#x1F63B;','&#x1F63C;','&#x1F63D;','&#x1F63E;','&#x1F63F;','&#x1F640;','&#x1F405;','&#x1F406;','&#x1F418;','&#x1F98F;','&#x1F402;','&#x1F403;','&#x1F404;','&#x1F40E;','&#x1F98C;','&#x1F410;','&#x1F40F;','&#x1F411;','&#x1F416;','&#x1F417;','&#x1F42A;','&#x1F42B;','&#x1F98D;','&#x1F409;','&#x1F996;','&#x1F995;','&#x1F408;','&#x1F400;','&#x1F401;','&#x1F407;','&#x1F412;','&#x1F415;','&#x1F429;','&#x1F428;','&#x1F43F;','&#x1F994;','&#x1F987;','&#x1F40D;','&#x1F985;','&#x1F989;','&#x1F986;','&#x1F413;','&#x1F414;','&#x1F983;','&#x1F54A;','&#x1F423;','&#x1F424;','&#x1F425;','&#x1F426;','&#x1F427;','&#x1F40B;','&#x1F433;','&#x1F42C;','&#x1F988;','&#x1F41F;','&#x1F420;','&#x1F421;','&#x1F419;','&#x1F991;','&#x1F990;','&#x1F980;','&#x1F41A;','&#x1F40C;','&#x1F422;','&#x1F98E;','&#x1F40A;','&#x1F3C7;','&#x1F3A0;','&#x2658;','&#x265E;','&#x1F43D;','&#x1F43E;','&#x1F463;','&#x1F400;','&#x1F403;','&#x1F405;','&#x1F407;','&#x1F409;','&#x1F40D;','&#x1F40E;','&#x1F410;','&#x1F412;','&#x1F413;','&#x1F415;','&#x1F416;');\n      $html = $ary[array_rand($ary)];\n      break;\n    case 'food':\n      $ary = array('&#x1F9C0;','&#x1F95A;','&#x1F373;','&#x1F95E;','&#x1F360;','&#x1F35E;','&#x1F950;','&#x1F956;','&#x1F968;','&#x1F354;','&#x1F355;','&#x1F35D;','&#x1F35F;','&#x1F364;','&#x1F32D;','&#x1F32E;','&#x1F32F;','&#x1F35B;','&#x1F959;','&#x1F958;','&#x1F957;','&#x1F96A;','&#x1F96B;','&#x1F953;','&#x1F356;','&#x1F357;','&#x1F969;','&#x1F962;','&#x1F961;','&#x1F95F;','&#x1F35A;','&#x1F35C;','&#x1F372;','&#x1F960;','&#x1F358;','&#x1F359;','&#x1F363;','&#x1F365;','&#x1F371;','&#x1F361;','&#x1F362;','&#x1F347;','&#x1F348;','&#x1F349;','&#x1F34A;','&#x1F34B;','&#x1F34C;','&#x1F34D;','&#x1F34E;','&#x1F34F;','&#x1F350;','&#x1F351;','&#x1F352;','&#x1F353;','&#x1F95D;','&#x1F965;','&#x1F966;','&#x1F344;','&#x1F345;','&#x1F346;','&#x1F336;','&#x1F951;','&#x1F955;','&#x1F952;','&#x1F954;','&#x1F95C;','&#x1F370;','&#x1F382;','&#x1F967;','&#x1F368;','&#x1F366;','&#x1F369;','&#x1F36A;','&#x1F37F;','&#x1F36E;','&#x1F36F;','&#x1F367;','&#x1F36B;','&#x1F36C;','&#x1F36D;','&#x1F37A;','&#x1F37B;','&#x1F377;','&#x1F378;','&#x1F379;','&#x1F376;','&#x1F942;','&#x1F943;','&#x1F37E;','&#x2615;','&#x1F375;','&#x1F95B;','&#x1F37C;','&#x1F964;','&#x1F374;','&#x1F37D;','&#x1F963;','&#x1F944;');\n      $html = $ary[array_rand($ary)];\n      break;\n    case 'marquee':\n      $ary = array('&#x1F996;','&#x26BD;','&#x1F3C0;','&#x26BE;');\n      $ico = $ary[array_rand($ary)];\n      $html = <<<HTML\n<marquee direction=\"left\" width=\"250\" height=\"50\" behavior=\"alternate\">\n<marquee direction=\"down\" height=\"50\" behavior=\"alternate\">$ico</marquee>\n</marquee>\nHTML;\n      break;\n    case 'rainbow':\n      $html = '&#x1F308;';\n      break;\n    case 'wflag':\n      $html = '&#x1F3F3;&#xFE0F;';\n      break;\n    case 'bflag':\n      $html = '&#x1F3F4;';\n      break;\n    case 'onsen':\n      $html = '&#x2668;&#xFE0F;';\n      break;\n    case 'rage':\n      $html = '&#x1F4A2;';\n      break;\n    case 'perfect':\n      $html = '&#x1F4AF;';\n      break;\n    case 'check':\n      $html = '&#x2714;&#xFE0F;';\n      break;\n    case 'cross':\n      $html = '&#x274C;';\n      break;\n    case 'heart':\n      $ary = array('&#x2764;&#xFE0F;','&#x1F499;','&#x1F49C;','&#x1F49B;','&#x1F5A4;','&#x1F49A;');\n      $html = $ary[array_rand($ary)];\n      break;\n    case 'card':\n      $ary = array('&#x2660;&#xFE0F;','&#x2665;&#xFE0F;','&#x2666;&#xFE0F;','&#x2663;&#xFE0F;');\n      $html = $ary[array_rand($ary)];\n      break;\n    case 'like':\n      $html = '&#x2764;&#xFE0F;';\n      break;\n    case 'unlove':\n      $html = '&#x1F494;';\n      break;\n    case 'smiley':\n      $html = '&#x1F603;';\n      break;\n    case 'sad':\n      $html = '&#x1F641;';\n      break;\n    case 'ok':\n      $html = '&#x1F44C;';\n      break;\n    case 'coinflip':\n      $html = '<b style=\"font-size: 14px\">Coin Flip: ' . (mt_rand(0, 1) === 1 ? 'Heads' : 'Tails') . '</b>';\n      break;\n    case 'party':\n      $html = '<img alt=\"\" width=\"160\" height=\"160\" src=\"//s.4cdn.org/image/partyhat.gif\">';\n      break;\n    case 'partyhat':\n      $cnt_attrs = ' style=\"position:absolute\"';\n      $html = '<img alt=\"\" style=\"position:absolute;margin-left:-25px;margin-top:-80px;pointer-events:none;\" width=\"80\" height=\"80\" src=\"//s.4cdn.org/image/partyhat.gif\">';\n      break;\n    case 'pickle':\n      $html = '<img alt=\"\" width=\"32\" height=\"32\" src=\"//s.4cdn.org/image/pckl.png\">';\n      break;\n    case 'nofile':\n      $html = '<img alt=\"\" width=\"77\" height=\"13\" src=\"//s.4cdn.org/image/nofile.png\">';\n      break;\n    case 'trash':\n      $html = '<img alt=\"\" width=\"32\" height=\"32\" src=\"//s.4cdn.org/image/trash@2x.gif\">';\n      break;\n    case 'bricks':\n      $html = '<img alt=\"\" width=\"60\" height=\"60\" src=\"//s.4cdn.org/image/ba.gif\">';\n      break;\n    case 'pig':\n      $html = '&#x1F437;';\n      break;\n    case 'santa':\n      $html = '<img alt=\"\" width=\"160\" height=\"160\" src=\"//s.4cdn.org/image/xmashat.gif\">';\n      break;\n    case 'verified':\n      $html = '<div style=\"text-align:right\"><img alt=\"\" width=\"32\" height=\"32\" src=\"//s.4cdn.org/image/temp/verified.png\"></div>';\n      break;\n    case 'joy':\n      $html = '&#x1F602;';\n      break;\n    case 'rabbit':\n      $html = '&#x1F430;';\n      break;\n    case 'frog':\n      $html = '&#x1F438;';\n      break;\n   case 'dog':\n      $html = '&#x1F436;';\n      break;\n    case 'cat':\n      $html = '&#x1F431;';\n      break;\n    case 'dino':\n      $html = '<img alt=\"\" width=\"451\" height=\"75\" src=\"//s.4cdn.org/image/temp/dinosaur.gif\">';\n      break;\n    case 'spooky':\n      $id = mt_rand(1, 23);\n      $html = '<img alt=\"\" src=\"//s.4cdn.org/image/skeletons/' . $id . '.gif\">';\n      break;\n    default:\n      return null;\n      break;\n  }\n  \n  return '<div' . $cnt_attrs . ' class=\"like-perk-cnt\">' . $html . '</div>';\n}",
+  "pools": {
+    "smiley": [
+      "&#x1F603;"
+    ],
+    "sad": [
+      "&#x1F641;"
+    ],
+    "ok": [
+      "&#x1F44C;"
+    ],
+    "animal": [
+      "&#x1F42D;",
+      "&#x1F439;",
+      "&#x1F430;",
+      "&#x1F436;",
+      "&#x1F43A;",
+      "&#x1F98A;",
+      "&#x1F435;",
+      "&#x1F438;",
+      "&#x1F648;",
+      "&#x1F649;",
+      "&#x1F64A;",
+      "&#x1F42F;",
+      "&#x1F981;",
+      "&#x1F993;",
+      "&#x1F992;",
+      "&#x1F434;",
+      "&#x1F42E;",
+      "&#x1F437;",
+      "&#x1F43B;",
+      "&#x1F43C;",
+      "&#x1F432;",
+      "&#x1F984;",
+      "&#x1F431;",
+      "&#x1F638;",
+      "&#x1F639;",
+      "&#x1F63A;",
+      "&#x1F63B;",
+      "&#x1F63C;",
+      "&#x1F63D;",
+      "&#x1F63E;",
+      "&#x1F63F;",
+      "&#x1F640;",
+      "&#x1F405;",
+      "&#x1F406;",
+      "&#x1F418;",
+      "&#x1F98F;",
+      "&#x1F402;",
+      "&#x1F403;",
+      "&#x1F404;",
+      "&#x1F40E;",
+      "&#x1F98C;",
+      "&#x1F410;",
+      "&#x1F40F;",
+      "&#x1F411;",
+      "&#x1F416;",
+      "&#x1F417;",
+      "&#x1F42A;",
+      "&#x1F42B;",
+      "&#x1F98D;",
+      "&#x1F409;",
+      "&#x1F996;",
+      "&#x1F995;",
+      "&#x1F408;",
+      "&#x1F400;",
+      "&#x1F401;",
+      "&#x1F407;",
+      "&#x1F412;",
+      "&#x1F415;",
+      "&#x1F429;",
+      "&#x1F428;",
+      "&#x1F43F;",
+      "&#x1F994;",
+      "&#x1F987;",
+      "&#x1F40D;",
+      "&#x1F985;",
+      "&#x1F989;",
+      "&#x1F986;",
+      "&#x1F413;",
+      "&#x1F414;",
+      "&#x1F983;",
+      "&#x1F54A;",
+      "&#x1F423;",
+      "&#x1F424;",
+      "&#x1F425;",
+      "&#x1F426;",
+      "&#x1F427;",
+      "&#x1F40B;",
+      "&#x1F433;",
+      "&#x1F42C;",
+      "&#x1F988;",
+      "&#x1F41F;",
+      "&#x1F420;",
+      "&#x1F421;",
+      "&#x1F419;",
+      "&#x1F991;",
+      "&#x1F990;",
+      "&#x1F980;",
+      "&#x1F41A;",
+      "&#x1F40C;",
+      "&#x1F422;",
+      "&#x1F98E;",
+      "&#x1F40A;",
+      "&#x1F3C7;",
+      "&#x1F3A0;",
+      "&#x2658;",
+      "&#x265E;",
+      "&#x1F43D;",
+      "&#x1F43E;",
+      "&#x1F463;",
+      "&#x1F400;",
+      "&#x1F403;",
+      "&#x1F405;",
+      "&#x1F407;",
+      "&#x1F409;",
+      "&#x1F40D;",
+      "&#x1F40E;",
+      "&#x1F410;",
+      "&#x1F412;",
+      "&#x1F413;",
+      "&#x1F415;",
+      "&#x1F416;"
+    ],
+    "food": [
+      "&#x1F9C0;",
+      "&#x1F95A;",
+      "&#x1F373;",
+      "&#x1F95E;",
+      "&#x1F360;",
+      "&#x1F35E;",
+      "&#x1F950;",
+      "&#x1F956;",
+      "&#x1F968;",
+      "&#x1F354;",
+      "&#x1F355;",
+      "&#x1F35D;",
+      "&#x1F35F;",
+      "&#x1F364;",
+      "&#x1F32D;",
+      "&#x1F32E;",
+      "&#x1F32F;",
+      "&#x1F35B;",
+      "&#x1F959;",
+      "&#x1F958;",
+      "&#x1F957;",
+      "&#x1F96A;",
+      "&#x1F96B;",
+      "&#x1F953;",
+      "&#x1F356;",
+      "&#x1F357;",
+      "&#x1F969;",
+      "&#x1F962;",
+      "&#x1F961;",
+      "&#x1F95F;",
+      "&#x1F35A;",
+      "&#x1F35C;",
+      "&#x1F372;",
+      "&#x1F960;",
+      "&#x1F358;",
+      "&#x1F359;",
+      "&#x1F363;",
+      "&#x1F365;",
+      "&#x1F371;",
+      "&#x1F361;",
+      "&#x1F362;",
+      "&#x1F347;",
+      "&#x1F348;",
+      "&#x1F349;",
+      "&#x1F34A;",
+      "&#x1F34B;",
+      "&#x1F34C;",
+      "&#x1F34D;",
+      "&#x1F34E;",
+      "&#x1F34F;",
+      "&#x1F350;",
+      "&#x1F351;",
+      "&#x1F352;",
+      "&#x1F353;",
+      "&#x1F95D;",
+      "&#x1F965;",
+      "&#x1F966;",
+      "&#x1F344;",
+      "&#x1F345;",
+      "&#x1F346;",
+      "&#x1F336;",
+      "&#x1F951;",
+      "&#x1F955;",
+      "&#x1F952;",
+      "&#x1F954;",
+      "&#x1F95C;",
+      "&#x1F370;",
+      "&#x1F382;",
+      "&#x1F967;",
+      "&#x1F368;",
+      "&#x1F366;",
+      "&#x1F369;",
+      "&#x1F36A;",
+      "&#x1F37F;",
+      "&#x1F36E;",
+      "&#x1F36F;",
+      "&#x1F367;",
+      "&#x1F36B;",
+      "&#x1F36C;",
+      "&#x1F36D;",
+      "&#x1F37A;",
+      "&#x1F37B;",
+      "&#x1F377;",
+      "&#x1F378;",
+      "&#x1F379;",
+      "&#x1F376;",
+      "&#x1F942;",
+      "&#x1F943;",
+      "&#x1F37E;",
+      "&#x2615;",
+      "&#x1F375;",
+      "&#x1F95B;",
+      "&#x1F37C;",
+      "&#x1F964;",
+      "&#x1F374;",
+      "&#x1F37D;",
+      "&#x1F963;",
+      "&#x1F944;"
+    ],
+    "check": [
+      "&#x2714;&#xFE0F;"
+    ],
+    "cross": [
+      "&#x274C;"
+    ],
+    "like": [
+      "&#x2764;&#xFE0F;"
+    ],
+    "unlove": [
+      "&#x1F494;"
+    ],
+    "rage": [
+      "&#x1F4A2;"
+    ],
+    "perfect": [
+      "&#x1F4AF;"
+    ],
+    "onsen": [
+      "&#x2668;&#xFE0F;"
+    ],
+    "heart": [
+      "&#x2764;&#xFE0F;",
+      "&#x1F499;",
+      "&#x1F49C;",
+      "&#x1F49B;",
+      "&#x1F5A4;",
+      "&#x1F49A;"
+    ],
+    "joy": [
+      "&#x1F602;"
+    ],
+    "pig": [
+      "&#x1F437;"
+    ],
+    "dog": [
+      "&#x1F436;"
+    ],
+    "cat": [
+      "&#x1F431;"
+    ],
+    "rainbow": [
+      "&#x1F308;"
+    ],
+    "frog": [
+      "&#x1F438;"
+    ]
+  },
+  "cases": [
+    {
+      "name": "smiley",
+      "index": 0,
+      "entities": "&#x1F603;",
+      "glyph": "😃",
+      "html": "<div class=\"like-perk-cnt\">&#x1F603;</div>"
+    },
+    {
+      "name": "sad",
+      "index": 0,
+      "entities": "&#x1F641;",
+      "glyph": "🙁",
+      "html": "<div class=\"like-perk-cnt\">&#x1F641;</div>"
+    },
+    {
+      "name": "ok",
+      "index": 0,
+      "entities": "&#x1F44C;",
+      "glyph": "👌",
+      "html": "<div class=\"like-perk-cnt\">&#x1F44C;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 0,
+      "entities": "&#x1F42D;",
+      "glyph": "🐭",
+      "html": "<div class=\"like-perk-cnt\">&#x1F42D;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 1,
+      "entities": "&#x1F439;",
+      "glyph": "🐹",
+      "html": "<div class=\"like-perk-cnt\">&#x1F439;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 2,
+      "entities": "&#x1F430;",
+      "glyph": "🐰",
+      "html": "<div class=\"like-perk-cnt\">&#x1F430;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 3,
+      "entities": "&#x1F436;",
+      "glyph": "🐶",
+      "html": "<div class=\"like-perk-cnt\">&#x1F436;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 4,
+      "entities": "&#x1F43A;",
+      "glyph": "🐺",
+      "html": "<div class=\"like-perk-cnt\">&#x1F43A;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 5,
+      "entities": "&#x1F98A;",
+      "glyph": "🦊",
+      "html": "<div class=\"like-perk-cnt\">&#x1F98A;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 6,
+      "entities": "&#x1F435;",
+      "glyph": "🐵",
+      "html": "<div class=\"like-perk-cnt\">&#x1F435;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 7,
+      "entities": "&#x1F438;",
+      "glyph": "🐸",
+      "html": "<div class=\"like-perk-cnt\">&#x1F438;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 8,
+      "entities": "&#x1F648;",
+      "glyph": "🙈",
+      "html": "<div class=\"like-perk-cnt\">&#x1F648;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 9,
+      "entities": "&#x1F649;",
+      "glyph": "🙉",
+      "html": "<div class=\"like-perk-cnt\">&#x1F649;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 10,
+      "entities": "&#x1F64A;",
+      "glyph": "🙊",
+      "html": "<div class=\"like-perk-cnt\">&#x1F64A;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 11,
+      "entities": "&#x1F42F;",
+      "glyph": "🐯",
+      "html": "<div class=\"like-perk-cnt\">&#x1F42F;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 12,
+      "entities": "&#x1F981;",
+      "glyph": "🦁",
+      "html": "<div class=\"like-perk-cnt\">&#x1F981;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 13,
+      "entities": "&#x1F993;",
+      "glyph": "🦓",
+      "html": "<div class=\"like-perk-cnt\">&#x1F993;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 14,
+      "entities": "&#x1F992;",
+      "glyph": "🦒",
+      "html": "<div class=\"like-perk-cnt\">&#x1F992;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 15,
+      "entities": "&#x1F434;",
+      "glyph": "🐴",
+      "html": "<div class=\"like-perk-cnt\">&#x1F434;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 16,
+      "entities": "&#x1F42E;",
+      "glyph": "🐮",
+      "html": "<div class=\"like-perk-cnt\">&#x1F42E;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 17,
+      "entities": "&#x1F437;",
+      "glyph": "🐷",
+      "html": "<div class=\"like-perk-cnt\">&#x1F437;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 18,
+      "entities": "&#x1F43B;",
+      "glyph": "🐻",
+      "html": "<div class=\"like-perk-cnt\">&#x1F43B;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 19,
+      "entities": "&#x1F43C;",
+      "glyph": "🐼",
+      "html": "<div class=\"like-perk-cnt\">&#x1F43C;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 20,
+      "entities": "&#x1F432;",
+      "glyph": "🐲",
+      "html": "<div class=\"like-perk-cnt\">&#x1F432;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 21,
+      "entities": "&#x1F984;",
+      "glyph": "🦄",
+      "html": "<div class=\"like-perk-cnt\">&#x1F984;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 22,
+      "entities": "&#x1F431;",
+      "glyph": "🐱",
+      "html": "<div class=\"like-perk-cnt\">&#x1F431;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 23,
+      "entities": "&#x1F638;",
+      "glyph": "😸",
+      "html": "<div class=\"like-perk-cnt\">&#x1F638;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 24,
+      "entities": "&#x1F639;",
+      "glyph": "😹",
+      "html": "<div class=\"like-perk-cnt\">&#x1F639;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 25,
+      "entities": "&#x1F63A;",
+      "glyph": "😺",
+      "html": "<div class=\"like-perk-cnt\">&#x1F63A;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 26,
+      "entities": "&#x1F63B;",
+      "glyph": "😻",
+      "html": "<div class=\"like-perk-cnt\">&#x1F63B;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 27,
+      "entities": "&#x1F63C;",
+      "glyph": "😼",
+      "html": "<div class=\"like-perk-cnt\">&#x1F63C;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 28,
+      "entities": "&#x1F63D;",
+      "glyph": "😽",
+      "html": "<div class=\"like-perk-cnt\">&#x1F63D;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 29,
+      "entities": "&#x1F63E;",
+      "glyph": "😾",
+      "html": "<div class=\"like-perk-cnt\">&#x1F63E;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 30,
+      "entities": "&#x1F63F;",
+      "glyph": "😿",
+      "html": "<div class=\"like-perk-cnt\">&#x1F63F;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 31,
+      "entities": "&#x1F640;",
+      "glyph": "🙀",
+      "html": "<div class=\"like-perk-cnt\">&#x1F640;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 32,
+      "entities": "&#x1F405;",
+      "glyph": "🐅",
+      "html": "<div class=\"like-perk-cnt\">&#x1F405;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 33,
+      "entities": "&#x1F406;",
+      "glyph": "🐆",
+      "html": "<div class=\"like-perk-cnt\">&#x1F406;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 34,
+      "entities": "&#x1F418;",
+      "glyph": "🐘",
+      "html": "<div class=\"like-perk-cnt\">&#x1F418;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 35,
+      "entities": "&#x1F98F;",
+      "glyph": "🦏",
+      "html": "<div class=\"like-perk-cnt\">&#x1F98F;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 36,
+      "entities": "&#x1F402;",
+      "glyph": "🐂",
+      "html": "<div class=\"like-perk-cnt\">&#x1F402;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 37,
+      "entities": "&#x1F403;",
+      "glyph": "🐃",
+      "html": "<div class=\"like-perk-cnt\">&#x1F403;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 38,
+      "entities": "&#x1F404;",
+      "glyph": "🐄",
+      "html": "<div class=\"like-perk-cnt\">&#x1F404;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 39,
+      "entities": "&#x1F40E;",
+      "glyph": "🐎",
+      "html": "<div class=\"like-perk-cnt\">&#x1F40E;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 40,
+      "entities": "&#x1F98C;",
+      "glyph": "🦌",
+      "html": "<div class=\"like-perk-cnt\">&#x1F98C;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 41,
+      "entities": "&#x1F410;",
+      "glyph": "🐐",
+      "html": "<div class=\"like-perk-cnt\">&#x1F410;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 42,
+      "entities": "&#x1F40F;",
+      "glyph": "🐏",
+      "html": "<div class=\"like-perk-cnt\">&#x1F40F;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 43,
+      "entities": "&#x1F411;",
+      "glyph": "🐑",
+      "html": "<div class=\"like-perk-cnt\">&#x1F411;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 44,
+      "entities": "&#x1F416;",
+      "glyph": "🐖",
+      "html": "<div class=\"like-perk-cnt\">&#x1F416;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 45,
+      "entities": "&#x1F417;",
+      "glyph": "🐗",
+      "html": "<div class=\"like-perk-cnt\">&#x1F417;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 46,
+      "entities": "&#x1F42A;",
+      "glyph": "🐪",
+      "html": "<div class=\"like-perk-cnt\">&#x1F42A;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 47,
+      "entities": "&#x1F42B;",
+      "glyph": "🐫",
+      "html": "<div class=\"like-perk-cnt\">&#x1F42B;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 48,
+      "entities": "&#x1F98D;",
+      "glyph": "🦍",
+      "html": "<div class=\"like-perk-cnt\">&#x1F98D;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 49,
+      "entities": "&#x1F409;",
+      "glyph": "🐉",
+      "html": "<div class=\"like-perk-cnt\">&#x1F409;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 50,
+      "entities": "&#x1F996;",
+      "glyph": "🦖",
+      "html": "<div class=\"like-perk-cnt\">&#x1F996;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 51,
+      "entities": "&#x1F995;",
+      "glyph": "🦕",
+      "html": "<div class=\"like-perk-cnt\">&#x1F995;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 52,
+      "entities": "&#x1F408;",
+      "glyph": "🐈",
+      "html": "<div class=\"like-perk-cnt\">&#x1F408;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 53,
+      "entities": "&#x1F400;",
+      "glyph": "🐀",
+      "html": "<div class=\"like-perk-cnt\">&#x1F400;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 54,
+      "entities": "&#x1F401;",
+      "glyph": "🐁",
+      "html": "<div class=\"like-perk-cnt\">&#x1F401;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 55,
+      "entities": "&#x1F407;",
+      "glyph": "🐇",
+      "html": "<div class=\"like-perk-cnt\">&#x1F407;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 56,
+      "entities": "&#x1F412;",
+      "glyph": "🐒",
+      "html": "<div class=\"like-perk-cnt\">&#x1F412;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 57,
+      "entities": "&#x1F415;",
+      "glyph": "🐕",
+      "html": "<div class=\"like-perk-cnt\">&#x1F415;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 58,
+      "entities": "&#x1F429;",
+      "glyph": "🐩",
+      "html": "<div class=\"like-perk-cnt\">&#x1F429;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 59,
+      "entities": "&#x1F428;",
+      "glyph": "🐨",
+      "html": "<div class=\"like-perk-cnt\">&#x1F428;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 60,
+      "entities": "&#x1F43F;",
+      "glyph": "🐿",
+      "html": "<div class=\"like-perk-cnt\">&#x1F43F;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 61,
+      "entities": "&#x1F994;",
+      "glyph": "🦔",
+      "html": "<div class=\"like-perk-cnt\">&#x1F994;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 62,
+      "entities": "&#x1F987;",
+      "glyph": "🦇",
+      "html": "<div class=\"like-perk-cnt\">&#x1F987;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 63,
+      "entities": "&#x1F40D;",
+      "glyph": "🐍",
+      "html": "<div class=\"like-perk-cnt\">&#x1F40D;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 64,
+      "entities": "&#x1F985;",
+      "glyph": "🦅",
+      "html": "<div class=\"like-perk-cnt\">&#x1F985;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 65,
+      "entities": "&#x1F989;",
+      "glyph": "🦉",
+      "html": "<div class=\"like-perk-cnt\">&#x1F989;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 66,
+      "entities": "&#x1F986;",
+      "glyph": "🦆",
+      "html": "<div class=\"like-perk-cnt\">&#x1F986;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 67,
+      "entities": "&#x1F413;",
+      "glyph": "🐓",
+      "html": "<div class=\"like-perk-cnt\">&#x1F413;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 68,
+      "entities": "&#x1F414;",
+      "glyph": "🐔",
+      "html": "<div class=\"like-perk-cnt\">&#x1F414;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 69,
+      "entities": "&#x1F983;",
+      "glyph": "🦃",
+      "html": "<div class=\"like-perk-cnt\">&#x1F983;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 70,
+      "entities": "&#x1F54A;",
+      "glyph": "🕊",
+      "html": "<div class=\"like-perk-cnt\">&#x1F54A;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 71,
+      "entities": "&#x1F423;",
+      "glyph": "🐣",
+      "html": "<div class=\"like-perk-cnt\">&#x1F423;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 72,
+      "entities": "&#x1F424;",
+      "glyph": "🐤",
+      "html": "<div class=\"like-perk-cnt\">&#x1F424;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 73,
+      "entities": "&#x1F425;",
+      "glyph": "🐥",
+      "html": "<div class=\"like-perk-cnt\">&#x1F425;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 74,
+      "entities": "&#x1F426;",
+      "glyph": "🐦",
+      "html": "<div class=\"like-perk-cnt\">&#x1F426;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 75,
+      "entities": "&#x1F427;",
+      "glyph": "🐧",
+      "html": "<div class=\"like-perk-cnt\">&#x1F427;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 76,
+      "entities": "&#x1F40B;",
+      "glyph": "🐋",
+      "html": "<div class=\"like-perk-cnt\">&#x1F40B;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 77,
+      "entities": "&#x1F433;",
+      "glyph": "🐳",
+      "html": "<div class=\"like-perk-cnt\">&#x1F433;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 78,
+      "entities": "&#x1F42C;",
+      "glyph": "🐬",
+      "html": "<div class=\"like-perk-cnt\">&#x1F42C;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 79,
+      "entities": "&#x1F988;",
+      "glyph": "🦈",
+      "html": "<div class=\"like-perk-cnt\">&#x1F988;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 80,
+      "entities": "&#x1F41F;",
+      "glyph": "🐟",
+      "html": "<div class=\"like-perk-cnt\">&#x1F41F;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 81,
+      "entities": "&#x1F420;",
+      "glyph": "🐠",
+      "html": "<div class=\"like-perk-cnt\">&#x1F420;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 82,
+      "entities": "&#x1F421;",
+      "glyph": "🐡",
+      "html": "<div class=\"like-perk-cnt\">&#x1F421;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 83,
+      "entities": "&#x1F419;",
+      "glyph": "🐙",
+      "html": "<div class=\"like-perk-cnt\">&#x1F419;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 84,
+      "entities": "&#x1F991;",
+      "glyph": "🦑",
+      "html": "<div class=\"like-perk-cnt\">&#x1F991;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 85,
+      "entities": "&#x1F990;",
+      "glyph": "🦐",
+      "html": "<div class=\"like-perk-cnt\">&#x1F990;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 86,
+      "entities": "&#x1F980;",
+      "glyph": "🦀",
+      "html": "<div class=\"like-perk-cnt\">&#x1F980;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 87,
+      "entities": "&#x1F41A;",
+      "glyph": "🐚",
+      "html": "<div class=\"like-perk-cnt\">&#x1F41A;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 88,
+      "entities": "&#x1F40C;",
+      "glyph": "🐌",
+      "html": "<div class=\"like-perk-cnt\">&#x1F40C;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 89,
+      "entities": "&#x1F422;",
+      "glyph": "🐢",
+      "html": "<div class=\"like-perk-cnt\">&#x1F422;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 90,
+      "entities": "&#x1F98E;",
+      "glyph": "🦎",
+      "html": "<div class=\"like-perk-cnt\">&#x1F98E;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 91,
+      "entities": "&#x1F40A;",
+      "glyph": "🐊",
+      "html": "<div class=\"like-perk-cnt\">&#x1F40A;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 92,
+      "entities": "&#x1F3C7;",
+      "glyph": "🏇",
+      "html": "<div class=\"like-perk-cnt\">&#x1F3C7;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 93,
+      "entities": "&#x1F3A0;",
+      "glyph": "🎠",
+      "html": "<div class=\"like-perk-cnt\">&#x1F3A0;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 94,
+      "entities": "&#x2658;",
+      "glyph": "♘",
+      "html": "<div class=\"like-perk-cnt\">&#x2658;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 95,
+      "entities": "&#x265E;",
+      "glyph": "♞",
+      "html": "<div class=\"like-perk-cnt\">&#x265E;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 96,
+      "entities": "&#x1F43D;",
+      "glyph": "🐽",
+      "html": "<div class=\"like-perk-cnt\">&#x1F43D;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 97,
+      "entities": "&#x1F43E;",
+      "glyph": "🐾",
+      "html": "<div class=\"like-perk-cnt\">&#x1F43E;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 98,
+      "entities": "&#x1F463;",
+      "glyph": "👣",
+      "html": "<div class=\"like-perk-cnt\">&#x1F463;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 99,
+      "entities": "&#x1F400;",
+      "glyph": "🐀",
+      "html": "<div class=\"like-perk-cnt\">&#x1F400;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 100,
+      "entities": "&#x1F403;",
+      "glyph": "🐃",
+      "html": "<div class=\"like-perk-cnt\">&#x1F403;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 101,
+      "entities": "&#x1F405;",
+      "glyph": "🐅",
+      "html": "<div class=\"like-perk-cnt\">&#x1F405;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 102,
+      "entities": "&#x1F407;",
+      "glyph": "🐇",
+      "html": "<div class=\"like-perk-cnt\">&#x1F407;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 103,
+      "entities": "&#x1F409;",
+      "glyph": "🐉",
+      "html": "<div class=\"like-perk-cnt\">&#x1F409;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 104,
+      "entities": "&#x1F40D;",
+      "glyph": "🐍",
+      "html": "<div class=\"like-perk-cnt\">&#x1F40D;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 105,
+      "entities": "&#x1F40E;",
+      "glyph": "🐎",
+      "html": "<div class=\"like-perk-cnt\">&#x1F40E;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 106,
+      "entities": "&#x1F410;",
+      "glyph": "🐐",
+      "html": "<div class=\"like-perk-cnt\">&#x1F410;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 107,
+      "entities": "&#x1F412;",
+      "glyph": "🐒",
+      "html": "<div class=\"like-perk-cnt\">&#x1F412;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 108,
+      "entities": "&#x1F413;",
+      "glyph": "🐓",
+      "html": "<div class=\"like-perk-cnt\">&#x1F413;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 109,
+      "entities": "&#x1F415;",
+      "glyph": "🐕",
+      "html": "<div class=\"like-perk-cnt\">&#x1F415;</div>"
+    },
+    {
+      "name": "animal",
+      "index": 110,
+      "entities": "&#x1F416;",
+      "glyph": "🐖",
+      "html": "<div class=\"like-perk-cnt\">&#x1F416;</div>"
+    },
+    {
+      "name": "food",
+      "index": 0,
+      "entities": "&#x1F9C0;",
+      "glyph": "🧀",
+      "html": "<div class=\"like-perk-cnt\">&#x1F9C0;</div>"
+    },
+    {
+      "name": "food",
+      "index": 1,
+      "entities": "&#x1F95A;",
+      "glyph": "🥚",
+      "html": "<div class=\"like-perk-cnt\">&#x1F95A;</div>"
+    },
+    {
+      "name": "food",
+      "index": 2,
+      "entities": "&#x1F373;",
+      "glyph": "🍳",
+      "html": "<div class=\"like-perk-cnt\">&#x1F373;</div>"
+    },
+    {
+      "name": "food",
+      "index": 3,
+      "entities": "&#x1F95E;",
+      "glyph": "🥞",
+      "html": "<div class=\"like-perk-cnt\">&#x1F95E;</div>"
+    },
+    {
+      "name": "food",
+      "index": 4,
+      "entities": "&#x1F360;",
+      "glyph": "🍠",
+      "html": "<div class=\"like-perk-cnt\">&#x1F360;</div>"
+    },
+    {
+      "name": "food",
+      "index": 5,
+      "entities": "&#x1F35E;",
+      "glyph": "🍞",
+      "html": "<div class=\"like-perk-cnt\">&#x1F35E;</div>"
+    },
+    {
+      "name": "food",
+      "index": 6,
+      "entities": "&#x1F950;",
+      "glyph": "🥐",
+      "html": "<div class=\"like-perk-cnt\">&#x1F950;</div>"
+    },
+    {
+      "name": "food",
+      "index": 7,
+      "entities": "&#x1F956;",
+      "glyph": "🥖",
+      "html": "<div class=\"like-perk-cnt\">&#x1F956;</div>"
+    },
+    {
+      "name": "food",
+      "index": 8,
+      "entities": "&#x1F968;",
+      "glyph": "🥨",
+      "html": "<div class=\"like-perk-cnt\">&#x1F968;</div>"
+    },
+    {
+      "name": "food",
+      "index": 9,
+      "entities": "&#x1F354;",
+      "glyph": "🍔",
+      "html": "<div class=\"like-perk-cnt\">&#x1F354;</div>"
+    },
+    {
+      "name": "food",
+      "index": 10,
+      "entities": "&#x1F355;",
+      "glyph": "🍕",
+      "html": "<div class=\"like-perk-cnt\">&#x1F355;</div>"
+    },
+    {
+      "name": "food",
+      "index": 11,
+      "entities": "&#x1F35D;",
+      "glyph": "🍝",
+      "html": "<div class=\"like-perk-cnt\">&#x1F35D;</div>"
+    },
+    {
+      "name": "food",
+      "index": 12,
+      "entities": "&#x1F35F;",
+      "glyph": "🍟",
+      "html": "<div class=\"like-perk-cnt\">&#x1F35F;</div>"
+    },
+    {
+      "name": "food",
+      "index": 13,
+      "entities": "&#x1F364;",
+      "glyph": "🍤",
+      "html": "<div class=\"like-perk-cnt\">&#x1F364;</div>"
+    },
+    {
+      "name": "food",
+      "index": 14,
+      "entities": "&#x1F32D;",
+      "glyph": "🌭",
+      "html": "<div class=\"like-perk-cnt\">&#x1F32D;</div>"
+    },
+    {
+      "name": "food",
+      "index": 15,
+      "entities": "&#x1F32E;",
+      "glyph": "🌮",
+      "html": "<div class=\"like-perk-cnt\">&#x1F32E;</div>"
+    },
+    {
+      "name": "food",
+      "index": 16,
+      "entities": "&#x1F32F;",
+      "glyph": "🌯",
+      "html": "<div class=\"like-perk-cnt\">&#x1F32F;</div>"
+    },
+    {
+      "name": "food",
+      "index": 17,
+      "entities": "&#x1F35B;",
+      "glyph": "🍛",
+      "html": "<div class=\"like-perk-cnt\">&#x1F35B;</div>"
+    },
+    {
+      "name": "food",
+      "index": 18,
+      "entities": "&#x1F959;",
+      "glyph": "🥙",
+      "html": "<div class=\"like-perk-cnt\">&#x1F959;</div>"
+    },
+    {
+      "name": "food",
+      "index": 19,
+      "entities": "&#x1F958;",
+      "glyph": "🥘",
+      "html": "<div class=\"like-perk-cnt\">&#x1F958;</div>"
+    },
+    {
+      "name": "food",
+      "index": 20,
+      "entities": "&#x1F957;",
+      "glyph": "🥗",
+      "html": "<div class=\"like-perk-cnt\">&#x1F957;</div>"
+    },
+    {
+      "name": "food",
+      "index": 21,
+      "entities": "&#x1F96A;",
+      "glyph": "🥪",
+      "html": "<div class=\"like-perk-cnt\">&#x1F96A;</div>"
+    },
+    {
+      "name": "food",
+      "index": 22,
+      "entities": "&#x1F96B;",
+      "glyph": "🥫",
+      "html": "<div class=\"like-perk-cnt\">&#x1F96B;</div>"
+    },
+    {
+      "name": "food",
+      "index": 23,
+      "entities": "&#x1F953;",
+      "glyph": "🥓",
+      "html": "<div class=\"like-perk-cnt\">&#x1F953;</div>"
+    },
+    {
+      "name": "food",
+      "index": 24,
+      "entities": "&#x1F356;",
+      "glyph": "🍖",
+      "html": "<div class=\"like-perk-cnt\">&#x1F356;</div>"
+    },
+    {
+      "name": "food",
+      "index": 25,
+      "entities": "&#x1F357;",
+      "glyph": "🍗",
+      "html": "<div class=\"like-perk-cnt\">&#x1F357;</div>"
+    },
+    {
+      "name": "food",
+      "index": 26,
+      "entities": "&#x1F969;",
+      "glyph": "🥩",
+      "html": "<div class=\"like-perk-cnt\">&#x1F969;</div>"
+    },
+    {
+      "name": "food",
+      "index": 27,
+      "entities": "&#x1F962;",
+      "glyph": "🥢",
+      "html": "<div class=\"like-perk-cnt\">&#x1F962;</div>"
+    },
+    {
+      "name": "food",
+      "index": 28,
+      "entities": "&#x1F961;",
+      "glyph": "🥡",
+      "html": "<div class=\"like-perk-cnt\">&#x1F961;</div>"
+    },
+    {
+      "name": "food",
+      "index": 29,
+      "entities": "&#x1F95F;",
+      "glyph": "🥟",
+      "html": "<div class=\"like-perk-cnt\">&#x1F95F;</div>"
+    },
+    {
+      "name": "food",
+      "index": 30,
+      "entities": "&#x1F35A;",
+      "glyph": "🍚",
+      "html": "<div class=\"like-perk-cnt\">&#x1F35A;</div>"
+    },
+    {
+      "name": "food",
+      "index": 31,
+      "entities": "&#x1F35C;",
+      "glyph": "🍜",
+      "html": "<div class=\"like-perk-cnt\">&#x1F35C;</div>"
+    },
+    {
+      "name": "food",
+      "index": 32,
+      "entities": "&#x1F372;",
+      "glyph": "🍲",
+      "html": "<div class=\"like-perk-cnt\">&#x1F372;</div>"
+    },
+    {
+      "name": "food",
+      "index": 33,
+      "entities": "&#x1F960;",
+      "glyph": "🥠",
+      "html": "<div class=\"like-perk-cnt\">&#x1F960;</div>"
+    },
+    {
+      "name": "food",
+      "index": 34,
+      "entities": "&#x1F358;",
+      "glyph": "🍘",
+      "html": "<div class=\"like-perk-cnt\">&#x1F358;</div>"
+    },
+    {
+      "name": "food",
+      "index": 35,
+      "entities": "&#x1F359;",
+      "glyph": "🍙",
+      "html": "<div class=\"like-perk-cnt\">&#x1F359;</div>"
+    },
+    {
+      "name": "food",
+      "index": 36,
+      "entities": "&#x1F363;",
+      "glyph": "🍣",
+      "html": "<div class=\"like-perk-cnt\">&#x1F363;</div>"
+    },
+    {
+      "name": "food",
+      "index": 37,
+      "entities": "&#x1F365;",
+      "glyph": "🍥",
+      "html": "<div class=\"like-perk-cnt\">&#x1F365;</div>"
+    },
+    {
+      "name": "food",
+      "index": 38,
+      "entities": "&#x1F371;",
+      "glyph": "🍱",
+      "html": "<div class=\"like-perk-cnt\">&#x1F371;</div>"
+    },
+    {
+      "name": "food",
+      "index": 39,
+      "entities": "&#x1F361;",
+      "glyph": "🍡",
+      "html": "<div class=\"like-perk-cnt\">&#x1F361;</div>"
+    },
+    {
+      "name": "food",
+      "index": 40,
+      "entities": "&#x1F362;",
+      "glyph": "🍢",
+      "html": "<div class=\"like-perk-cnt\">&#x1F362;</div>"
+    },
+    {
+      "name": "food",
+      "index": 41,
+      "entities": "&#x1F347;",
+      "glyph": "🍇",
+      "html": "<div class=\"like-perk-cnt\">&#x1F347;</div>"
+    },
+    {
+      "name": "food",
+      "index": 42,
+      "entities": "&#x1F348;",
+      "glyph": "🍈",
+      "html": "<div class=\"like-perk-cnt\">&#x1F348;</div>"
+    },
+    {
+      "name": "food",
+      "index": 43,
+      "entities": "&#x1F349;",
+      "glyph": "🍉",
+      "html": "<div class=\"like-perk-cnt\">&#x1F349;</div>"
+    },
+    {
+      "name": "food",
+      "index": 44,
+      "entities": "&#x1F34A;",
+      "glyph": "🍊",
+      "html": "<div class=\"like-perk-cnt\">&#x1F34A;</div>"
+    },
+    {
+      "name": "food",
+      "index": 45,
+      "entities": "&#x1F34B;",
+      "glyph": "🍋",
+      "html": "<div class=\"like-perk-cnt\">&#x1F34B;</div>"
+    },
+    {
+      "name": "food",
+      "index": 46,
+      "entities": "&#x1F34C;",
+      "glyph": "🍌",
+      "html": "<div class=\"like-perk-cnt\">&#x1F34C;</div>"
+    },
+    {
+      "name": "food",
+      "index": 47,
+      "entities": "&#x1F34D;",
+      "glyph": "🍍",
+      "html": "<div class=\"like-perk-cnt\">&#x1F34D;</div>"
+    },
+    {
+      "name": "food",
+      "index": 48,
+      "entities": "&#x1F34E;",
+      "glyph": "🍎",
+      "html": "<div class=\"like-perk-cnt\">&#x1F34E;</div>"
+    },
+    {
+      "name": "food",
+      "index": 49,
+      "entities": "&#x1F34F;",
+      "glyph": "🍏",
+      "html": "<div class=\"like-perk-cnt\">&#x1F34F;</div>"
+    },
+    {
+      "name": "food",
+      "index": 50,
+      "entities": "&#x1F350;",
+      "glyph": "🍐",
+      "html": "<div class=\"like-perk-cnt\">&#x1F350;</div>"
+    },
+    {
+      "name": "food",
+      "index": 51,
+      "entities": "&#x1F351;",
+      "glyph": "🍑",
+      "html": "<div class=\"like-perk-cnt\">&#x1F351;</div>"
+    },
+    {
+      "name": "food",
+      "index": 52,
+      "entities": "&#x1F352;",
+      "glyph": "🍒",
+      "html": "<div class=\"like-perk-cnt\">&#x1F352;</div>"
+    },
+    {
+      "name": "food",
+      "index": 53,
+      "entities": "&#x1F353;",
+      "glyph": "🍓",
+      "html": "<div class=\"like-perk-cnt\">&#x1F353;</div>"
+    },
+    {
+      "name": "food",
+      "index": 54,
+      "entities": "&#x1F95D;",
+      "glyph": "🥝",
+      "html": "<div class=\"like-perk-cnt\">&#x1F95D;</div>"
+    },
+    {
+      "name": "food",
+      "index": 55,
+      "entities": "&#x1F965;",
+      "glyph": "🥥",
+      "html": "<div class=\"like-perk-cnt\">&#x1F965;</div>"
+    },
+    {
+      "name": "food",
+      "index": 56,
+      "entities": "&#x1F966;",
+      "glyph": "🥦",
+      "html": "<div class=\"like-perk-cnt\">&#x1F966;</div>"
+    },
+    {
+      "name": "food",
+      "index": 57,
+      "entities": "&#x1F344;",
+      "glyph": "🍄",
+      "html": "<div class=\"like-perk-cnt\">&#x1F344;</div>"
+    },
+    {
+      "name": "food",
+      "index": 58,
+      "entities": "&#x1F345;",
+      "glyph": "🍅",
+      "html": "<div class=\"like-perk-cnt\">&#x1F345;</div>"
+    },
+    {
+      "name": "food",
+      "index": 59,
+      "entities": "&#x1F346;",
+      "glyph": "🍆",
+      "html": "<div class=\"like-perk-cnt\">&#x1F346;</div>"
+    },
+    {
+      "name": "food",
+      "index": 60,
+      "entities": "&#x1F336;",
+      "glyph": "🌶",
+      "html": "<div class=\"like-perk-cnt\">&#x1F336;</div>"
+    },
+    {
+      "name": "food",
+      "index": 61,
+      "entities": "&#x1F951;",
+      "glyph": "🥑",
+      "html": "<div class=\"like-perk-cnt\">&#x1F951;</div>"
+    },
+    {
+      "name": "food",
+      "index": 62,
+      "entities": "&#x1F955;",
+      "glyph": "🥕",
+      "html": "<div class=\"like-perk-cnt\">&#x1F955;</div>"
+    },
+    {
+      "name": "food",
+      "index": 63,
+      "entities": "&#x1F952;",
+      "glyph": "🥒",
+      "html": "<div class=\"like-perk-cnt\">&#x1F952;</div>"
+    },
+    {
+      "name": "food",
+      "index": 64,
+      "entities": "&#x1F954;",
+      "glyph": "🥔",
+      "html": "<div class=\"like-perk-cnt\">&#x1F954;</div>"
+    },
+    {
+      "name": "food",
+      "index": 65,
+      "entities": "&#x1F95C;",
+      "glyph": "🥜",
+      "html": "<div class=\"like-perk-cnt\">&#x1F95C;</div>"
+    },
+    {
+      "name": "food",
+      "index": 66,
+      "entities": "&#x1F370;",
+      "glyph": "🍰",
+      "html": "<div class=\"like-perk-cnt\">&#x1F370;</div>"
+    },
+    {
+      "name": "food",
+      "index": 67,
+      "entities": "&#x1F382;",
+      "glyph": "🎂",
+      "html": "<div class=\"like-perk-cnt\">&#x1F382;</div>"
+    },
+    {
+      "name": "food",
+      "index": 68,
+      "entities": "&#x1F967;",
+      "glyph": "🥧",
+      "html": "<div class=\"like-perk-cnt\">&#x1F967;</div>"
+    },
+    {
+      "name": "food",
+      "index": 69,
+      "entities": "&#x1F368;",
+      "glyph": "🍨",
+      "html": "<div class=\"like-perk-cnt\">&#x1F368;</div>"
+    },
+    {
+      "name": "food",
+      "index": 70,
+      "entities": "&#x1F366;",
+      "glyph": "🍦",
+      "html": "<div class=\"like-perk-cnt\">&#x1F366;</div>"
+    },
+    {
+      "name": "food",
+      "index": 71,
+      "entities": "&#x1F369;",
+      "glyph": "🍩",
+      "html": "<div class=\"like-perk-cnt\">&#x1F369;</div>"
+    },
+    {
+      "name": "food",
+      "index": 72,
+      "entities": "&#x1F36A;",
+      "glyph": "🍪",
+      "html": "<div class=\"like-perk-cnt\">&#x1F36A;</div>"
+    },
+    {
+      "name": "food",
+      "index": 73,
+      "entities": "&#x1F37F;",
+      "glyph": "🍿",
+      "html": "<div class=\"like-perk-cnt\">&#x1F37F;</div>"
+    },
+    {
+      "name": "food",
+      "index": 74,
+      "entities": "&#x1F36E;",
+      "glyph": "🍮",
+      "html": "<div class=\"like-perk-cnt\">&#x1F36E;</div>"
+    },
+    {
+      "name": "food",
+      "index": 75,
+      "entities": "&#x1F36F;",
+      "glyph": "🍯",
+      "html": "<div class=\"like-perk-cnt\">&#x1F36F;</div>"
+    },
+    {
+      "name": "food",
+      "index": 76,
+      "entities": "&#x1F367;",
+      "glyph": "🍧",
+      "html": "<div class=\"like-perk-cnt\">&#x1F367;</div>"
+    },
+    {
+      "name": "food",
+      "index": 77,
+      "entities": "&#x1F36B;",
+      "glyph": "🍫",
+      "html": "<div class=\"like-perk-cnt\">&#x1F36B;</div>"
+    },
+    {
+      "name": "food",
+      "index": 78,
+      "entities": "&#x1F36C;",
+      "glyph": "🍬",
+      "html": "<div class=\"like-perk-cnt\">&#x1F36C;</div>"
+    },
+    {
+      "name": "food",
+      "index": 79,
+      "entities": "&#x1F36D;",
+      "glyph": "🍭",
+      "html": "<div class=\"like-perk-cnt\">&#x1F36D;</div>"
+    },
+    {
+      "name": "food",
+      "index": 80,
+      "entities": "&#x1F37A;",
+      "glyph": "🍺",
+      "html": "<div class=\"like-perk-cnt\">&#x1F37A;</div>"
+    },
+    {
+      "name": "food",
+      "index": 81,
+      "entities": "&#x1F37B;",
+      "glyph": "🍻",
+      "html": "<div class=\"like-perk-cnt\">&#x1F37B;</div>"
+    },
+    {
+      "name": "food",
+      "index": 82,
+      "entities": "&#x1F377;",
+      "glyph": "🍷",
+      "html": "<div class=\"like-perk-cnt\">&#x1F377;</div>"
+    },
+    {
+      "name": "food",
+      "index": 83,
+      "entities": "&#x1F378;",
+      "glyph": "🍸",
+      "html": "<div class=\"like-perk-cnt\">&#x1F378;</div>"
+    },
+    {
+      "name": "food",
+      "index": 84,
+      "entities": "&#x1F379;",
+      "glyph": "🍹",
+      "html": "<div class=\"like-perk-cnt\">&#x1F379;</div>"
+    },
+    {
+      "name": "food",
+      "index": 85,
+      "entities": "&#x1F376;",
+      "glyph": "🍶",
+      "html": "<div class=\"like-perk-cnt\">&#x1F376;</div>"
+    },
+    {
+      "name": "food",
+      "index": 86,
+      "entities": "&#x1F942;",
+      "glyph": "🥂",
+      "html": "<div class=\"like-perk-cnt\">&#x1F942;</div>"
+    },
+    {
+      "name": "food",
+      "index": 87,
+      "entities": "&#x1F943;",
+      "glyph": "🥃",
+      "html": "<div class=\"like-perk-cnt\">&#x1F943;</div>"
+    },
+    {
+      "name": "food",
+      "index": 88,
+      "entities": "&#x1F37E;",
+      "glyph": "🍾",
+      "html": "<div class=\"like-perk-cnt\">&#x1F37E;</div>"
+    },
+    {
+      "name": "food",
+      "index": 89,
+      "entities": "&#x2615;",
+      "glyph": "☕",
+      "html": "<div class=\"like-perk-cnt\">&#x2615;</div>"
+    },
+    {
+      "name": "food",
+      "index": 90,
+      "entities": "&#x1F375;",
+      "glyph": "🍵",
+      "html": "<div class=\"like-perk-cnt\">&#x1F375;</div>"
+    },
+    {
+      "name": "food",
+      "index": 91,
+      "entities": "&#x1F95B;",
+      "glyph": "🥛",
+      "html": "<div class=\"like-perk-cnt\">&#x1F95B;</div>"
+    },
+    {
+      "name": "food",
+      "index": 92,
+      "entities": "&#x1F37C;",
+      "glyph": "🍼",
+      "html": "<div class=\"like-perk-cnt\">&#x1F37C;</div>"
+    },
+    {
+      "name": "food",
+      "index": 93,
+      "entities": "&#x1F964;",
+      "glyph": "🥤",
+      "html": "<div class=\"like-perk-cnt\">&#x1F964;</div>"
+    },
+    {
+      "name": "food",
+      "index": 94,
+      "entities": "&#x1F374;",
+      "glyph": "🍴",
+      "html": "<div class=\"like-perk-cnt\">&#x1F374;</div>"
+    },
+    {
+      "name": "food",
+      "index": 95,
+      "entities": "&#x1F37D;",
+      "glyph": "🍽",
+      "html": "<div class=\"like-perk-cnt\">&#x1F37D;</div>"
+    },
+    {
+      "name": "food",
+      "index": 96,
+      "entities": "&#x1F963;",
+      "glyph": "🥣",
+      "html": "<div class=\"like-perk-cnt\">&#x1F963;</div>"
+    },
+    {
+      "name": "food",
+      "index": 97,
+      "entities": "&#x1F944;",
+      "glyph": "🥄",
+      "html": "<div class=\"like-perk-cnt\">&#x1F944;</div>"
+    },
+    {
+      "name": "check",
+      "index": 0,
+      "entities": "&#x2714;&#xFE0F;",
+      "glyph": "✔️",
+      "html": "<div class=\"like-perk-cnt\">&#x2714;&#xFE0F;</div>"
+    },
+    {
+      "name": "cross",
+      "index": 0,
+      "entities": "&#x274C;",
+      "glyph": "❌",
+      "html": "<div class=\"like-perk-cnt\">&#x274C;</div>"
+    },
+    {
+      "name": "like",
+      "index": 0,
+      "entities": "&#x2764;&#xFE0F;",
+      "glyph": "❤️",
+      "html": "<div class=\"like-perk-cnt\">&#x2764;&#xFE0F;</div>"
+    },
+    {
+      "name": "unlove",
+      "index": 0,
+      "entities": "&#x1F494;",
+      "glyph": "💔",
+      "html": "<div class=\"like-perk-cnt\">&#x1F494;</div>"
+    },
+    {
+      "name": "rage",
+      "index": 0,
+      "entities": "&#x1F4A2;",
+      "glyph": "💢",
+      "html": "<div class=\"like-perk-cnt\">&#x1F4A2;</div>"
+    },
+    {
+      "name": "perfect",
+      "index": 0,
+      "entities": "&#x1F4AF;",
+      "glyph": "💯",
+      "html": "<div class=\"like-perk-cnt\">&#x1F4AF;</div>"
+    },
+    {
+      "name": "onsen",
+      "index": 0,
+      "entities": "&#x2668;&#xFE0F;",
+      "glyph": "♨️",
+      "html": "<div class=\"like-perk-cnt\">&#x2668;&#xFE0F;</div>"
+    },
+    {
+      "name": "heart",
+      "index": 0,
+      "entities": "&#x2764;&#xFE0F;",
+      "glyph": "❤️",
+      "html": "<div class=\"like-perk-cnt\">&#x2764;&#xFE0F;</div>"
+    },
+    {
+      "name": "heart",
+      "index": 1,
+      "entities": "&#x1F499;",
+      "glyph": "💙",
+      "html": "<div class=\"like-perk-cnt\">&#x1F499;</div>"
+    },
+    {
+      "name": "heart",
+      "index": 2,
+      "entities": "&#x1F49C;",
+      "glyph": "💜",
+      "html": "<div class=\"like-perk-cnt\">&#x1F49C;</div>"
+    },
+    {
+      "name": "heart",
+      "index": 3,
+      "entities": "&#x1F49B;",
+      "glyph": "💛",
+      "html": "<div class=\"like-perk-cnt\">&#x1F49B;</div>"
+    },
+    {
+      "name": "heart",
+      "index": 4,
+      "entities": "&#x1F5A4;",
+      "glyph": "🖤",
+      "html": "<div class=\"like-perk-cnt\">&#x1F5A4;</div>"
+    },
+    {
+      "name": "heart",
+      "index": 5,
+      "entities": "&#x1F49A;",
+      "glyph": "💚",
+      "html": "<div class=\"like-perk-cnt\">&#x1F49A;</div>"
+    },
+    {
+      "name": "joy",
+      "index": 0,
+      "entities": "&#x1F602;",
+      "glyph": "😂",
+      "html": "<div class=\"like-perk-cnt\">&#x1F602;</div>"
+    },
+    {
+      "name": "pig",
+      "index": 0,
+      "entities": "&#x1F437;",
+      "glyph": "🐷",
+      "html": "<div class=\"like-perk-cnt\">&#x1F437;</div>"
+    },
+    {
+      "name": "dog",
+      "index": 0,
+      "entities": "&#x1F436;",
+      "glyph": "🐶",
+      "html": "<div class=\"like-perk-cnt\">&#x1F436;</div>"
+    },
+    {
+      "name": "cat",
+      "index": 0,
+      "entities": "&#x1F431;",
+      "glyph": "🐱",
+      "html": "<div class=\"like-perk-cnt\">&#x1F431;</div>"
+    },
+    {
+      "name": "rainbow",
+      "index": 0,
+      "entities": "&#x1F308;",
+      "glyph": "🌈",
+      "html": "<div class=\"like-perk-cnt\">&#x1F308;</div>"
+    },
+    {
+      "name": "frog",
+      "index": 0,
+      "entities": "&#x1F438;",
+      "glyph": "🐸",
+      "html": "<div class=\"like-perk-cnt\">&#x1F438;</div>"
+    }
+  ]
+}

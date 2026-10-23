@@ -149,6 +149,7 @@ impl Fixture {
                 &post,
                 context,
                 PostMetadata {
+                    event_scores: false,
                     drawing: None,
                     keys,
                     country_database: None,
@@ -189,6 +190,7 @@ impl Fixture {
             None,
             context(peer, epoch),
             PostMetadata {
+                event_scores: false,
                 drawing: None,
                 keys: PostIdentityKeys {
                     tripcode: None,

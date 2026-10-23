@@ -101,6 +101,7 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
         axum::serve(listener, app).await.unwrap();
     });
     let state = AppState {
+        event_workflows: false,
         asn_database: None,
         browser_hint_key: None,
         posting_browser_compat_key: None,

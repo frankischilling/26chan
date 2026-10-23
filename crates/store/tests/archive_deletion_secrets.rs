@@ -143,6 +143,7 @@ impl Fixture {
                 &post(),
                 context(actor),
                 PostMetadata {
+                    event_scores: false,
                     drawing: None,
                     keys,
                     country_database: None,
@@ -794,7 +795,8 @@ async fn retirement_preserves_anonymous_derivatives_actions_and_consumed_media()
                         fingerprints:capability.fingerprints(Some(IpAddr::from([192,0,2,90])),*b"US"),
                         minted,now:chrono::Utc::now(),
                     },
-                },PostMetadata { drawing: None,
+                },PostMetadata {
+            event_scores: false, drawing: None,
                     keys:PostIdentityKeys {tripcode:None,poster_id:Some(&key)},spoiler:false,
                     country_database:None,flag:"",options:"",
                 }).await.unwrap();

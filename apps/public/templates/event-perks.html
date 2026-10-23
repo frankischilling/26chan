@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Scores and perks - 26chan{% endblock %}
+{% block body_attributes %} class="siteHome"{% endblock %}
+{% block board_navigation %}{% endblock %}
+{% block content %}
+<header class="siteHomeHeader"><h1><a href="/">26chan</a></h1></header>
+<section class="homePanel siteInfo"><h2>Scores and perks</h2>
+<nav>[ <a href="/event-market.html">Market</a> / <a href="/event-emotes.html">Emotes</a> / <a href="/">Boards</a> ]</nav>
+{% if !active %}<p>This event is closed.</p>{% else %}
+<p>Add one of these names to the Options field when posting. The first recognized name is used. Animal, food and heart choose a random glyph from their original pools; the examples below show one possible result.</p>
+<ul class="eventRoster">{% for choice in choices %}<li><strong>{{ choice.name() }}</strong><span class="eventGlyph" aria-hidden="true">{{ choice.glyph() }}</span></li>{% endfor %}</ul>
+<p>All listed perks are available at zero points in this source snapshot. The public score display remains zero.</p>
+<h3>Like a reply</h3>
+<form method="get" action="/event-like.html"><p><label>Board <input name="board" maxlength="10" pattern="[a-z0-9]{1,10}" required></label> <label>Post number <input name="post" inputmode="numeric" pattern="[1-9][0-9]{0,18}" maxlength="19" required></label> <button type="submit">Open like form</button></p></form>
+<p>Opening this page does not vote. The next form checks the target and asks for any required verification.</p>
+{% endif %}
+</section>
+{% endblock %}
+{% block page_footer %}<footer class="homeFooter"><p>Optional local score event.</p></footer>{% endblock %}

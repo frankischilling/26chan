@@ -132,6 +132,7 @@ pub fn validate_origins(
 
 #[derive(Clone)]
 pub struct Settings {
+    pub event_workflows: bool,
     pub posting_browser_compat_key: Option<
         std::sync::Arc<
             board_domain::content_admission::classifiers::posting::browser::CompatibilityKey,
@@ -289,6 +290,15 @@ impl Settings {
                     .map_err(|error| ConfigError(error.0))?,
             )),
         };
+        let event_workflows = match env::var("PUBLIC_EVENT_WORKFLOWS") {
+            Err(env::VarError::NotPresent) => false,
+            Ok(value) if value == "false" => false,
+            Ok(value) if value == "true" => true,
+            _ => return Err(ConfigError("PUBLIC_EVENT_WORKFLOWS must be true or false.")),
+        };
+        if event_workflows && poster_id_key.is_none() {
+            return Err(ConfigError("Event workflows require POSTER_ID_KEY."));
+        }
         let tripcode_key = match env::var("TRIPCODE_KEY") {
             Err(env::VarError::NotPresent) => None,
             Err(_) => return Err(ConfigError("Invalid TRIPCODE_KEY.")),
@@ -389,6 +399,7 @@ impl Settings {
         }
         let [public_origin, _, _] = origins;
         Ok(Self {
+            event_workflows,
             database_url,
             bind,
             public_origin,

@@ -161,7 +161,7 @@ impl VerificationKey {
         let valid = match purpose {
             "email_request" => board.is_none() && target == 0,
             "thread" | "restriction_status" => board.is_some() && target == 0,
-            "reply" | "report" | "warning_view" => board.is_some() && target > 0,
+            "reply" | "report" | "like" | "warning_view" => board.is_some() && target > 0,
             "ticket" => board.is_some(),
             _ => false,
         };
@@ -502,6 +502,14 @@ mod tests {
             Some(expected),
             key.form_context("report", Some("g"), 42, &nonce)
         );
+        let like = key.form_context("like", Some("g"), 42, &nonce).unwrap();
+        assert_ne!(like, expected);
+        assert_ne!(
+            Some(like),
+            key.form_context("report", Some("g"), 42, &nonce)
+        );
+        assert!(key.form_context("like", None, 42, &nonce).is_none());
+        assert!(key.form_context("like", Some("g"), 0, &nonce).is_none());
         assert_ne!(
             Some(expected),
             key.form_context("reply", Some("a"), 42, &nonce)

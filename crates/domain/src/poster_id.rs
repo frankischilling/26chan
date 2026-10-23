@@ -103,6 +103,12 @@ impl PosterIdKey {
         crate::poll_voting::PollVotingKey::derive(&self.0)
     }
 
+    /// Optional event cookies and storage capabilities use separate purposes;
+    /// existing poster labels and throttle hashes cannot authorize an event.
+    pub fn event_key(&self) -> crate::source_events::credentials::Key {
+        crate::source_events::credentials::Key::derive(&self.0)
+    }
+
     /// The caller must supply the verified current transport peer, never a
     /// request field. Cookies, boards and environment cannot change this key.
     /// Missing transport identity must be handled by the caller, not fabricated.

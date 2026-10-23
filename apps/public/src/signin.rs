@@ -484,6 +484,7 @@ pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, Str
         return Err("Invalid verification fixture.".into());
     }
     let state = AppState {
+        event_workflows: false,
         asn_database: None,
         browser_hint_key: None,
         posting_browser_compat_key: None,

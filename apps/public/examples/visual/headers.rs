@@ -34,6 +34,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
             trip: None,
             poster_id: None,
             since4pass: 0,
+            event_perk: None,
             json_op_poster_id: None,
             capcode: Some(capcode.into()),
             country: None,

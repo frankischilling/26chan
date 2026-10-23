@@ -44,6 +44,7 @@ pub fn page() -> String {
         })
         .collect();
     super::views::Home {
+        event_workflows: false,
         boards,
         media_origin: String::new(),
         news: vec![board_store::site_content::NewsItem {

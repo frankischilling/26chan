@@ -453,6 +453,7 @@ async fn exercise(
                 op_password_proof: None,
             },
             board_store::PostMetadata {
+                event_scores: false,
                 keys: board_store::PostIdentityKeys {
                     tripcode: None,
                     poster_id: Some(&identity),
@@ -502,6 +503,7 @@ async fn exercise(
             op_password_proof: None,
         },
         board_store::PostMetadata {
+            event_scores: false,
             keys: board_store::PostIdentityKeys {
                 tripcode: None,
                 poster_id: Some(&identity),
@@ -552,6 +554,7 @@ async fn exercise(
             op_password_proof: None,
         },
         board_store::PostMetadata {
+            event_scores: false,
             keys: board_store::PostIdentityKeys {
                 tripcode: None,
                 poster_id: Some(&identity),

@@ -15,6 +15,7 @@ const prerequisites = [
   'cargo test -p board-public --all-features --locked --test upload_browser',
   'cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture',
   'cargo test -p board-store -p board-verification --all-features --locked',
+  'cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture',
   'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact',
   'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact',
   'cargo test -p board-public --all-features --locked --lib pass_auth::database_tests::public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_recovery::database_tests::public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token -- --ignored --exact',
@@ -32,7 +33,7 @@ const browserPrerequisites = [
   'cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked',
 ];
 const dependencyCommands = ['npm ci --ignore-scripts', 'npx playwright install --with-deps chromium'];
-const suites = ['rust', 'browser-content', 'browser-interactions'];
+const suites = ['rust', 'browser-content', 'browser-interactions', 'browser-posting'];
 const roles = ['TEST_PUBLIC', 'MEDIA', 'MEDIA_READ', 'INTAKE', 'MONITOR', 'AUTH', 'STAFF'];
 const staff = 'npx playwright test --config playwright.staff.config.js';
 // Captured before splitting verification into CI lanes. Keep this expectation
@@ -58,6 +59,7 @@ npm ci --ignore-scripts
 npx playwright install --with-deps chromium
 npm run check:generated
 npm run test:verification-core
+npm run test:events-core
 python3 tests/helpers/test_verification_mail_fixture.py
 timeout 300s npm run test:math
 npm run test:math
@@ -72,6 +74,7 @@ cargo build -p board-public --example deletion-quota-fixture --features browser-
 cargo test -p board-public --all-features --locked --test upload_browser
 cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture
 cargo test -p board-store -p board-verification --all-features --locked
+cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture
 cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact
 cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact
 cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact
@@ -158,7 +161,7 @@ name=\${0##*/}
 command="$name $*"
 printf '%s\\n' "$command" >> "$VERIFY_TEST_LOG"
 printf '%s\\t%s\\t%s\\t%s\\n' "$command" "\${AZURE_CONFIG_DIR-}" "\${SSH_AUTH_SOCK-}" "\${EXTRA_DATABASE_URL-}" >> "$VERIFY_TEST_ENV_LOG"
-printf '%s\\t%s\\t%s\\n' "$command" "\${TEST_VERIFICATION_DATABASE_URL-}" "\${TEST_VERIFICATION_MAIL_DATABASE_URL-}" >> "$VERIFY_TEST_VERIFICATION_LOG"
+printf '%s\\t%s\\t%s\\t%s\\n' "$command" "\${TEST_VERIFICATION_DATABASE_URL-}" "\${TEST_VERIFICATION_MAIL_DATABASE_URL-}" "\${RUN_SCORE_BROWSER-}" >> "$VERIFY_TEST_VERIFICATION_LOG"
 if [[ "$command" == "$VERIFY_TEST_FAIL" ]]; then exit 73; fi
 if [[ "$name" == timeout ]]; then
   shift
@@ -261,12 +264,12 @@ test('CI suites cover the full runner with only repeated dependency and fixture 
   assert.equal(full.status, 0, full.stderr);
   const results = suites.map(suite => runRunner(t, { args: [suite] }));
   for (const result of results) assert.equal(result.status, 0, result.stderr);
-  // All three runners install dependencies and prepare the same four fixtures.
+  // All four runners install dependencies and prepare the same four fixtures.
   // Every other command must occur with exactly its full-run multiplicity.
   const repeated = [...dependencyCommands, ...browserPrerequisites];
   assert.deepEqual(
     results.flatMap(result => result.commands).sort(),
-    [...full.commands, ...repeated, ...repeated].sort(),
+    [...full.commands, ...repeated, ...repeated, ...repeated].sort(),
   );
   const rust = results[0].commands;
   const installed = position(rust, dependencyCommands[1]);
@@ -281,6 +284,7 @@ test('each browser suite installs dependencies and builds and tests fixtures bef
   for (const [suite, first] of [
     ['browser-content', 'timeout 300s npm run test:math'],
     ['browser-interactions', 'npm run test:display'],
+    ['browser-posting', 'npm run test:quick-reply'],
   ]) {
     const result = runRunner(t, { args: [suite] });
     assert.equal(result.status, 0, result.stderr);
@@ -342,6 +346,7 @@ test('CI suites preserve failures and never execute a command after a failed pre
       'node scripts/record-source-quote-styles.mjs',
       'npm run check:generated',
       'npm run test:verification-core',
+      'npm run test:events-core',
       'python3 tests/helpers/test_verification_mail_fixture.py',
       'cargo clippy --workspace --all-targets --all-features --locked -- -D warnings',
     ]],
@@ -352,7 +357,11 @@ test('CI suites preserve failures and never execute a command after a failed pre
     ]],
     ['browser-interactions', [
       ...dependencyCommands, ...browserPrerequisites,
-      'npm run test:display', 'npm run test:behavior', staff,
+      'npm run test:display', 'npm run test:settings-transfer',
+    ]],
+    ['browser-posting', [
+      ...dependencyCommands, ...browserPrerequisites,
+      'npm run test:quick-reply', 'npm run test:behavior', staff,
     ]],
   ]) {
     const successful = runRunner(t, { args: [suite] });
@@ -385,8 +394,19 @@ test('only explicit verification tests receive isolated verification database cr
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.verificationEnvironments.length, result.commands.length);
     for (const [command, issuer, mailer] of result.verificationEnvironments) {
-      assert.deepEqual([issuer, mailer], ['cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture', 'cargo test -p board-store -p board-verification --all-features --locked', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_auth::database_tests::public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_recovery::database_tests::public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact', 'cargo test -p board-public --all-features --locked --test network_hints report_routes_keep_get_advice_and_apply_parser_hints_before_commit -- --ignored --exact'].includes(command)
+      assert.deepEqual([issuer, mailer], ['cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture', 'cargo test -p board-store -p board-verification --all-features --locked', 'cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_auth::database_tests::public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib pass_recovery::database_tests::public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact', 'cargo test -p board-public --all-features --locked --test network_hints report_routes_keep_get_advice_and_apply_parser_hints_before_commit -- --ignored --exact'].includes(command)
         ? ['owned-issuer-trace', 'owned-mail-trace'] : ['', ''], command);
+    }
+  }
+});
+
+test('the score browser gate is enabled only for its explicit verifier fixture', options, t => {
+  const command = 'cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture';
+  for (const suite of ['all', ...suites]) {
+    const result = runRunner(t, { args: [suite] });
+    assert.equal(result.status, 0, result.stderr);
+    for (const [invocation, , , flag] of result.verificationEnvironments) {
+      assert.equal(flag, invocation === command ? '1' : '', invocation);
     }
   }
 });

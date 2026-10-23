@@ -42,6 +42,7 @@ async fn filtered_post(
             },
         },
         PostMetadata {
+            event_scores: false,
             drawing: None,
             spoiler: false,
             keys: PostIdentityKeys {

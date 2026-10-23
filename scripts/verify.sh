@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 if (( $# > 1 )); then
-  echo 'Usage: scripts/verify.sh [all|rust|browser-content|browser-interactions]' >&2
+  echo 'Usage: scripts/verify.sh [all|rust|browser-content|browser-interactions|browser-posting]' >&2
   exit 2
 fi
 suite=${1-all}
 case "$suite" in
-  all|rust|browser-content|browser-interactions) ;;
+  all|rust|browser-content|browser-interactions|browser-posting) ;;
   *)
-    echo 'Usage: scripts/verify.sh [all|rust|browser-content|browser-interactions]' >&2
+    echo 'Usage: scripts/verify.sh [all|rust|browser-content|browser-interactions|browser-posting]' >&2
     exit 2
     ;;
 esac
@@ -72,6 +72,7 @@ rust_checks() {
     : "${TEST_VERIFICATION_MAIL_DATABASE_URL:?Set the disposable mail database URL}"
     cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture
     cargo test -p board-store -p board-verification --all-features --locked
+    RUN_SCORE_BROWSER=1 cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture
     cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact
     cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact
     cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact
@@ -139,6 +140,9 @@ browser_interactions() {
   npm run test:settings-transfer
   npx playwright test --config playwright.media-visual.config.js tests/media-visual/native-images.spec.js
   npx playwright test --config playwright.media-visual.config.js tests/media-visual/file-presentation.spec.js
+}
+
+browser_posting() {
   npm run test:quick-reply
   npx playwright test tests/browser/mobile-post-headers.spec.js
   npx playwright test tests/browser/post-identities.spec.js
@@ -166,15 +170,18 @@ case "$suite" in
   all)
     npm run check:generated
 npm run test:verification-core
+npm run test:events-core
 python3 tests/helpers/test_verification_mail_fixture.py
     early_browser_checks
     rust_checks
     browser_content
     browser_interactions
+    browser_posting
     ;;
   rust)
     npm run check:generated
 npm run test:verification-core
+npm run test:events-core
 python3 tests/helpers/test_verification_mail_fixture.py
     rust_checks
     ;;
@@ -186,5 +193,9 @@ python3 tests/helpers/test_verification_mail_fixture.py
   browser-interactions)
     browser_prerequisites
     browser_interactions
+    ;;
+  browser-posting)
+    browser_prerequisites
+    browser_posting
     ;;
 esac

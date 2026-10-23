@@ -104,6 +104,7 @@ impl Fixture {
             sage: false,
         };
         let metadata = PostMetadata {
+            event_scores: false,
             keys: PostIdentityKeys {
                 tripcode: None,
                 poster_id: Some(&self.key),
