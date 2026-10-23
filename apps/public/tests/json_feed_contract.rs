@@ -226,7 +226,68 @@ async fn historical_upload_subjects_keep_tags_on_ops_only() {
                 assert_eq!(actual["posts"][1]["sub"],subject);
             }
         }
-        assert_eq!(get(&html,&format!("/{board}/catalog.json")).await.0,StatusCode::NOT_FOUND);
+        assert_eq!(get(&html,&format!("/{board}/catalog.json")).await.0,StatusCode::OK);
+        assert_eq!(get(&html,&format!("/{board}/catalog")).await.0,StatusCode::NOT_FOUND);
+    }).await;
+    sqlx::query("DELETE FROM content.posts WHERE board=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.threads WHERE board=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.boards WHERE slug=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn source_board_feed_switches_are_independent_of_thread_json_and_html_catalog() {
+    let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let slug: String =
+        sqlx::query_scalar("SELECT 'js'||substr(replace(gen_random_uuid()::text,'-',''),1,8)")
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,catalog_enabled) VALUES($1,'Owned feed switches','',500,100,99,100,10,false)")
+        .bind(&slug).execute(&owner).await.unwrap();
+    let owned = owner.clone();
+    let runtime = public.clone();
+    let board = slug.clone();
+    let result=tokio::spawn(async move {
+        let id:i64=sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id").bind(&board).fetch_one(&owned).await.unwrap();
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous','','plain')").bind(id).bind(&board).execute(&owned).await.unwrap();
+        let (html,api)=board_public::routers_with_media(runtime.clone(),"http://127.0.0.1:3000".into(),false,None);
+        for bits in 0..8 {
+            sqlx::query("UPDATE content.boards SET json_indexes_enabled=$2,json_catalog_enabled=$3,json_threads_enabled=$4 WHERE slug=$1")
+                .bind(&board).bind(bits&1!=0).bind(bits&2!=0).bind(bits&4!=0).execute(&owned).await.unwrap();
+            for app in [&html,&api] {
+                for (path,mask) in [("1.json",1),("catalog.json",2),("threads.json",4)] {
+                    assert_eq!(get(app,&format!("/{board}/{path}")).await.0,
+                        if bits&mask!=0 {StatusCode::OK} else {StatusCode::NOT_FOUND},"{bits}: {path}");
+                }
+                assert_eq!(get(app,&format!("/{board}/thread/{id}.json")).await.0,StatusCode::OK);
+            }
+            assert_eq!(get(&html,&format!("/{board}/catalog")).await.0,StatusCode::NOT_FOUND);
+        }
+        assert!(sqlx::query("UPDATE content.boards SET json_indexes_enabled=true WHERE slug=$1").bind(&board).execute(&runtime).await.is_err());
+        sqlx::query("UPDATE content.boards SET json_enabled=false WHERE slug=$1").bind(&board).execute(&owned).await.unwrap();
+        for app in [&html,&api] {
+            for path in ["1.json".into(),"catalog.json".into(),"threads.json".into(),format!("thread/{id}.json")] {
+                assert_eq!(get(app,&format!("/{board}/{path}")).await.0,StatusCode::NOT_FOUND);
+            }
+        }
     }).await;
     sqlx::query("DELETE FROM content.posts WHERE board=$1")
         .bind(&slug)

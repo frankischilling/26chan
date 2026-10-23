@@ -220,7 +220,7 @@ pub(crate) async fn catalog_info(
         return Err(AppError(StatusCode::BAD_REQUEST, "Invalid board."));
     }
     let board = board_store::board(&state.pool, slug).await?;
-    require_json(&board, false)?;
+    require_json(&board, true)?;
     if board.staff_only {
         return Err(AppError(StatusCode::NOT_FOUND, "Board not found."));
     }
@@ -353,7 +353,9 @@ fn post_json(
         }
         value["replies"] = json!(replies);
         value["images"] = json!(images);
-        if let Some(count) = unique_ips {
+        if board.show_thread_uniques
+            && let Some(count) = unique_ips.filter(|count| *count > 0)
+        {
             value["unique_ips"] = json!(count);
         }
         let context = crate::semantic_thread::context(&post, board)?;
@@ -475,7 +477,7 @@ pub async fn thread_selection(
         tail_id,
         quote_targets,
     } = board_store::thread_snapshot_selection(&state.pool, slug, id, tail).await?;
-    require_json(&board, false)?;
+    require_json(&board, true)?;
     let capcode_replies = if board.meta_board && !tail {
         badge_reply_groups(
             posts
@@ -529,7 +531,7 @@ pub async fn archive(
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
     let snapshot = board_store::archive_snapshot(&state.pool, slug).await?;
-    require_json(&snapshot.board, false)?;
+    require_json(&snapshot.board, true)?;
     let ids: Vec<_> = snapshot.entries.into_iter().map(|entry| entry.id).collect();
     response(&state.limits, json!(ids), None, headers)
 }
@@ -619,7 +621,7 @@ pub async fn thread_list(
         board_store::board_snapshot(&state.pool, slug, board_store::BoardSelection::All, None)
             .await?;
     let board = snapshot.board;
-    require_json(&board, false)?;
+    require_json(&board, board.json_threads_enabled)?;
     let threads = snapshot.threads;
     let mut pages = Vec::new();
     for (index, chunk) in threads.chunks(board.threads_per_page as usize).enumerate() {
@@ -659,7 +661,7 @@ pub async fn catalog(
     )
     .await?;
     let board = snapshot.board;
-    require_json(&board, true)?;
+    require_json(&board, board.json_catalog_enabled)?;
     let mut pages = Vec::new();
     let mut threads = snapshot.threads.into_iter().peekable();
     while threads.peek().is_some() {
@@ -691,7 +693,7 @@ pub async fn index(
     )
     .await?;
     let board = snapshot.board;
-    require_json(&board, false)?;
+    require_json(&board, board.json_indexes_enabled)?;
     let mut entries = Vec::new();
     for preview in snapshot.threads {
         let total = preview.visible_posts;
@@ -718,8 +720,8 @@ pub async fn index(
     response(&state.limits, json!({"threads": entries}), None, headers)
 }
 
-fn require_json(board: &Board, catalog: bool) -> Result<(), AppError> {
-    if !board.json_enabled || (catalog && !board.catalog_enabled) {
+fn require_json(board: &Board, feed_enabled: bool) -> Result<(), AppError> {
+    if !board.json_enabled || !feed_enabled {
         return Err(AppError(StatusCode::NOT_FOUND, "JSON resource not found."));
     }
     Ok(())
@@ -1517,6 +1519,42 @@ mod source_directory_builder_tests {
                 })
                 .collect();
             assert_eq!(json!({"boards":actual}), case["expected"]);
+        }
+    }
+}
+
+#[cfg(test)]
+mod source_unique_policy_tests {
+    use super::*;
+    #[test]
+    fn unique_counts_follow_source_enablement_and_positive_count_rules() {
+        let source: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/preview-policy-reference.json"
+        ))
+        .unwrap();
+        for case in source["cases"].as_array().unwrap() {
+            let mut fixture = crate::native_updater_snapshot::tests::fixture();
+            fixture.board.show_thread_uniques =
+                case["input"]["show_thread_uniques"].as_bool().unwrap();
+            let value = post_json(
+                fixture.posts[0].clone(),
+                &fixture.thread,
+                &fixture.board,
+                0,
+                0,
+                Some(case["input"]["unique_ips"].as_i64().unwrap() as i32),
+                QuoteContext {
+                    targets: &fixture.quote_targets,
+                    current_thread: Some(fixture.thread.id),
+                },
+            )
+            .unwrap();
+            assert_eq!(
+                value.get("unique_ips"),
+                case["expected"]["full_thread"]["op_extra"].get("unique_ips"),
+                "{}",
+                case["id"]
+            );
         }
     }
 }

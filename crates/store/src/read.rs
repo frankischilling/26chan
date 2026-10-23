@@ -210,11 +210,15 @@ async fn read_thread_snapshot(
     } else {
         crate::quote_targets::load(&mut tx, &entries).await?
     };
-    let unique_ips = sqlx::query_scalar("SELECT content.unique_posters($1,$2)")
-        .bind(slug)
-        .bind(id)
-        .fetch_one(&mut *tx)
-        .await?;
+    let unique_ips = if board.show_thread_uniques {
+        sqlx::query_scalar("SELECT content.unique_posters($1,$2)")
+            .bind(slug)
+            .bind(id)
+            .fetch_one(&mut *tx)
+            .await?
+    } else {
+        None
+    };
     let navigation_boards = snapshot_navigation(&mut tx, include_navigation).await?;
     let blotter = crate::blotter::snapshot_blotter(
         &mut tx,

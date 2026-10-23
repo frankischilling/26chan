@@ -336,7 +336,7 @@ async fn thread_representations_include_board_settings_in_their_snapshot() {
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
     let mut setup = owner.begin().await.unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Before commit','Owned thread snapshot fixture',1000,100,50,10,10)")
+    sqlx::query("INSERT INTO content.boards(show_thread_uniques,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(true,$1,'Before commit','Owned thread snapshot fixture',1000,100,50,10,10)")
         .bind(&slug).execute(&mut *setup).await.unwrap();
     let id: i64 = sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
         .bind(&slug)

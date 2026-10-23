@@ -321,13 +321,17 @@ async fn read_board_snapshot(
     } else {
         crate::quote_targets::load(&mut tx, &posts).await?
     };
-    let poster_counts: Vec<(i64, Option<i32>)> = sqlx::query_as(
-        "SELECT id,content.unique_posters($1,id) FROM unnest($2::bigint[]) selected(id)",
-    )
-    .bind(slug)
-    .bind(&ids)
-    .fetch_all(&mut *tx)
-    .await?;
+    let poster_counts: Vec<(i64, Option<i32>)> = if board.show_thread_uniques {
+        sqlx::query_as(
+            "SELECT id,content.unique_posters($1,id) FROM unnest($2::bigint[]) selected(id)",
+        )
+        .bind(slug)
+        .bind(&ids)
+        .fetch_all(&mut *tx)
+        .await?
+    } else {
+        Vec::new()
+    };
     let navigation_boards = crate::read::snapshot_navigation(&mut tx, include_navigation).await?;
     let blotter = crate::blotter::snapshot_blotter(
         &mut tx,

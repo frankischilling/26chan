@@ -1,6 +1,7 @@
 # Private poster counts
 
-Active threads expose the optional `unique_ips` integer when every visible post
+Active threads expose the optional `unique_ips` integer only when the board's
+`show_thread_uniques` policy is enabled and every visible post
 has a verified network context from one key epoch. The count includes the opening
 post. Full and tail thread JSON, index JSON and catalog JSON place it on the
 opening post only. Native statistics use the same count and show `Posters`.
@@ -97,3 +98,9 @@ directions. It checks function-owner and runtime grants.
 omission and removal of a previously displayed count. Persisted statistics
 browser tests exercise the endpoint, desktop/mobile placement and preferences.
 Executed outcomes belong in [the verification record](verification-rewrite-completion.md).
+
+Migration 0248 defaults the source `SHOW_THREAD_UNIQUES` switch to false for all
+boards. The owned demo fixture opts in explicitly. Display policy does not grant
+access to fingerprints or change their capture and cleanup rules. Public thread
+snapshots and live statistics use the same policy; public credentials cannot
+change it.

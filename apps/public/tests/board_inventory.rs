@@ -17,12 +17,23 @@ async fn installed_inventory_policy_routes_and_private_content_match_the_referen
         .unwrap();
     let reference: Value =
         serde_json::from_str(include_str!("../../../fixtures/board-reference.json")).unwrap();
+    let json_policy: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/json-directory-reference.json"
+    ))
+    .unwrap();
     let boards = reference["boards"].as_array().unwrap();
     assert_eq!(boards.len(), 82);
     assert_eq!(boards.iter().filter(|b| b["listed"] == true).count(), 80);
     let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
     for expected in boards {
         let slug = expected["slug"].as_str().unwrap();
+        let json_policy = &json_policy["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["board"] == slug)
+            .unwrap()["constants"];
+
         let saved: Value =
             sqlx::query_scalar("SELECT to_jsonb(b) FROM content.boards b WHERE slug=$1")
                 .bind(slug)
@@ -33,6 +44,14 @@ async fn installed_inventory_policy_routes_and_private_content_match_the_referen
             if !matches!(key.as_str(), "listed" | "source_policy") {
                 assert_eq!(&saved[key], value, "/{slug}/: {key}");
             }
+        }
+        for (field, key) in [
+            ("show_thread_uniques", "SHOW_THREAD_UNIQUES"),
+            ("json_indexes_enabled", "ENABLE_JSON_INDEXES"),
+            ("json_catalog_enabled", "ENABLE_JSON_CATALOG"),
+            ("json_threads_enabled", "ENABLE_JSON_THREADS"),
+        ] {
+            assert_eq!(saved[field], json_policy[key], "{slug}: {field}");
         }
         // Check global/category/board-inherited posting limits, including private
         // and configuration-only boards, against the captured source policy.
@@ -101,12 +120,16 @@ async fn installed_inventory_policy_routes_and_private_content_match_the_referen
             (
                 &api,
                 format!("/{slug}/1.json"),
-                !private && expected["json_enabled"] == true,
+                !private
+                    && expected["json_enabled"] == true
+                    && json_policy["ENABLE_JSON_INDEXES"] == true,
             ),
             (
                 &api,
                 format!("/{slug}/catalog.json"),
-                !private && expected["json_enabled"] == true && expected["catalog_enabled"] == true,
+                !private
+                    && expected["json_enabled"] == true
+                    && json_policy["ENABLE_JSON_CATALOG"] == true,
             ),
         ] {
             let response = router

@@ -44,8 +44,9 @@ for the private board.
 Installed policy includes comment character/line limits, spoilers, code/SJIS
 tags, required subjects, OP markup, forced anonymity, IDs, country flags,
 text-only behavior, bump/image limits, index capacity and pagination, archive
-retention, JSON tail size and bump age. Catalog and JSON switches control their
-routes and navigation. `/f/` has no ordinary catalog. Its specialized upload
+retention, JSON tail size and bump age. HTML catalog and JSON feed switches control their routes independently.
+`/test/` disables index/catalog/thread-list JSON but keeps thread JSON. `/f/` has
+no HTML catalog but retains its source JSON catalog. Its specialized upload
 workflow remains in #206. Source flags for unsupported policies are recorded
 in the fixture and tracked through #192; recording a flag does not implement it.
 

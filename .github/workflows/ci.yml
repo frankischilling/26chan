@@ -262,10 +262,10 @@ jobs:
           include-hidden-files: false
   media-and-operations:
     runs-on: ubuntu-24.04
-    # The full migration, VM and monitoring sequence reached the old 40-minute
-    # job cap during final cleanup. Keep individual qualification deadlines and
-    # allow headroom for runner variation and cache finalization.
-    timeout-minutes: 60
+    # The post-merge run exhausted 60 minutes after APT spent 35 minutes fetching
+    # 94 MB of video dependencies. Allow cold downloads plus the full migration
+    # sequence; individual worker, VM and test deadlines remain unchanged.
+    timeout-minutes: 90
     env:
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: rust-lld
     steps:
@@ -444,6 +444,8 @@ jobs:
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             bash scripts/test-media-intake.sh --interrupt
+      - name: Qualify JSON visibility upgrade and authority preflight
+        run: sudo bash scripts/test-json-visibility-migration.sh
       - name: Upgrade existing comments from migration 0006
         run: sudo bash scripts/test-comment-migration.sh
       - name: Upgrade public name limits while retaining historical fields

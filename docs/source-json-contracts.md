@@ -75,9 +75,9 @@ JSON number `123` in `boards.json`, but stays a string in `cataloginfo`. The
 Pokémon directory title is fixed by the source builder. Neither transformation
 supplies trusted HTML.
 
-The restricted-role integration test compares complete metadata for the 80
+The restricted-role integration test compares complete metadata for the 81
 public imported boards on both listeners, with and without media configuration.
-It checks the two excluded boards, ordering, literal operator edits, denied
+It checks the excluded staff board, ordering, literal operator edits, denied
 policy writes, escaped HTML and the absent unconfigured upload route.
 
 ## Legacy catalog information
@@ -94,6 +94,23 @@ JSON-disabled boards remain hidden. No session is registered, no cookie is set
 and no post is changed. Privileged rebuild, preview, transfer, deletion and
 archive modes do not gain public authority through this dispatcher. POSTs retain
 the existing Origin and transport limits.
+
+## Optional counts and feed switches
+
+Migration 0248 imports `SHOW_THREAD_UNIQUES` as `show_thread_uniques`, disabled
+by default just as in all 82 supplied board configurations. Enabling it exposes
+a positive known count in full/tail JSON and live statistics. Disabling it hides
+the count without erasing private enforcement context. Missing or mixed-key
+identity history and archives still omit the count. The synthetic `/demo/` board
+explicitly enables the optional counter for its browser tests; source boards do
+not. Apply the migration before starting readers that enforce the new switch.
+
+`json_indexes_enabled`, `json_catalog_enabled` and `json_threads_enabled` import
+the three separate source feed switches. `/test/` keeps full thread JSON but
+disables those board feeds. `/f/` disables its HTML catalog while keeping its
+source JSON catalog. The general `json_enabled` gate still disables every source JSON
+feed, and private-board visibility remains enforced independently. Runtime
+credentials cannot change these policies.
 
 ## Thread state and file deletion
 
@@ -119,9 +136,10 @@ python3 scripts/extract-json-feed-reference.py --check --php php
 cargo test -p board-public --lib api::
 cargo test -p board-public --features database-tests --test json_directory_contract --test json_feed_contract
 cargo test -p board-media-http --features database-tests --test still
+sudo bash scripts/test-json-visibility-migration.sh
 ```
 
 The integration commands require the disposable migrated database and restricted
-role credentials used by the repository test harness. Apply migration 0247 with
+role credentials used by the repository test harness. Apply migrations 0247 and 0248 with
 the matching binary. Browser and complete CI results must be checked on the final
 PR head before merging.

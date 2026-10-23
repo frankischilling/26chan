@@ -4,7 +4,7 @@ Thread statistics display the status, reply and image counts, reached limits and
 
 The native client displays the fields in the same order: `Sticky` when applicable, then `Archived` or `Closed`, then replies, images, and the page number for a live thread. A count whose limit has been reached uses an `em` element and the corresponding public tooltip. Archived threads omit the page field and stop the page refresh timer. Desktop thread pages place copies in both desktop thread navigation rows. Mobile layout places one copy after the last mobile thread navigation row.
 
-The optional `Posters` counter appears between images and page number when the server supplies a complete [private poster count](private-poster-counts.md). Historical, mixed-key and archived threads omit it. The client does not infer identity from names, truncated IDs, rendered posts, hidden nodes or cloned DOM.
+The optional `Posters` counter appears between images and page number when the board enables `show_thread_uniques` and the server supplies a complete [private poster count](private-poster-counts.md). Historical, mixed-key and archived threads omit it. The client does not infer identity from names, truncated IDs, rendered posts, hidden nodes or cloned DOM.
 
 ## Stats response
 
