@@ -60,3 +60,14 @@ BEGIN
    );
  END IF;
 END $fixture_captcha$;
+
+-- This owned demonstration board opts into the optional source counter. Keep
+-- the source boards disabled, and allow historical upgrade fixture loading.
+DO $fixture_unique_counts$
+BEGIN
+ IF EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='content.boards'::regclass
+            AND attname='show_thread_uniques' AND NOT attisdropped) THEN
+   UPDATE content.boards SET show_thread_uniques=true WHERE
+     (slug,title,description)=('demo','Paper craft','Discuss paper models, folding, and works in progress.');
+ END IF;
+END $fixture_unique_counts$;

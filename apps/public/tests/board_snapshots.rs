@@ -563,9 +563,9 @@ async fn board_representations_use_one_snapshot_during_a_committed_change() {
     // Sort the second owned board early enough to exercise the bounded directory.
     let other_slug = format!("0{}z", &slug[..8]);
     let mut fixture = owner.begin().await.unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES($1,'Before commit','Owned snapshot fixture',1000,100,50,10,10,86400)")
+    sqlx::query("INSERT INTO content.boards(show_thread_uniques,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES(true,$1,'Before commit','Owned snapshot fixture',1000,100,50,10,10,86400)")
         .bind(&slug).execute(&mut *fixture).await.unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Other before commit','Owned navigation snapshot fixture',1000,100,50,10,10)")
+    sqlx::query("INSERT INTO content.boards(show_thread_uniques,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(true,$1,'Other before commit','Owned navigation snapshot fixture',1000,100,50,10,10)")
         .bind(&other_slug).execute(&mut *fixture).await.unwrap();
     let id: i64 = sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
         .bind(&slug)

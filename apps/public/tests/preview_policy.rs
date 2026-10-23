@@ -260,7 +260,7 @@ async fn source_preview_policy_unifies_html_native_index_and_catalog() {
     let mut bytes = [0_u8; 4];
     OsRng.fill_bytes(&mut bytes);
     let board = format!("pv{:08x}", u32::from_le_bytes(bytes));
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,json_tail_size) VALUES($1,'Owned preview policy','Owned policy matrix',1000,100,50,20,20,100,2)")
+    sqlx::query("INSERT INTO content.boards(show_thread_uniques,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,json_tail_size) VALUES(true,$1,'Owned preview policy','Owned policy matrix',1000,100,50,20,20,100,2)")
         .bind(&board).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), board.clone())).await;
     public.close().await;

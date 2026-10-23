@@ -1,0 +1,1597 @@
+{
+  "source_sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+  "scope": "Execute the source directory builder with recorded rows and local RPC receipts.\n\nDatabase rows are synthetic, not a claim about the unavailable source database.\nThe PHP 5 ctype helper returns false for non-string metadata; casting those\nalready-typed catalog-info values would not change them. No network or writes.\n",
+  "generator_php": "function rebuild_boards_json()\n{\n\tif( !has_level() ) die();\n\techo fancystyle();\n\techo '<h1>Rebuilding boards.json...</h1>';\n\n\t$start = microtime( true );\n\t$query = mysql_global_call( \"SELECT dir as board,name as title FROM boardlist ORDER BY board ASC\" );\n\n\t$boards = array();\n\n\t$host = 'https://sys.int';\n\n\t$post = array(\n\t  'mode' => 'cataloginfo'\n\t);\n\n\twhile( $row = mysql_fetch_assoc( $query ) ) {\n\t\tif( $row['board'] == 'vp' ) $row['title'] = 'Pokémon';\n\t\t//cataloginfo\n\t\t$url = \"$host/{$row['board']}/imgboard.php\";\n\t\t\n\t\t$ch = rpc_start_request($url, $post, null, true);\n\t\t\n\t\t$response = rpc_finish_request($ch, $error, $httperror);\n\t\t\n\t\tif (!$response) {\n\t\t\tdie( 'Could not generate info for /' . $row['board'] . '/; ' . $error );\n\t\t}\n\t\t\n\t\t$json = json_decode($response, true);\n\n\t\tforeach( $json as $key => $val ) {\n\t\t\tif( $key != 'board' && ctype_digit( $val ) ) $val = (int)$val;\n\t\t\t$row[$key] = $val;\n\t\t}\n\n\t\t$boards['boards'][] = $row;\n\t}\n\t\n\t// Dump resulting json on /test/\n  if (BOARD_DIR === 'test') {\n    echo '<br>';\n    echo json_encode($boards, JSON_HEX_AMP | JSON_PRETTY_PRINT);\n    echo '<br>';\n  }\n  else {\n    $_json = json_encode($boards, JSON_HEX_AMP);\n    print_page(BOARDS_ROOT . 'boards.json', $_json);\n  }\n\n\t$time = round( microtime( true ) - $start, 6 );\n\techo 'Done!<br><br>Rebuilding took ' . $time . ' seconds.<br><br>No redirect here boss. Off you go.';\n\tdie();\n}",
+  "cases": [
+    {
+      "authorized": false,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "plain description",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": null
+    },
+    {
+      "authorized": false,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "123",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": null
+    },
+    {
+      "authorized": false,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "000123",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": null
+    },
+    {
+      "authorized": false,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "0",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": null
+    },
+    {
+      "authorized": false,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "9223372036854775808",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": null
+    },
+    {
+      "authorized": false,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": null
+    },
+    {
+      "authorized": false,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "-1",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": null
+    },
+    {
+      "authorized": false,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "1.0",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": null
+    },
+    {
+      "authorized": false,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "１２３",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": null
+    },
+    {
+      "authorized": false,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "<literal & description>",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": null
+    },
+    {
+      "authorized": true,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "plain description",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": {
+        "boards": [
+          {
+            "board": "a",
+            "title": "Owned title",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 500,
+            "image_limit": 300,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "plain description",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          },
+          {
+            "board": "vp",
+            "title": "Pokémon",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 310,
+            "image_limit": 150,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          }
+        ]
+      }
+    },
+    {
+      "authorized": true,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "123",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": {
+        "boards": [
+          {
+            "board": "a",
+            "title": "Owned title",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 500,
+            "image_limit": 300,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": 123,
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          },
+          {
+            "board": "vp",
+            "title": "Pokémon",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 310,
+            "image_limit": 150,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          }
+        ]
+      }
+    },
+    {
+      "authorized": true,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "000123",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": {
+        "boards": [
+          {
+            "board": "a",
+            "title": "Owned title",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 500,
+            "image_limit": 300,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": 123,
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          },
+          {
+            "board": "vp",
+            "title": "Pokémon",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 310,
+            "image_limit": 150,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          }
+        ]
+      }
+    },
+    {
+      "authorized": true,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "0",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": {
+        "boards": [
+          {
+            "board": "a",
+            "title": "Owned title",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 500,
+            "image_limit": 300,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": 0,
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          },
+          {
+            "board": "vp",
+            "title": "Pokémon",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 310,
+            "image_limit": 150,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          }
+        ]
+      }
+    },
+    {
+      "authorized": true,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "9223372036854775808",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": {
+        "boards": [
+          {
+            "board": "a",
+            "title": "Owned title",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 500,
+            "image_limit": 300,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": 9223372036854775807,
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          },
+          {
+            "board": "vp",
+            "title": "Pokémon",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 310,
+            "image_limit": 150,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          }
+        ]
+      }
+    },
+    {
+      "authorized": true,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": {
+        "boards": [
+          {
+            "board": "a",
+            "title": "Owned title",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 500,
+            "image_limit": 300,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": 9223372036854775807,
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          },
+          {
+            "board": "vp",
+            "title": "Pokémon",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 310,
+            "image_limit": 150,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          }
+        ]
+      }
+    },
+    {
+      "authorized": true,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "-1",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": {
+        "boards": [
+          {
+            "board": "a",
+            "title": "Owned title",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 500,
+            "image_limit": 300,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "-1",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          },
+          {
+            "board": "vp",
+            "title": "Pokémon",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 310,
+            "image_limit": 150,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          }
+        ]
+      }
+    },
+    {
+      "authorized": true,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "1.0",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": {
+        "boards": [
+          {
+            "board": "a",
+            "title": "Owned title",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 500,
+            "image_limit": 300,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "1.0",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          },
+          {
+            "board": "vp",
+            "title": "Pokémon",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 310,
+            "image_limit": 150,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          }
+        ]
+      }
+    },
+    {
+      "authorized": true,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "１２３",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": {
+        "boards": [
+          {
+            "board": "a",
+            "title": "Owned title",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 500,
+            "image_limit": 300,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "１２３",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          },
+          {
+            "board": "vp",
+            "title": "Pokémon",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 310,
+            "image_limit": 150,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          }
+        ]
+      }
+    },
+    {
+      "authorized": true,
+      "rows": [
+        {
+          "board": "a",
+          "title": "Owned title"
+        },
+        {
+          "board": "vp",
+          "title": "Replaced source title"
+        }
+      ],
+      "metadata": {
+        "a": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 500,
+          "image_limit": 300,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "<literal & description>",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        },
+        "vp": {
+          "ws_board": 1,
+          "per_page": 15,
+          "pages": 10,
+          "max_filesize": 4194304,
+          "max_webm_filesize": 4194304,
+          "max_comment_chars": 2000,
+          "max_webm_duration": 120,
+          "bump_limit": 310,
+          "image_limit": 150,
+          "cooldowns": {
+            "threads": 600,
+            "replies": 60,
+            "images": 60
+          },
+          "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+          "spoilers": 1,
+          "custom_spoilers": 1,
+          "is_archived": 1
+        }
+      },
+      "expected": {
+        "boards": [
+          {
+            "board": "a",
+            "title": "Owned title",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 500,
+            "image_limit": 300,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "<literal & description>",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          },
+          {
+            "board": "vp",
+            "title": "Pokémon",
+            "ws_board": 1,
+            "per_page": 15,
+            "pages": 10,
+            "max_filesize": 4194304,
+            "max_webm_filesize": 4194304,
+            "max_comment_chars": 2000,
+            "max_webm_duration": 120,
+            "bump_limit": 310,
+            "image_limit": 150,
+            "cooldowns": {
+              "threads": 600,
+              "replies": 60,
+              "images": 60
+            },
+            "meta_description": "&quot;/vp/ - Pok&eacute;mon&quot; is 4chan's imageboard dedicated to discussing the Pok&eacute;mon series of video games and shows.",
+            "spoilers": 1,
+            "custom_spoilers": 1,
+            "is_archived": 1
+          }
+        ]
+      }
+    }
+  ]
+}

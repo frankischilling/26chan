@@ -52,6 +52,14 @@ pub(crate) async fn get(
         // A local destination cannot inherit a foreign or downgraded Referer.
         return updating_index(&state, &board);
     }
+    if raw.len() <= 128 {
+        let fields: Vec<_> = url::form_urlencoded::parse(raw.as_bytes())
+            .take(2)
+            .collect();
+        if fields.len() == 1 && fields[0].0 == "mode" && fields[0].1 == "cataloginfo" {
+            return crate::api::catalog_info(&state, &board, &headers).await;
+        }
+    }
     let mut reporting = false;
     let mut res = false;
     for (name, value) in url::form_urlencoded::parse(raw.as_bytes()) {

@@ -367,7 +367,7 @@ async fn exercise(format: StillFormat) {
             .unwrap()
             .unwrap();
         assert!(deleted.file_deleted);
-        assert!(!deleted.has_mobile);
+        assert_eq!(deleted.has_mobile, !gif);
         for url in urls.iter().chain(&source_urls) {
             assert_eq!(
                 app.clone()

@@ -41,13 +41,19 @@ jobs:
           test -f /etc/apt/sources.list.d/ubuntu.sources
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light libicu-dev libpcre2-dev ghostscript fonts-urw-base35
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light libicu-dev libpcre2-dev ghostscript fonts-urw-base35 php8.3-cli php8.3-mbstring
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: ubuntu-24.04-${{ hashFiles('Cargo.toml') }}
           cache-bin: false
           cache-on-failure: true
+      - name: Qualify source JSON directory and post states
+        run: |
+          python3 scripts/extract-json-directory-reference.py --fixture-only --check --php php
+          python3 scripts/extract-json-directory-build-reference.py --check --php php
+          python3 scripts/extract-json-post-state-reference.py --check --php php
+          python3 scripts/extract-json-feed-reference.py --check --php php
       - name: Qualify isolated source page-title function
         run: python3 scripts/extract-page-title-reference.py --fixture-check fixtures/page-title-reference.json --php php
       - name: Qualify isolated source quote callbacks
@@ -256,10 +262,11 @@ jobs:
           include-hidden-files: false
   media-and-operations:
     runs-on: ubuntu-24.04
-    # The full migration, VM and monitoring sequence reached the old 40-minute
-    # job cap during final cleanup. Keep individual qualification deadlines and
-    # allow headroom for runner variation and cache finalization.
-    timeout-minutes: 60
+    # Four dependency downloads consumed 49 minutes in the 90-minute run,
+    # which reached the final monitoring checks before its job budget expired.
+    # Allow cold downloads plus the full suite; worker, VM, database and
+    # individual test deadlines remain unchanged.
+    timeout-minutes: 120
     env:
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: rust-lld
     steps:
@@ -438,6 +445,8 @@ jobs:
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             bash scripts/test-media-intake.sh --interrupt
+      - name: Qualify JSON visibility upgrade and authority preflight
+        run: sudo bash scripts/test-json-visibility-migration.sh
       - name: Upgrade existing comments from migration 0006
         run: sudo bash scripts/test-comment-migration.sh
       - name: Upgrade public name limits while retaining historical fields

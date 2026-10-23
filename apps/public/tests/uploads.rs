@@ -877,7 +877,7 @@ async fn catalog_counts(
     let (value, _) = json(app, &format!("/{board}/thread/{thread}.json")).await;
     assert_eq!(
         value["posts"][0]["imagelimit"].as_i64(),
-        limited.then_some(1)
+        Some(i64::from(limited))
     );
 }
 
@@ -921,10 +921,10 @@ async fn image_flags(
         assert_eq!(op["replies"], replies, "{suffix}");
         assert_eq!(
             op["imagelimit"].as_i64(),
-            if kind == 1 {
+            if kind == 1 || op.get("sticky").is_none() {
                 Some(i64::from(json_limited))
             } else {
-                json_limited.then_some(1)
+                None
             },
             "{suffix}"
         );
@@ -1573,7 +1573,7 @@ async fn image_reply_contract(
     let (stats, _) = json(app, &stats_path).await;
     assert_eq!(stats["images"], 6);
     assert_eq!(stats["image_limited"], false);
-    assert!(after["posts"][0].get("imagelimit").is_none());
+    assert_eq!(after["posts"][0]["imagelimit"], 0);
     assert_eq!(after["posts"][1]["filedeleted"], 1);
     assert_eq!(
         after["posts"][1]["spoiler"], 1,

@@ -95,7 +95,7 @@ async fn complete_private_contexts_supply_counts_and_incomplete_or_archived_hist
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Owned counters','Synthetic fixture',1000,100,100,100,10,3600,1,0,0,0)")
+    sqlx::query("INSERT INTO content.boards(show_thread_uniques,captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(true,false,$1,'Owned counters','Synthetic fixture',1000,100,100,100,10,3600,1,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let outcome = tokio::spawn(exercise(owner.clone(), public.clone(), board.clone())).await;
     for query in [
@@ -150,6 +150,53 @@ async fn exercise(owner: sqlx::PgPool, public: sqlx::PgPool, board: String) {
         get(&app, &format!("/_watch/{board}/thread/{thread}/stats")).await["unique_ips"],
         2
     );
+    let contexts_before: Vec<String> = sqlx::query_scalar("SELECT to_jsonb(c)::text FROM post_secrets.poster_contexts c WHERE thread_id=$1 ORDER BY post_id").bind(thread).fetch_all(&owner).await.unwrap();
+    sqlx::query("UPDATE content.boards SET show_thread_uniques=false WHERE slug=$1")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
+    for listener in [&app, &api] {
+        for suffix in [
+            format!("thread/{thread}.json"),
+            format!("thread/{thread}-tail.json"),
+        ] {
+            assert!(
+                get(listener, &format!("/{board}/{suffix}")).await["posts"][0]
+                    .get("unique_ips")
+                    .is_none()
+            );
+        }
+    }
+    assert!(
+        get(&app, &format!("/_watch/{board}/thread/{thread}/stats"))
+            .await
+            .get("unique_ips")
+            .is_none()
+    );
+    assert_eq!(
+        count(&public, &board, thread).await,
+        Some(2),
+        "display policy does not destroy enforcement context"
+    );
+    assert!(
+        sqlx::query("UPDATE content.boards SET show_thread_uniques=true WHERE slug=$1")
+            .bind(&board)
+            .execute(&public)
+            .await
+            .is_err()
+    );
+    sqlx::query("UPDATE content.boards SET show_thread_uniques=true WHERE slug=$1")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        get(&api, &format!("/{board}/thread/{thread}.json")).await["posts"][0]["unique_ips"],
+        2
+    );
+    let contexts_after: Vec<String> = sqlx::query_scalar("SELECT to_jsonb(c)::text FROM post_secrets.poster_contexts c WHERE thread_id=$1 ORDER BY post_id").bind(thread).fetch_all(&owner).await.unwrap();
+    assert_eq!(contexts_before, contexts_after);
     board_store::delete_post(&public, &board, other)
         .await
         .unwrap();

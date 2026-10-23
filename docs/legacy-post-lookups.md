@@ -39,8 +39,9 @@ Both 301 and 404 use `Cache-Control: public, max-age=2`.
 Explicit `mode=report` retains the existing report handler and its malformed
 query shell. Mixed report/res fields are rejected there rather than producing
 a redirect. Res-only lookups never acquire report popup privileges, mint cookies,
-register activity or submit reports. Other legacy GET modes remain outside
-these two finite branches.
+register activity or submit reports. The separate [catalog-info mode](source-json-contracts.md#legacy-catalog-information)
+returns public board policy. Other legacy GET modes remain outside these finite
+branches.
 
 ## Bare index navigation
 

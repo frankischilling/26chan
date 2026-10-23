@@ -44,7 +44,9 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install locked qualification dependencies
-        timeout-minutes: 8
+        # Cold APT downloads exceeded eight minutes before installation finished.
+        # The native execution and browser deadlines remain unchanged.
+        timeout-minutes: 15
         shell: bash
         run: |
           set -euo pipefail

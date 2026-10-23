@@ -108,7 +108,9 @@ UPDATE public.homepage_saved_boards SET saved=saved||jsonb_build_object(
  'image_repost_limit',CASE WHEN slug='wsg' THEN 3 ELSE 0 END,
  'image_history_scope',CASE WHEN slug IN('f','test') THEN 'f_md5' ELSE NULL END,
  'opening_comment_pattern',CASE WHEN slug='news' THEN '@https?://@' ELSE '' END,
- 'opening_comment_refusal',CASE WHEN slug='news' THEN 'Your post must contain at least one valid URL' ELSE 'Invalid comment' END);
+ 'opening_comment_refusal',CASE WHEN slug='news' THEN 'Your post must contain at least one valid URL' ELSE 'Invalid comment' END,
+ 'show_thread_uniques',false,'json_indexes_enabled',slug NOT IN('j','test'),
+ 'json_catalog_enabled',slug NOT IN('j','test'),'json_threads_enabled',slug NOT IN('j','test'));
 UPDATE public.homepage_saved_posts SET saved=saved||jsonb_build_object('staff_notices','[]'::jsonb,'since4pass',0);
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM content.posts WHERE since4pass<>0) THEN
  RAISE EXCEPTION 'Upgrade invented historical Pass years'; END IF; END $$;
@@ -130,7 +132,11 @@ for database in homepage_upgrade homepage_restored homepage_current_restored; do
       "UPDATE content.boards SET image_repost_limit=1 WHERE slug='homeup';" \
       "UPDATE content.boards SET image_history_scope='invented' WHERE slug='homeup';" \
       "UPDATE content.boards SET opening_comment_pattern='@invented@' WHERE slug='homeup';" \
-      "UPDATE content.boards SET opening_comment_refusal='Invented refusal' WHERE slug='news';"; do
+      "UPDATE content.boards SET opening_comment_refusal='Invented refusal' WHERE slug='news';" \
+      "UPDATE content.boards SET show_thread_uniques=true WHERE slug='homeup';" \
+      "UPDATE content.boards SET json_indexes_enabled=false WHERE slug='homeup';" \
+      "UPDATE content.boards SET json_catalog_enabled=false WHERE slug='homeup';" \
+      "UPDATE content.boards SET json_threads_enabled=false WHERE slug='homeup';"; do
         { printf '%s\n' "$mutation"; cat "$cluster/assertions.sql"; } > "$cluster/pass-history-negative.sql"
         if "${psql[@]}" -d "$database" --single-transaction -f - < "$cluster/pass-history-negative.sql" > "$cluster/pass-history-negative.log" 2>&1; then
             echo 'Homepage history guard accepted a historical field or board policy mutation.' >&2; exit 1

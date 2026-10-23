@@ -31,7 +31,7 @@ pub async fn thread_statistics(
     let result: ThreadStatistics = sqlx::query_as(
         "SELECT t.board,t.id,t.sticky,t.closed,t.permaage,t.undead,
                 (t.archived_at IS NOT NULL) AS archived,b.bump_limit,b.image_limit,
-                counts.replies,counts.images,content.unique_posters(t.board,t.id) AS unique_ips,
+                counts.replies,counts.images,CASE WHEN b.show_thread_uniques THEN content.unique_posters(t.board,t.id) END AS unique_ips,
                 CASE WHEN t.archived_at IS NOT NULL THEN NULL ELSE
                   1 + (SELECT count(*) FROM content.visible_threads earlier
                     WHERE earlier.board=t.board AND NOT earlier.deleted AND earlier.archived_at IS NULL

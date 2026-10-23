@@ -54,7 +54,7 @@ The still initramfs requires the pinned libjpeg-turbo 3.2.0 cleaner. On the owne
 
 Rebuild the guest and worker binaries and use `scripts/media/build-initramfs.py` with `--still-runtime` to create the separate image. The collector verifies the cleaner version, root ownership, bounded ELF sizes and its limited C runtime dependency set. It records file hashes in `still-runtime.json` inside the initramfs. The disposable `scripts/media/provision-test.py` procedure creates and hashes this image alongside the other profiles and records `still_initramfs` in the private runner configuration. An older configuration without that image cannot process a still job; there is no fallback to in-process decoding.
 
-Apply migrations through 0153 before starting the corresponding services. The original development profile and authorization requirements still apply. This work does not authorize enabling uploads on an unqualified production host.
+Apply migrations through 0247 before starting the corresponding services. File-only deletion preserves the approved companion marker in JSON while denying every file route; see [source JSON contracts](source-json-contracts.md). The original development profile and authorization requirements still apply. This work does not authorize enabling uploads on an unqualified production host.
 
 ## Deliberate input restrictions
 

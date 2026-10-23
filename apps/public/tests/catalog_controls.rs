@@ -327,7 +327,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     let (_, json) = read(&app, &format!("/{slug}/thread/{b}.json")).await;
     let json: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(json["posts"][0]["replies"], 0);
-    assert!(json["posts"][0].get("bumplimit").is_none());
+    assert_eq!(json["posts"][0]["bumplimit"], 0);
     for (limit, limited) in [(100, false), (0, true)] {
         sqlx::query("UPDATE content.boards SET bump_limit=$1 WHERE slug=$2")
             .bind(limit)
@@ -339,7 +339,10 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         assert_eq!(bump_limited(&page, *b), limited);
         let (_, json) = read(&app, &format!("/{slug}/thread/{b}.json")).await;
         let json: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(json["posts"][0]["bumplimit"].as_i64(), limited.then_some(1));
+        assert_eq!(
+            json["posts"][0]["bumplimit"].as_i64(),
+            Some(i64::from(limited))
+        );
     }
     sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1")
         .bind(a)

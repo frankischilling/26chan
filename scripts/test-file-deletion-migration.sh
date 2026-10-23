@@ -420,6 +420,16 @@ DO $$ BEGIN IF EXISTS(SELECT 1 FROM post_secrets.exif_preparations) THEN
  RAISE EXCEPTION 'Upgrade invented EXIF preparations'; END IF; END $$;
 SQL
 fi
+if [[ -f migrations/0248_source_json_visibility.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
+ 'show_thread_uniques',false,
+ 'json_indexes_enabled',value->>'slug' NOT IN('j','test'),
+ 'json_catalog_enabled',value->>'slug' NOT IN('j','test'),
+ 'json_threads_enabled',value->>'slug' NOT IN('j','test'))
+WHERE relation='content.boards';
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)

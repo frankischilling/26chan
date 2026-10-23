@@ -35,6 +35,24 @@ projection and retain JSON-disabled and staff-only exclusions. The pinned source
 clauses and four-case truth table are recorded in
 `fixtures/board-format-metadata-reference.json`; no migration is required.
 
+[Source directory and post-state checks](source-json-contracts.md) compare all
+82 imported metadata policies with the original generator. Directory capacities
+and `text_only` describe stored board policy even when media processing is not
+configured. They do not authorize uploads. Unchanged imported descriptions keep
+the source JSON entity spelling and whitespace; operator-edited descriptions
+remain literal text except for the source directory builder's digit-only numeric
+conversion. The catalog-info object retains those digit-only strings.
+
+Ordinary opening posts include numeric zero or one for `bumplimit` and
+`imagelimit`. Sticky posts omit both; permaage posts omit `bumplimit` and retain
+`imagelimit: 0`. Tail summaries always include both numbers. Full opening posts
+also retain `semantic_url: ""` when the source context is empty.
+
+Migration 0247 preserves `m_img: 1` for a retained approved mobile companion
+after file-only deletion. The deleted file's URL metadata stays absent, and
+both original and companion HTTP routes remain unavailable. Whole-post deletion
+hides the post; asset revocation removes the marker and file URL metadata.
+
 Set both `API_ORIGIN` and `API_BIND_ADDR` to enable it; omit both for the existing single-listener setup. In a fresh development shell, after the database is migrated and seeded:
 
 ```bash

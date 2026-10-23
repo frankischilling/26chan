@@ -8,7 +8,7 @@ const origin = 'http://127.0.0.1:3000';
 const cases = [
   { name: 'subject', sub: 'Owned semantic subject', com: 'Comment must not replace the subject.', semantic: 'owned-semantic-subject' },
   { name: 'comment fallback', sub: '!!!', com: 'Owned comment fallback\nIgnored later line', semantic: 'owned-comment-fallback' },
-  { name: 'empty context', sub: '!!!', com: '!!!', semantic: undefined },
+  { name: 'empty context', sub: '!!!', com: '!!!', semantic: '' },
 ];
 
 // Existing owned fixture: two threads per page, isolated from imported/user posts.
@@ -64,7 +64,7 @@ for (const javaScriptEnabled of [false, true]) for (const sample of cases) {
       // Pin source semantics as well as HTML/JSON agreement: a broken shared
       // projection must not make both sides of this assertion silently agree.
       expect(posts[0].semantic_url).toBe(sample.semantic);
-      if (sample.semantic === undefined) expect(posts[0]).not.toHaveProperty('semantic_url');
+      expect(posts[0]).toHaveProperty('semantic_url');
       const href = `/${board}/thread/${id}${posts[0].semantic_url ? `/${posts[0].semantic_url}` : ''}`;
       await page.goto(`${origin}/${board}/1`);
       await followReply(page, board, id, href);
