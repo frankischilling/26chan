@@ -119,6 +119,31 @@ grep -q 'Submission authority drifted' "$cluster/application-rejected.log"
 "${migrator[@]}" -c BEGIN -f migrations/0263_application_ownership.sql -c ROLLBACK >"$cluster/application-rollback.log" 2>&1 || { cat "$cluster/application-rollback.log" >&2; exit 1; }
 "${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('submission_api.application_target(bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained application ownership'; END IF; END \$\$;" >/dev/null
 "${migrator[@]}" --single-transaction -f migrations/0263_application_ownership.sql >"$cluster/application-accepted.log" 2>&1 || { cat "$cluster/application-accepted.log" >&2; exit 1; }
+"${migrator[@]}" <<'SQL'
+INSERT INTO submission_private.contest_campaigns(id,kind,boards,submission_starts,submission_ends,voting_starts,voting_ends,capacity,vote_capacity,votes)
+VALUES(777,1,ARRAY['g'],1,2,2,3,100,100,1);
+INSERT INTO submission_private.contest_entries(campaign_id,board,ownership_hash,actor_hash,author,email,media_id,state,score,created_at,updated_at)
+VALUES(777,'g',decode(repeat('a7',32),'hex'),decode(repeat('b7',32),'hex'),'Retained private credit','retained@example.org',repeat('c',32),1,1,1,1);
+INSERT INTO submission_private.contest_votes(campaign_id,board,voter_hash,entry_id,created_at)
+SELECT 777,'g',decode(repeat('d7',32),'hex'),id,1 FROM submission_private.contest_entries WHERE campaign_id=777;
+CREATE TABLE public.owned_contest_before AS SELECT
+ (SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM submission_private.contest_campaigns c) campaigns,
+ (SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM submission_private.contest_entries e) entries,
+ (SELECT jsonb_agg(to_jsonb(v) ORDER BY entry_id) FROM submission_private.contest_votes v) votes;
+SQL
+if "${migrator[@]}" --single-transaction -c 'GRANT USAGE ON SCHEMA public TO board_contest_owner;' \
+ -f migrations/0264_contest_voting.sql >"$cluster/contest-owner-rejected.log" 2>&1; then
+ echo 'Contest migration accepted existing owner authority' >&2; exit 1
+fi
+grep -q 'Contest owner has unexpected existing authority' "$cluster/contest-owner-rejected.log" || { cat "$cluster/contest-owner-rejected.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT(email) ON submission_private.contest_entries TO board_application_owner;' \
+ -f migrations/0264_contest_voting.sql >"$cluster/contest-rejected.log" 2>&1; then
+ echo 'Contest migration accepted private contact drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/contest-rejected.log" || { cat "$cluster/contest-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0264_contest_voting.sql -c ROLLBACK >"$cluster/contest-rollback.log" 2>&1 || { cat "$cluster/contest-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('submission_api.contest_vote(bigint,bigint,bytea,bytea,bytea,bytea)') IS NOT NULL OR to_regclass('submission_private.one_enabled_contest_per_kind') IS NULL THEN RAISE EXCEPTION 'Rollback retained contest voting'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0264_contest_voting.sql >"$cluster/contest-accepted.log" 2>&1 || { cat "$cluster/contest-accepted.log" >&2; exit 1; }
 cat >"$cluster/check.sql" <<'SQL'
 DO $$ BEGIN
  IF (SELECT boards FROM public.owned_submissions_before) IS DISTINCT FROM
@@ -131,6 +156,9 @@ DO $$ BEGIN
   UNION ALL (SELECT * FROM public.owned_submission_identity_before EXCEPT SELECT * FROM submission_private.application_identity))
  OR EXISTS((SELECT * FROM submission_private.feedback EXCEPT SELECT * FROM public.owned_feedback_before)
   UNION ALL (SELECT * FROM public.owned_feedback_before EXCEPT SELECT * FROM submission_private.feedback))
+ OR (SELECT campaigns FROM public.owned_contest_before) IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM submission_private.contest_campaigns c)
+ OR (SELECT entries FROM public.owned_contest_before) IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM submission_private.contest_entries e)
+ OR (SELECT votes FROM public.owned_contest_before) IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(v) ORDER BY entry_id) FROM submission_private.contest_votes v)
  THEN RAISE EXCEPTION 'Submission migration or restore changed retained data'; END IF;
 END $$;
 SQL

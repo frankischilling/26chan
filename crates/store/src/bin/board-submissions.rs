@@ -2,7 +2,7 @@
 use board_store::site_submissions::admin;
 use sqlx::{Connection, PgConnection, postgres::PgConnectOptions};
 use std::{ffi::OsString, fs::File, process::ExitCode, str::FromStr};
-const HELP: &str = "Usage: board-submissions validate-feedback <profile.json>\n       board-submissions open-feedback <profile.json>\n       board-submissions close-feedback <profile-id>\n       board-submissions validate-applications <campaign.json>\n       board-submissions open-applications <campaign.json>\n       board-submissions close-applications <campaign-id>\n\nValidation is offline. Writes require MIGRATION_DATABASE_URL and the actual\nboard_migrator login. Closing retains submissions. See docs/source-site-submissions.md.";
+const HELP: &str = "Usage: board-submissions validate-feedback <profile.json>\n       board-submissions open-feedback <profile.json>\n       board-submissions close-feedback <profile-id>\n       board-submissions validate-applications <campaign.json>\n       board-submissions open-applications <campaign.json>\n       board-submissions close-applications <campaign-id>\n       board-submissions validate-contest <contest.json>\n       board-submissions open-contest <contest.json>\n       board-submissions close-contest <campaign-id>\n\nValidation is offline. Writes require MIGRATION_DATABASE_URL and the actual\nboard_migrator login. Closing retains submissions. See docs/source-site-submissions.md.";
 fn id(value: &std::ffi::OsStr) -> Result<i64, String> {
     value
         .to_str()
@@ -69,6 +69,31 @@ async fn run(args: Vec<OsString>) -> Result<(), String> {
                 "{}",
                 if changed {
                     "Applications closed; records retained."
+                } else {
+                    "No enabled matching campaign."
+                }
+            );
+        }
+        [command, path] if command == "validate-contest" || command == "open-contest" => {
+            let file = File::open(path).map_err(|_| "Cannot open contest campaign.")?;
+            let campaign = admin::contests::read(file).map_err(|e| e.to_string())?;
+            if command == "validate-contest" {
+                println!("Valid contest campaign. No database accessed.");
+            } else {
+                let id = admin::contests::open(&mut database().await?, &campaign)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                println!("Configured contest campaign {id}.");
+            }
+        }
+        [command, value] if command == "close-contest" => {
+            let changed = admin::contests::close(&mut database().await?, id(value)?)
+                .await
+                .map_err(|e| e.to_string())?;
+            println!(
+                "{}",
+                if changed {
+                    "Contest closed; entries and votes retained."
                 } else {
                     "No enabled matching campaign."
                 }

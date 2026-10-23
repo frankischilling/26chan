@@ -1,5 +1,6 @@
 //! Explicit migrator-only configuration. Closing retains submissions.
 pub mod applications;
+pub mod contests;
 use board_domain::site_submissions::feedback::{Category, Profile as FormProfile};
 use serde::Deserialize;
 use sqlx::{Connection, PgConnection, Postgres, Transaction};
@@ -18,6 +19,12 @@ pub enum Error {
     ApplicationActive,
     #[error("The retained application campaign budget is full.")]
     ApplicationFull,
+    #[error("Expected bounded version-1 contest JSON with valid kind, boards, dates and limits.")]
+    ContestInput,
+    #[error("An enabled contest for this kind and board overlaps the requested schedule.")]
+    ContestOverlap,
+    #[error("The retained contest campaign budget is full.")]
+    ContestFull,
     #[error("Submission configuration requires the actual board_migrator login.")]
     Role,
     #[error("Submission authority has drifted; configuration was not changed.")]

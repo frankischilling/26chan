@@ -100,3 +100,6 @@ GRANT board_submission_review_owner TO board_migrator WITH INHERIT FALSE, SET TR
 -- Bootstrap before 0263. Applicant identity is isolated from feedback review.
 CREATE ROLE board_application_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT board_application_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+-- Bootstrap before 0264. Contest operations cannot read private contact email.
+CREATE ROLE board_contest_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_contest_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;

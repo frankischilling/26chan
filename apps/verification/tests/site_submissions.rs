@@ -222,6 +222,7 @@ async fn site_captcha_receipts_are_closed_bound_atomic_and_separate_from_posting
     }}).await;
     for query in [
         "DELETE FROM submission_private.feedback WHERE profile_id=$1",
+        "DELETE FROM submission_private.contest_votes WHERE campaign_id=$1",
         "DELETE FROM submission_private.contest_entries WHERE campaign_id=$1",
         "DELETE FROM submission_private.applications WHERE campaign_id=$1",
         "DELETE FROM submission_private.feedback_categories WHERE profile_id=$1",

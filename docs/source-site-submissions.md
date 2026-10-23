@@ -372,3 +372,82 @@ source-template states. Browser fixtures exercise desktop create/authenticate/
 edit with scripts enabled and disabled, and both mobile rejection modes. They
 run only in the explicit `RUN_APPLICATION_BROWSER=1` CI fixture; they have not
 been executed locally.
+
+## Contest schedules, approved listings, and votes
+
+Migration 0264 adds protected vote storage and bounded listing readers. Bootstrap
+`deploy/contest-owner-role.sql` first on an existing installation. The source
+banner page explicitly supports accepting submissions for this week's boards
+while last week's boards are voting. Several campaigns of one kind can therefore
+remain enabled, including completed campaigns shown as previous events. The
+old single-profile reader selects the newest enabled campaign deterministically;
+new callers can read a campaign by ID or page through its schedule directory.
+
+The native directory returns at most 16 campaigns per page. Approved-entry pages
+contain at most 25 entries, use descending entry IDs, and accept bounded numeric
+offsets. These page sizes and ordering are native choices because the original
+controller was not supplied. Only approved entries appear. Scores are absent
+while voting is open. Normal banners can show results after voting; the Vtuber
+listing is hidden outside voting, matching its reachable source template. No
+listing includes the contact email, credit name, ownership digest, peer identity,
+or private voter key. Image intake, review/approval, delivery, owner withdrawal,
+prize claims, and public contest pages are not wired to these readers yet.
+
+A vote requires a purpose-bound Pass receipt from the verifier, a live anonymous
+session and Pass session, the current credential version, an approved entry,
+and an open campaign. The stable private voter key represents the Pass and
+campaign, not a browser device, badge, or public purchase year. One Pass can vote
+once per board in a campaign. Changing devices does not permit another vote.
+Repeated verified votes return a duplicate result and consume that attempt's
+proof. Closed windows, unavailable entries, exhausted capacity, and invalid
+proofs cannot add a vote or change a score.
+
+The campaign and entry locks remain held through proof consumption, ledger
+insertion, and score/counter updates. The verifier checks the deadline again
+after its own lock waits. These votes do not take or extend posting-network
+holds. A separate no-login owner has only the contest columns and proof function
+it needs; it cannot read contact emails or application identities. Extra contact
+access invalidates the sealed submission catalog.
+
+Tests use real owned Pass login/receipt flows. They cover two simultaneous votes
+from one Pass, replay, a second device, a separate board, capacity refusal and
+proof retention, private-field exclusion, score visibility, directory and entry
+pagination, and Vtuber visibility. Upgrade tests preserve existing campaigns,
+entries, votes, applications, and feedback; reject authority drift; roll back the
+new functions and index change; and verify restored authority without resealing.
+
+### Contest campaign commands
+
+Configuration uses explicit UTC Unix seconds and half-open windows. For example:
+
+```json
+{
+  "version": 1,
+  "kind": "board_banner",
+  "boards": ["g"],
+  "submission_starts": 1792800000,
+  "submission_ends": 1793404800,
+  "voting_starts": 1793491200,
+  "voting_ends": 1794096000,
+  "capacity": 100,
+  "vote_capacity": 1000
+}
+```
+
+Use `"kind": "vtuber"` with `"boards": ["all"]` for the Vtuber scope. Choose the
+actual dates and boards before opening a campaign.
+
+```sh
+cargo run -p board-store --bin board-submissions -- validate-contest contest.json
+cargo run -p board-store --bin board-submissions -- open-contest contest.json
+cargo run -p board-store --bin board-submissions -- close-contest 1
+```
+
+Validation is offline. Opening and closing require the actual migrator login.
+Schedules for different boards can overlap. The operator rejects overlapping
+submission-through-voting windows for the same kind and board; adjacent windows
+are allowed. This is a native ambiguity guard, not a recovered scheduling rule.
+Concurrent attempts to open the same schedule admit one campaign. Closing an
+ID disables its readers and actions while retaining entries and votes. The
+operator permits at most 10,000 retained campaigns. No campaign is opened by a
+migration, and no prize or entitlement is issued by these commands.

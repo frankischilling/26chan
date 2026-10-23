@@ -2,10 +2,11 @@
 //! never pass through these readers. Mutations have separate proof boundaries.
 pub mod admin;
 pub mod applications;
+pub mod contests;
 pub mod feedback;
 use crate::{PgPool, StoreError};
 use board_domain::site_submissions::{
-    applications as application_domain, contests, feedback as feedback_domain,
+    applications as application_domain, contests as contest_domain, feedback as feedback_domain,
 };
 use serde::Deserialize;
 
@@ -18,7 +19,7 @@ pub struct ApplicationProfile {
     pub form: application_domain::Profile,
 }
 pub struct ContestProfile {
-    pub campaign: contests::Campaign,
+    pub campaign: contest_domain::Campaign,
     pub current_time: i64,
 }
 
@@ -123,11 +124,11 @@ pub async fn application_profile(pool: &PgPool) -> Result<Option<ApplicationProf
 }
 pub async fn contest_profile(
     pool: &PgPool,
-    kind: contests::Kind,
+    kind: contest_domain::Kind,
 ) -> Result<Option<ContestProfile>, StoreError> {
     let number = match kind {
-        contests::Kind::BoardBanner => 1_i16,
-        contests::Kind::Vtuber => 2_i16,
+        contest_domain::Kind::BoardBanner => 1_i16,
+        contest_domain::Kind::Vtuber => 2_i16,
     };
     let raw: Option<serde_json::Value> =
         sqlx::query_scalar("SELECT submission_api.contest_profile($1)")
@@ -139,7 +140,7 @@ pub async fn contest_profile(
         if input.kind != number || !(0..=253_402_300_799).contains(&input.current_time) {
             return Err(protocol());
         }
-        let campaign = contests::Campaign {
+        let campaign = contest_domain::Campaign {
             id: input.id,
             kind,
             boards: input.boards,
