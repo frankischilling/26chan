@@ -33,6 +33,7 @@ set_error_handler(function($severity,$message){throw new Exception($message);});
 $c=json_decode(stream_get_contents(STDIN),true,32,JSON_THROW_ON_ERROR);
 define('BOARD_DIR',$c['board']);
 $_POST=$c['fields'];$_COOKIE=$c['cookie']===null?[]:['xa19'=>$c['cookie']];
+if($c['auser'])$_COOKIE['4chan_auser']='';
 $_SERVER=['REMOTE_ADDR'=>'192.0.2.1'];
 $passid=$c['pass']?'owned-pass':false;$captcha_bypass=$c['bypass'];
 $likes=$c['likes'];$scores=['192.0.2.1'=>100,'owned-pass'=>100,'owned-target'=>200];$logs=[];$captcha=0;
@@ -70,7 +71,7 @@ ob_start();register_shutdown_function(function(){global $likes,$scores,$logs,$ca
 });
 '''
 base = dict(board='g', fields={'post_id':'100'}, cookie='100', pass_=False, bypass=False,
-            captcha_ok=True, known=True, range_banned=False, target=True, self_peer=False,
+            captcha_ok=True, known=True, auser=False, range_banned=False, target=True, self_peer=False,
             self_pass=False, disappeared=False, op=False, archived=False, duplicate=False,
             likes=0, last=0, now=1000)
 base['pass'] = base.pop('pass_')
@@ -88,6 +89,8 @@ for pass_ in [False,True]:
     for bypass in [False,True]:
         for known in [False,True]:
             for captcha_ok in [False,True]: add(**{'pass':pass_,'bypass':bypass,'known':known,'captcha_ok':captcha_ok})
+for known in [False,True]:
+    for captcha_ok in [False,True]: add(auser=True,known=known,captcha_ok=captcha_ok)
 for self_pass in [False,True]:
     for bypass in [False,True]: add(**{'pass':True,'bypass':bypass,'self_pass':self_pass,'range_banned':True})
 for target in [False,True]:

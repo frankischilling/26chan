@@ -83,6 +83,21 @@ impl Harness<'_> {
             .fetch_one(public)
             .await
     }
+    async fn known(
+        &self,
+        public: &PgPool,
+        target: i64,
+        actor: &[u8; 32],
+    ) -> Result<i32, sqlx::Error> {
+        sqlx::query_scalar("SELECT content.event_like_known($1,$2,$3,$4,$5,NULL)")
+            .bind(self.run)
+            .bind(self.context.board.as_deref())
+            .bind(target)
+            .bind(actor.as_slice())
+            .bind(self.context.session.fingerprints.token.as_slice())
+            .fetch_one(public)
+            .await
+    }
     async fn counts(&self) -> (i64, i64, i64, i32, i32) {
         sqlx::query_as("SELECT (SELECT count(*) FROM event_private.score_votes WHERE run_id=$1),
             (SELECT coalesce(sum(score),0)::bigint FROM event_private.score_accounts WHERE run_id=$1),
@@ -126,6 +141,20 @@ pub(super) async fn exercise(
         targets.push(id);
     }
     let actor = [42u8; 32];
+    assert!(
+        !board_store::events::scores::known_address(
+            &public,
+            run,
+            &actor,
+            &h.context.session.fingerprints.token
+        )
+        .await
+        .unwrap()
+    );
+    refused(
+        h.known(&public, targets[0], &actor).await,
+        "Like verification is required.",
+    );
     let first = h.proof(targets[0]).await;
     refused(
         h.like(&public, targets[0], &[41; 32], false, &first).await,
@@ -143,6 +172,21 @@ pub(super) async fn exercise(
         1
     );
     assert_eq!(h.counts().await, (1, 11, 1, 2, 1));
+    assert!(
+        board_store::events::scores::known_address(
+            &public,
+            run,
+            &actor,
+            &h.context.session.fingerprints.token
+        )
+        .await
+        .unwrap()
+    );
+    refused(
+        h.known(&public, targets[1], &actor).await,
+        "You have to wait a while before liking this post.",
+    );
+
     assert!(
         h.like(&public, targets[0], &actor, false, &first)
             .await
@@ -162,13 +206,49 @@ pub(super) async fn exercise(
     assert_eq!(h.counts().await, (1, 11, 1, 2, 1));
     sqlx::query("UPDATE event_private.score_accounts SET last_vote_at=floor(extract(epoch FROM clock_timestamp()))::bigint-120 WHERE run_id=$1 AND last_vote_at IS NOT NULL")
         .bind(run).execute(owner).await.unwrap();
-    assert_eq!(
-        h.like(&public, targets[1], &actor, false, &next)
-            .await
-            .unwrap(),
-        1
-    );
+    assert_eq!(h.known(&public, targets[1], &actor).await.unwrap(), 1);
     assert_eq!(h.counts().await, (2, 22, 2, 2, 2));
+    let mut verified = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+        .execute(&mut *verified)
+        .await
+        .unwrap();
+    let identity:String=sqlx::query_scalar("INSERT INTO verification_private.identities(email_hash) VALUES(sha256(convert_to(gen_random_uuid()::text,'UTF8'))) RETURNING id::text")
+        .fetch_one(&mut *verified).await.unwrap();
+    sqlx::query("INSERT INTO verification_private.browser_identities(session_hash,identity_id) VALUES($1,$2::text::uuid)")
+        .bind(h.context.session.fingerprints.token.as_slice()).bind(&identity).execute(&mut *verified).await.unwrap();
+    verified.commit().await.unwrap();
+    assert!(
+        !board_store::events::scores::known_address(
+            &public,
+            run,
+            &actor,
+            &h.context.session.fingerprints.token
+        )
+        .await
+        .unwrap()
+    );
+    refused(
+        h.known(&public, targets[2], &actor).await,
+        "Like verification is required.",
+    );
+    let mut verified = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+        .execute(&mut *verified)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM verification_private.browser_identities WHERE session_hash=$1")
+        .bind(h.context.session.fingerprints.token.as_slice())
+        .execute(&mut *verified)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM verification_private.identities WHERE id=$1::text::uuid")
+        .bind(identity)
+        .execute(&mut *verified)
+        .await
+        .unwrap();
+    verified.commit().await.unwrap();
+
     let third = h.proof(targets[2]).await;
     sqlx::query("UPDATE event_private.score_accounts SET last_vote_at=0 WHERE run_id=$1")
         .bind(run)

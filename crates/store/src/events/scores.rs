@@ -57,6 +57,12 @@ pub async fn like(pool: &PgPool, input: &Like<'_>) -> Result<i32, StoreError> {
 }
 
 fn refusal(error: sqlx::Error) -> StoreError {
+    if error.as_database_error().is_some_and(|e| {
+        e.code().as_deref() == Some("P0166") && e.message() == "Like verification is required."
+    }) {
+        return StoreError::Invalid("Like verification is required.");
+    }
+
     if let Some(database) = error.as_database_error()
         && database.code().as_deref() == Some("P0224")
     {
@@ -106,4 +112,50 @@ pub async fn target(
         return Err(super::protocol());
     }
     Ok(target)
+}
+
+/// Read-only advice. A later mutation rechecks the same private history.
+pub async fn known_address(
+    pool: &PgPool,
+    run: i64,
+    actor: &[u8; 32],
+    session: &[u8; 32],
+) -> Result<bool, StoreError> {
+    Ok(
+        sqlx::query_scalar("SELECT content.event_like_exemption($1,$2,$3)")
+            .bind(run)
+            .bind(actor.as_slice())
+            .bind(session.as_slice())
+            .fetch_one(pool)
+            .await?,
+    )
+}
+/// Only use when source authentication cookies and an active native Pass are
+/// absent. SQL still requires prior anonymous votes and a live unverified session.
+pub struct KnownLike<'a> {
+    pub run: i64,
+    pub board: &'a str,
+    pub post: i64,
+    pub actor: &'a [u8; 32],
+    pub session: &'a [u8; 32],
+    pub address: std::net::IpAddr,
+}
+pub async fn like_known(pool: &PgPool, input: &KnownLike<'_>) -> Result<i32, StoreError> {
+    let count: i32 = sqlx::query_scalar("SELECT content.event_like_known($1,$2,$3,$4,$5,$6)")
+        .bind(input.run)
+        .bind(input.board)
+        .bind(input.post)
+        .bind(input.actor.as_slice())
+        .bind(input.session.as_slice())
+        .bind(match input.address.to_canonical() {
+            std::net::IpAddr::V4(ip) if !ip.is_unspecified() => Some(i64::from(u32::from(ip))),
+            _ => None,
+        })
+        .fetch_one(pool)
+        .await
+        .map_err(refusal)?;
+    if !(1..1048576).contains(&count) {
+        return Err(super::protocol());
+    }
+    Ok(count)
 }

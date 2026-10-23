@@ -336,6 +336,109 @@ async fn exercise(
             .unwrap(),
         1
     );
+    let op: i64 = sqlx::query_scalar("SELECT thread_id FROM content.posts WHERE id=$1")
+        .bind(post)
+        .fetch_one(&owner)
+        .await
+        .unwrap();
+    let next:i64=sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Anonymous','','Owned known-address target') RETURNING id")
+        .bind(&board).bind(op).fetch_one(&owner).await.unwrap();
+    sqlx::query("INSERT INTO post_secrets.posting_history(post_id,board,thread_id,actor_hash,request_at) VALUES($1,$2,$3,$4,1)")
+        .bind(next).bind(&board).bind(op).bind([55u8;32].as_slice()).execute(&owner).await.unwrap();
+    let next_path = format!("/event-like/{board}/{next}");
+    // A fresh browser inherits only the source's address history, not a proof.
+    let known = web
+        .clone()
+        .oneshot(request(&next_path, None, None))
+        .await
+        .unwrap();
+    assert_eq!(known.status(), StatusCode::OK);
+    let known_cookie = known
+        .headers()
+        .get_all(header::SET_COOKIE)
+        .iter()
+        .map(|v| v.to_str().unwrap().split(';').next().unwrap())
+        .collect::<Vec<_>>()
+        .join("; ");
+    let token = known_cookie
+        .split("; ")
+        .find_map(|v| v.strip_prefix("board-anon="))
+        .unwrap();
+    sessions.lock().unwrap().push(
+        board_domain::anonymous_session::Capability::parse(token)
+            .unwrap()
+            .fingerprints(None, *b"XX")
+            .token,
+    );
+    let known_page = body(known).await;
+    assert!(known_page.contains("No CAPTCHA is required for this address."));
+    assert!(!known_page.contains("name=\"challenge\""));
+    let known_fields = url::form_urlencoded::Serializer::new(String::new())
+        .append_pair("csrf", &field(&known_page, "csrf"))
+        .append_pair("run", &run.to_string())
+        .finish();
+    let cooldown = web
+        .clone()
+        .oneshot(request(
+            &next_path,
+            Some(&known_fields),
+            Some(&known_cookie),
+        ))
+        .await
+        .unwrap();
+    assert!(cooldown.status().is_client_error());
+    assert!(
+        body(cooldown)
+            .await
+            .contains("You have to wait a while before liking this post.")
+    );
+    sqlx::query("UPDATE event_private.score_accounts SET last_vote_at=0 WHERE run_id=$1")
+        .bind(run)
+        .execute(&owner)
+        .await
+        .unwrap();
+    let forced_cookie = format!("{known_cookie}; 4chan_auser=");
+    assert!(
+        web.clone()
+            .oneshot(request(
+                &next_path,
+                Some(&known_fields),
+                Some(&forced_cookie)
+            ))
+            .await
+            .unwrap()
+            .status()
+            .is_client_error()
+    );
+    let peer = key.network_identity("192.0.2.42".parse().unwrap());
+    sqlx::query("UPDATE verification_private.peers SET refresh_after=clock_timestamp()-interval '1 second' WHERE peer_hash=$1").bind(peer.as_slice()).execute(&owner).await.unwrap();
+    let forced = web
+        .clone()
+        .oneshot(request(&next_path, None, Some(&forced_cookie)))
+        .await
+        .unwrap();
+    assert_eq!(forced.status(), StatusCode::OK);
+    assert!(body(forced).await.contains("name=\"challenge\""));
+    assert_eq!(
+        web.clone()
+            .oneshot(request(
+                &next_path,
+                Some(&known_fields),
+                Some(&known_cookie)
+            ))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::SEE_OTHER
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i32>("SELECT vote_count FROM event_private.runs WHERE id=$1")
+            .bind(run)
+            .fetch_one(&owner)
+            .await
+            .unwrap(),
+        2
+    );
     sqlx::query("UPDATE event_private.runs SET enabled=false WHERE id=$1")
         .bind(run)
         .execute(&owner)

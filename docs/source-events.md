@@ -212,7 +212,7 @@ artwork remain part of issue #224.
 
 ## Dormant scores and perk glyphs
 
-The scoring corpus executes 84 isolated cases through the original controller
+The scoring corpus executes 88 isolated cases through the original controller
 and post-score hook on an owned ledger. It records self-like refusal by peer
 or Pass identity, duplicate precedence, the exact 120-second boundary, range
 refusal, challenge decisions and the counter ceiling. The five excluded boards
@@ -235,19 +235,27 @@ Unicode entities. A perk-selection UI and post glyph rendering remain unfinished
 ## Optional score ledger and native form
 
 Score runs use the same explicit operator activation and retained-run limits as
-other events. `/event-like/<board>/<post>` provides a native, script-independent
+other events. The public service also needs its private verifier configured
+with `PUBLIC_VERIFICATION_ADDR` and `PUBLIC_VERIFICATION_TOKEN`.
+`/event-like/<board>/<post>` provides a native, script-independent
 form for a live reply. A successful vote redirects to a read-only count page.
 Opening a result page never votes or creates a score account. Opening posts,
 archived threads and deleted targets cannot receive likes.
 
-Every mutation consumes a distinct `like` proof bound to its board, post,
+When verification is required, the mutation consumes a distinct `like` proof
+bound to its board, post,
 anonymous session, peer and run-derived form nonce. Posting/reporting proofs
 cannot authorize a like, and a like proof cannot authorize those actions.
 Closure rejects outstanding proofs. The native form checks the browser's
 HttpOnly CSRF secret and current run before contacting the issuer. It does not
 use the historical `xa19` echo cookie as authorization or accept proof hashes
-from browser fields. Each vote currently requires a CAPTCHA or checked Pass
-receipt; the source's known-address CAPTCHA skip remains unfinished.
+from browser fields. An address with an earlier accepted anonymous vote can
+skip CAPTCHA. Source
+authentication-cookie presence or a native verified-email session requires
+verification again. Advice is read-only; the mutation rechecks private history
+and the live browser session under the run lock. A Pass vote alone does not
+make the anonymous address eligible. The exemption retains CSRF, cooldown,
+range, self-like and duplicate checks.
 
 SQL derives the voting identity from a checked Pass receipt or the private
 posting-address fingerprint. Self-voting is rejected by both identity and
@@ -271,8 +279,8 @@ historical imports remain unscored. The five excluded boards retain their
 source zero-award behavior. Operator closure takes its table gate before a
 runtime row lock can create a counter-update deadlock.
 
-Owned database tests cover cross-action proofs, one-use consumption, ordinary
-and Pass votes, self/duplicate refusal, exact cooldown boundaries, range
+Owned database tests cover cross-action proofs, one-use consumption, known-address
+exemption and its authentication-cookie override, ordinary and Pass votes, self/duplicate refusal, exact cooldown boundaries, range
 bypass, capacity rollback and the posting opt-in. The upgrade fixture retains
 score accounts, vote history and counters across administrator dump/restore.
 Native HTTP tests use the real private verifier; real-browser qualification of

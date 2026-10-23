@@ -161,7 +161,7 @@ mod tests {
             }
             let result = (|| -> Result<Ledger, ValidationError> {
                 parse_post_id(c["fields"]["post_id"].as_str(), c["cookie"].as_str())?;
-                if (boolean("pass") || !boolean("known"))
+                if (boolean("pass") || boolean("auser") || !boolean("known"))
                     && !boolean("bypass")
                     && !boolean("captcha_ok")
                 {

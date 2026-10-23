@@ -43,6 +43,7 @@ struct Page<'a> {
     token: String,
     image: String,
     member: bool,
+    known: bool,
     overview: bool,
 }
 async fn page(
@@ -110,6 +111,7 @@ async fn render(
         token: String::new(),
         image: String::new(),
         member: false,
+        known: false,
         overview,
     };
     if request.method() == Method::POST {
@@ -160,27 +162,46 @@ async fn render(
             run.id,
             fields.get("csrf"),
         )?;
-        let (receipt, peer_hash, context_hash) = proof(state, &headers, input, &fields).await?;
         let actor = state
             .poster_id_key
             .as_ref()
             .ok_or_else(unavailable)?
             .public_posting_rate_identity(peer);
-        store::like(
-            &state.pool,
-            &store::Like {
-                run: run.id,
-                board,
-                post,
-                actor: actor.as_bytes(),
-                session: &session.posting.fingerprints.token,
-                receipt: &receipt,
-                peer: &peer_hash,
-                context: &context_hash,
-                address: peer,
-            },
-        )
-        .await?;
+        if fields.get("challenge").is_empty()
+            && fields.get("answer").is_empty()
+            && crate::pass_auth::read_cookie(&headers, state.production)?.is_none()
+            && crate::posting_challenge::source_cookies_absent(&headers)?
+        {
+            store::like_known(
+                &state.pool,
+                &store::KnownLike {
+                    run: run.id,
+                    board,
+                    post,
+                    actor: actor.as_bytes(),
+                    session: &session.posting.fingerprints.token,
+                    address: peer,
+                },
+            )
+            .await?;
+        } else {
+            let (receipt, peer_hash, context_hash) = proof(state, &headers, input, &fields).await?;
+            store::like(
+                &state.pool,
+                &store::Like {
+                    run: run.id,
+                    board,
+                    post,
+                    actor: actor.as_bytes(),
+                    session: &session.posting.fingerprints.token,
+                    receipt: &receipt,
+                    peer: &peer_hash,
+                    context: &context_hash,
+                    address: peer,
+                },
+            )
+            .await?;
+        }
         return Ok((
             StatusCode::SEE_OTHER,
             [
@@ -205,7 +226,24 @@ async fn render(
         let input = context(state, &session, peer, board, post, run.id, &view.csrf)?;
         let service = state.verification.as_ref().ok_or_else(unavailable)?;
         view.member = crate::pass_auth::posting_ready(state, &headers, Some(peer)).await?;
-        if view.member {
+        if !view.member
+            && crate::pass_auth::read_cookie(&headers, state.production)?.is_none()
+            && crate::posting_challenge::source_cookies_absent(&headers)?
+        {
+            let actor = state
+                .poster_id_key
+                .as_ref()
+                .ok_or_else(unavailable)?
+                .public_posting_rate_identity(peer);
+            view.known = store::known_address(
+                &state.pool,
+                run.id,
+                actor.as_bytes(),
+                &session.posting.fingerprints.token,
+            )
+            .await?;
+        }
+        if view.member || view.known {
             service
                 .ensure_session(&input.session)
                 .await

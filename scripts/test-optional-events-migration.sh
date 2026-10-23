@@ -94,6 +94,17 @@ CREATE TABLE public.owned_scores_before AS SELECT
  (SELECT jsonb_agg(to_jsonb(v) ORDER BY run_id,actor_hash,post_id) FROM event_private.score_votes v) AS votes,
  (SELECT jsonb_agg(to_jsonb(p) ORDER BY run_id,post_id) FROM event_private.score_posts p) AS posts;
 SQL
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT ON event_private.score_accounts TO board_public;' -f migrations/0254_known_address_event_votes.sql >"$cluster/known-rejected.log" 2>&1; then
+  echo 'Known-address migration accepted private score authority drift' >&2; exit 1
+fi
+grep -q 'Event authority drifted' "$cluster/known-rejected.log"
+"${migrator[@]}" -c BEGIN -f migrations/0254_known_address_event_votes.sql -c ROLLBACK >"$cluster/known-rollback.log"
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('content.event_like_exemption(bigint,bytea,bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained known-address authority'; END IF; END \$\$;" >/dev/null
+# An operator's existing active score run is retained, not silently closed.
+"${migrator[@]}" -c 'UPDATE event_private.runs SET enabled=true WHERE id=3;' >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0254_known_address_event_votes.sql >"$cluster/known-accepted.log"
+"${migrator[@]}" -c "DO \$\$ BEGIN IF (SELECT enabled FROM event_private.runs WHERE id=3) IS DISTINCT FROM true THEN RAISE EXCEPTION 'Known-address upgrade closed the owned run'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" -c 'UPDATE event_private.runs SET enabled=false WHERE id=3;' >/dev/null
 "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U "$pg_user" -d owned_optional_events -f scripts/test-optional-events-upgrade.sql
 # Compare the catalog preimage if administrator restore changes readiness.
 "${migrator[@]}" -At -c "SELECT prosrc FROM pg_proc WHERE oid='event_private.catalog_hash()'::regprocedure" >"$cluster/catalog.sql"

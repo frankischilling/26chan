@@ -19,16 +19,26 @@ try {
       assert.equal((await rpc({ step: 'prepare' })).ready, true);
       const post = posts[index++];
       const context = await browser.newContext({ javaScriptEnabled, viewport });
+      // Presence of the source auth cookie forces CAPTCHA even for a known address.
+      if (index === 4) await context.addCookies([{ name: '4chan_auser', value: '', url: origin }]);
       const page = await context.newPage();
       page.setDefaultTimeout(12000);
       const path = `${origin}/event-like/${board}/${post}`;
       const response = await page.goto(path);
       assert.equal(response.status(), 200);
       await expect(page.getByRole('heading', { name: `Like No.${post}` })).toBeVisible();
-      await expect(page.locator('img[alt="CAPTCHA characters"]')).toBeVisible();
-      const token = await page.locator('input[name="challenge"]').getAttribute('value');
-      const { answer } = await rpc({ step: 'answer', token, post });
-      await page.getByLabel('Verification', { exact: true }).fill(answer);
+      const anonymous = (await context.cookies()).find(cookie => cookie.name === 'board-anon');
+      assert.ok(anonymous);
+      assert.equal((await rpc({ step: 'session', token: anonymous.value })).recorded, true);
+      if (index === 1 || index === 4) {
+        await expect(page.locator('img[alt="CAPTCHA characters"]')).toBeVisible();
+        const token = await page.locator('input[name="challenge"]').getAttribute('value');
+        const { answer } = await rpc({ step: 'answer', token, post });
+        await page.getByLabel('Verification', { exact: true }).fill(answer);
+      } else {
+        await expect(page.locator('main')).toContainText('No CAPTCHA is required for this address.');
+        assert.equal(await page.locator('input[name="challenge"]').count(), 0);
+      }
       await page.screenshot({ path: `test-results/events-score/${javaScriptEnabled ? 'scripts' : 'native'}-${viewport.width}-form.png`, fullPage: true });
       await page.getByRole('button', { name: 'Like this post', exact: true }).click();
       await expect(page).toHaveURL(`${path}?view=1`);

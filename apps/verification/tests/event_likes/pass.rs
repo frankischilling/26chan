@@ -197,6 +197,11 @@ pub(super) async fn exercise(
             let totals:(i64,i64)=sqlx::query_as("SELECT count(*),sum(score)::bigint FROM event_private.score_accounts WHERE run_id=$1")
                 .bind(run).fetch_one(&owner).await.unwrap();
             assert_eq!(totals, (2, 11));
+            assert!(
+                !board_store::events::scores::known_address(&public, run, &[44; 32], &anonymous)
+                    .await
+                    .unwrap()
+            );
             sqlx::query("DELETE FROM admission.network_rules WHERE id=$1")
                 .bind(range_id)
                 .execute(&owner)

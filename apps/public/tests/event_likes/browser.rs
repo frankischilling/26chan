@@ -105,7 +105,7 @@ pub(super) async fn run(f: Fixture<'_>) {
         .unwrap();
     let peer = f.key.network_identity("127.0.0.1".parse().unwrap());
     let result=tokio::time::timeout(std::time::Duration::from_secs(180),async {
-        let mut prepared=0;let mut answered=0;
+        let mut prepared=0;let mut answered=0;let mut sessions=0;
         while let Some(line)=output.next_line().await.unwrap() {
             assert!(line.len()<=1024);
             let request:Value=serde_json::from_str(&line).unwrap();
@@ -115,6 +115,16 @@ pub(super) async fn run(f: Fixture<'_>) {
                     sqlx::query("UPDATE verification_private.peers SET refresh_after=clock_timestamp()-interval '1 second' WHERE peer_hash=$1").bind(peer.as_slice()).execute(f.owner).await.unwrap();
                     sqlx::query("UPDATE event_private.score_accounts SET last_vote_at=0 WHERE run_id=$1").bind(f.run).execute(f.owner).await.unwrap();
                     json!({"ready":true})
+                }
+                "session" => {
+                    assert!(sessions < prepared);
+                    sessions += 1;
+                    let capability = board_domain::anonymous_session::Capability::parse(request["token"].as_str().unwrap()).unwrap();
+                    let token = capability.fingerprints(None, *b"XX").token;
+                    assert!(sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM post_secrets.anonymous_sessions WHERE token_hash=$1)")
+                        .bind(token.as_slice()).fetch_one(f.owner).await.unwrap());
+                    f.sessions.lock().unwrap().push(token);
+                    json!({"recorded": true})
                 }
                 "answer"=>{
                     assert!(answered<prepared);answered+=1;
@@ -126,12 +136,12 @@ pub(super) async fn run(f: Fixture<'_>) {
                     let answer=f.key.challenge_answer(&token,if suspicious{8}else{6}).unwrap();
                     json!({"answer":answer.as_str()})
                 }
-                "done"=>{assert_eq!((prepared,answered),(4,4));break;}
+                "done"=>{assert_eq!((prepared,answered,sessions),(4,2,4));break;}
                 _=>panic!("Unknown owned browser fixture request"),
             };
             input.write_all(format!("{response}\n").as_bytes()).await.unwrap();
         }
-        assert_eq!((prepared,answered),(4,4));
+        assert_eq!((prepared,answered,sessions),(4,2,4));
         assert!(child.wait().await.unwrap().success());
         let counts:Vec<i32>=sqlx::query_scalar("SELECT likes FROM event_private.score_posts WHERE run_id=$1 AND post_id=ANY($2) ORDER BY post_id")
             .bind(f.run).bind(&posts).fetch_all(f.owner).await.unwrap();
