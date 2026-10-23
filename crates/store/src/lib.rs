@@ -9,6 +9,7 @@ mod board_snapshot;
 pub mod checkout;
 pub mod events;
 pub mod site_content;
+pub mod site_submissions;
 pub use blotter::BlotterMessage;
 mod content_admission;
 pub use content_admission::automatic::READINESS_SQL as AUTOMATIC_RANGE_READINESS_SQL;

@@ -123,6 +123,7 @@ jobs:
           cargo run -p board-store --bin board-migrate --locked
           bash scripts/seed.sh
           psql "$MIGRATION_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f scripts/test-video-board-policy.sql
+          psql "$MIGRATION_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f scripts/test-site-submission-storage.sql
       - name: Check primary email and challenge answer references
         run: |
           python3 scripts/test-email-verification-reference.py
@@ -670,6 +671,8 @@ jobs:
         run: sudo bash scripts/test-prior-upload-migration.sh
       - name: Qualify optional event upgrade and retained account restore
         run: sudo bash scripts/test-optional-events-migration.sh
+      - name: Qualify private submission storage upgrade and restore
+        run: sudo bash scripts/test-site-submissions-migration.sh
       - name: Qualify private classifier history upgrade and restore
         run: sudo bash scripts/test-classifier-history-migration.sh
       - name: Qualify country refusal authority and restored history

@@ -1,0 +1,169 @@
+#![cfg(feature = "database-tests")]
+use sqlx::{PgPool, postgres::PgPoolOptions};
+
+async fn login(variable: &str, role: &str) -> PgPool {
+    let pool = PgPoolOptions::new()
+        .max_connections(3)
+        .connect(&std::env::var(variable).expect("owned test database URL"))
+        .await
+        .unwrap();
+    let identities: (String, String) =
+        sqlx::query_as("SELECT current_user::text,session_user::text")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(identities, (role.into(), role.into()));
+    pool
+}
+
+#[tokio::test]
+async fn runtime_profile_reads_do_not_expose_submission_identity_or_open_workflows() {
+    let public = login("TEST_PUBLIC_DATABASE_URL", "board_public").await;
+    let owner = login("MIGRATION_DATABASE_URL", "board_migrator").await;
+    let mut lock = owner.acquire().await.unwrap();
+    sqlx::query("SELECT pg_advisory_lock(2250258)")
+        .execute(&mut *lock)
+        .await
+        .unwrap();
+    let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(&owner)
+        .await
+        .unwrap();
+    let result = tokio::spawn(check(public.clone(), owner.clone(), id)).await;
+    for query in [
+        "DELETE FROM submission_private.feedback_categories WHERE profile_id=$1",
+        "DELETE FROM submission_private.feedback_profiles WHERE id=$1",
+        "DELETE FROM submission_private.application_campaigns WHERE id=$1",
+        "DELETE FROM submission_private.contest_campaigns WHERE id=$1",
+    ] {
+        sqlx::query(query).bind(id).execute(&owner).await.unwrap();
+    }
+    sqlx::query("SELECT pg_advisory_unlock(2250258)")
+        .execute(&mut *lock)
+        .await
+        .unwrap();
+    drop(lock);
+    public.close().await;
+    owner.close().await;
+    result.unwrap();
+}
+async fn check(public: PgPool, owner: PgPool, id: i64) {
+    assert!(
+        sqlx::query_scalar::<_, bool>("SELECT submission_api.ready()")
+            .fetch_one(&public)
+            .await
+            .unwrap()
+    );
+    for query in [
+        "SELECT submission_api.feedback_profile()",
+        "SELECT submission_api.application_profile()",
+        "SELECT submission_api.contest_profile(1::smallint)",
+        "SELECT submission_api.contest_profile(2::smallint)",
+    ] {
+        assert!(
+            sqlx::query_scalar::<_, Option<serde_json::Value>>(query)
+                .fetch_one(&public)
+                .await
+                .unwrap()
+                .is_none(),
+            "Use an owned empty submission database"
+        );
+    }
+    for query in [
+        "SELECT * FROM submission_private.application_identity",
+        "SELECT * FROM submission_private.applications",
+        "SELECT * FROM submission_private.feedback",
+        "SELECT * FROM submission_private.contest_entries",
+        "SELECT * FROM submission_private.contest_votes",
+        "SET ROLE board_submission_owner",
+        "SET ROLE board_migrator",
+    ] {
+        let error = sqlx::query(query).execute(&public).await.unwrap_err();
+        assert_eq!(
+            error.as_database_error().and_then(|e| e.code()).as_deref(),
+            Some("42501")
+        );
+    }
+    // The function owner itself cannot read a contact field or bearer digest.
+    let mut tx = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_submission_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let error = sqlx::query("SELECT firstname FROM submission_private.application_identity")
+        .execute(&mut *tx)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.as_database_error().and_then(|e| e.code()).as_deref(),
+        Some("42501")
+    );
+    tx.rollback().await.unwrap();
+    profiles(&public, &owner, id).await;
+}
+
+async fn profiles(public: &PgPool, owner: &PgPool, id: i64) {
+    use board_domain::site_submissions::contests::{Kind, Phase};
+    use board_store::site_submissions as store;
+    assert!(store::ready(public).await.unwrap());
+    assert!(store::feedback_profile(public).await.unwrap().is_none());
+    assert!(store::application_profile(public).await.unwrap().is_none());
+    assert!(
+        store::contest_profile(public, Kind::BoardBanner)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    sqlx::query("INSERT INTO submission_private.feedback_profiles(id,enabled,subject_limit,message_limit,capacity) VALUES($1,true,150,2000,10)")
+        .bind(id).execute(owner).await.unwrap();
+    assert!(
+        store::feedback_profile(public).await.unwrap().is_none(),
+        "No implicit category seeds"
+    );
+    sqlx::query("INSERT INTO submission_private.feedback_categories(profile_id,id,ordinal,label,short_label) VALUES($1,2,0,'Owned technical','Technical'),($1,1,1,'Owned general','General')")
+        .bind(id).execute(owner).await.unwrap();
+    let form = store::feedback_profile(public).await.unwrap().unwrap();
+    assert_eq!(form.id, id);
+    assert_eq!(form.form.categories[0].id, 2);
+    assert_eq!(form.form.subject_limit, 150);
+    sqlx::query("INSERT INTO submission_private.application_campaigns(id,enabled,starts_at,ends_at,boards,questions,field_limit,answer_limit,capacity) VALUES($1,true,1,2,ARRAY['g'],ARRAY['One','Two','Three','Four'],150,2000,10)")
+        .bind(id).execute(owner).await.unwrap();
+    assert!(
+        store::application_profile(public).await.unwrap().is_none(),
+        "Expired campaign stays closed"
+    );
+    sqlx::query("UPDATE submission_private.application_campaigns SET ends_at=floor(extract(epoch FROM clock_timestamp()))::bigint+3600 WHERE id=$1")
+        .bind(id).execute(owner).await.unwrap();
+    let form = store::application_profile(public).await.unwrap().unwrap();
+    assert_eq!(form.id, id);
+    assert_eq!(form.form.boards, ["g"]);
+    assert_eq!(form.form.questions, ["One", "Two", "Three", "Four"]);
+    sqlx::query("INSERT INTO submission_private.contest_campaigns(id,kind,enabled,boards,submission_starts,submission_ends,voting_starts,voting_ends,capacity,vote_capacity) VALUES($1,1,true,ARRAY['g'],1,2,3,4,10,100)")
+        .bind(id).execute(owner).await.unwrap();
+    let form = store::contest_profile(public, Kind::BoardBanner)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(form.campaign.id, id);
+    assert_eq!(
+        form.campaign.phase(form.current_time).unwrap(),
+        Phase::Results
+    );
+    assert!(
+        store::contest_profile(public, Kind::Vtuber)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    sqlx::query("UPDATE submission_private.contest_campaigns SET enabled=false WHERE id=$1")
+        .bind(id)
+        .execute(owner)
+        .await
+        .unwrap();
+    assert!(
+        store::contest_profile(public, Kind::BoardBanner)
+            .await
+            .unwrap()
+            .is_none()
+    );
+}

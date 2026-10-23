@@ -61,7 +61,17 @@ Text remains untrusted text; browser `maxlength` is measured in UTF-16 units.
 Contact addresses do not inherit the sign-in provider allowlist or alias ban.
 Application identity and initial-review answers have separate Rust structures.
 
-Remaining implementation includes private persistence, challenge consumption,
+Private tables and bounded configuration readers are in place. Runtime roles
+cannot read submission rows; the configuration function owner currently has
+access only to profiles and its authority catalog. The catalog fingerprints
+permissions and definitions, using names rather than transient database object
+IDs so restoration can be checked without accepting fresh authority.
+
+On an existing installation, bootstrap the NOLOGIN owner with
+`deploy/site-submission-role.sql` before migration 0258. This migration leaves
+all campaigns closed and adds no historical submissions.
+
+Remaining implementation includes protected submission writes, challenge consumption,
 ownership checks, staff actions, upload processing, native forms, and browser
 qualification. No application automatically grants staff access. No contest
 entry automatically earns a Pass. Missing original styles and artwork remain
@@ -74,3 +84,10 @@ workflow checks. Capabilities and contact structures have no debug/serialization
 implementation. Native campaign dates use half-open server-time windows and a
 bounded entry capacity; campaign configuration alone does not authorize an
 upload or vote.
+
+The storage checks run against actual restricted logins. They reject direct
+submission-table reads and role switching, exercise configured/expired/closed
+profiles, and detect extra column grants. The migration test checks rollback,
+rejects pre-existing owner authority, retains prior board content, and restores
+synthetic application records without resealing the catalog. PostgreSQL 16.15
+passes these checks locally; CI repeats them before this work can merge.
