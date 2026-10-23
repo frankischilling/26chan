@@ -172,6 +172,7 @@ impl Fixture {
             &input,
             context(peer, epoch),
             PostMetadata {
+                event_scores: false,
                 drawing: None,
                 keys: PostIdentityKeys {
                     tripcode: None,
@@ -248,6 +249,7 @@ impl Fixture {
             None,
             context(peer, epoch),
             PostMetadata {
+                event_scores: false,
                 drawing: None,
                 keys: PostIdentityKeys {
                     tripcode: None,

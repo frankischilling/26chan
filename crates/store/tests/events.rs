@@ -487,4 +487,22 @@ async fn check_admin(
             .is_none()
     );
     assert!(admin::close(&mut connection, reset).await.unwrap());
+    let profile = json!({"version":1,"kind":"scores","starts_at":timestamp-10,"ends_at":timestamp+7200,"account_capacity":2});
+    let input = admin::read_profile(profile.to_string().as_bytes()).unwrap();
+    let score = admin::start(&mut connection, &input).await.unwrap();
+    owned_ids.lock().unwrap().push(score);
+    assert_eq!(
+        events::scores::active_run(public)
+            .await
+            .unwrap()
+            .unwrap()
+            .id,
+        score
+    );
+    assert!(matches!(
+        admin::start(&mut connection, &input).await,
+        Err(admin::Error::Active)
+    ));
+    assert!(admin::close(&mut connection, score).await.unwrap());
+    assert!(events::scores::active_run(public).await.unwrap().is_none());
 }

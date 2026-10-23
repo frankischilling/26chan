@@ -59,8 +59,8 @@ badge and perk-option cases. It executes pinned slices with PHP 8.3; the
 historical production PHP version is unknown. Stock valuation is supplied as
 a scalar, and the score-read boundary retains the source's unconditional zero.
 These tests do not establish an active scoring, market or emote workflow.
-Optional market/emote activation and private persistence are implemented below.
-Scoring, seasonal presentation and final browser qualification remain open.
+Optional market, emote and score persistence are implemented below. Perk
+selection, seasonal presentation and final browser qualification remain open.
 
 ## Dormant market model
 
@@ -153,12 +153,12 @@ cargo build -p board-store --bin board-events --locked
 ./target/debug/board-events close 1
 ```
 
-A profile contains `version: 1`, `kind: "market"` or `"emotes"`, integer Unix
+A profile contains `version: 1`, `kind: "market"`, `"emotes"` or `"scores"`, integer Unix
 seconds `starts_at` and `ends_at`, and `account_capacity` from 1 to 100,000.
 The end must follow the start and cannot already have passed. Market profiles
 also require a `prices` object with positive integer quotes for all 18 symbols:
 PEPE, WOJK, ANIME, CHAD, CLOWN, LOL, SICP, AUTSM, BANE, CIA, BOOB, RDDT, DESU,
-JANNY, GME, CHUCK, YTSB and GACHI. Emote profiles omit prices. Quote updates
+JANNY, GME, CHUCK, YTSB and GACHI. Emote and score profiles omit prices. Quote updates
 contain `version: 1`, the returned `run_id`, and the complete `prices` object.
 Inputs are limited to 16 KiB; duplicate quote keys and unknown fields fail
 validation.
@@ -207,8 +207,8 @@ CI also runs `tests/browser/events-native.mjs` against a real public router and
 private database accounts. It exercises successful native purchases/rolls and
 refresh behavior with JavaScript disabled/enabled at desktop/mobile sizes.
 These browser cases require a passing CI result; local HTML tests alone do not
-qualify them. Scoring/perk workflows, seasonal presentation and missing artwork
-remain part of issue #224.
+qualify them. Score browser qualification, perk selection, seasonal presentation and missing
+artwork remain part of issue #224.
 
 ## Dormant scores and perk glyphs
 
@@ -221,8 +221,8 @@ post hook also awards nothing. Other boards award 2 for a post, 1 for giving a
 like and 10 to its recipient. The public getter still returns zero.
 
 Some source failures leave a vote-log row before rejecting a changed target
-or full counter. The Rust model returns a complete outcome and requires the
-future storage layer to commit it atomically. It does not reproduce partial
+or full counter. The Rust model returns a complete outcome; the private SQL ledger commits
+the vote, counter and both awards atomically. It does not reproduce partial
 failed writes. Synthetic target changes between the source's two reads are
 included in the corpus; no historical posts or identities are used.
 
@@ -230,5 +230,50 @@ A second corpus executes all 231 glyph entries across the 19 active perks.
 Random pools retain duplicate entries and their source order. Negative scores
 unlock none; zero unlocks every active choice. Commented image/animation perks
 stay unavailable even at a higher score. Glyphs come only from pinned numeric
-Unicode entities. These models do not yet provide voting persistence, posting
-integration or a perk-selection UI.
+Unicode entities. A perk-selection UI and post glyph rendering remain unfinished.
+
+## Optional score ledger and native form
+
+Score runs use the same explicit operator activation and retained-run limits as
+other events. `/event-like/<board>/<post>` provides a native, script-independent
+form for a live reply. A successful vote redirects to a read-only count page.
+Opening a result page never votes or creates a score account. Opening posts,
+archived threads and deleted targets cannot receive likes.
+
+Every mutation consumes a distinct `like` proof bound to its board, post,
+anonymous session, peer and run-derived form nonce. Posting/reporting proofs
+cannot authorize a like, and a like proof cannot authorize those actions.
+Closure rejects outstanding proofs. The native form checks the browser's
+HttpOnly CSRF secret and current run before contacting the issuer. It does not
+use the historical `xa19` echo cookie as authorization or accept proof hashes
+from browser fields. Each vote currently requires a CAPTCHA or checked Pass
+receipt; the source's known-address CAPTCHA skip remains unfinished.
+
+SQL derives the voting identity from a checked Pass receipt or the private
+posting-address fingerprint. Self-voting is rejected by both identity and
+address. Only global IPv4 range rules apply to anonymous votes, matching the
+source call's empty scope/options; Pass bypass is decided by the consumed
+receipt. The supplied caller omits the range helper's required ASN argument.
+The reconstruction uses its intended IPv4-only lookup rather than reproducing
+a PHP argument error. Network policy stays locked through the mutation.
+
+Accounts use run-separated private hashes. Event tables contain no raw address,
+Pass identifier or login credential. Each run has the configured account cap
+and at most one million accepted votes. Reaching a cap rejects the entire
+mutation, including receipt consumption. Vote history remains with the closed
+run so deletion cannot erase duplicate or cooldown evidence. A reset starts a
+new run; it does not rewrite the old scores.
+
+The posting hook adds two points in the accepted-post transaction, after its
+private identity has been captured. Both an active score run and the public
+service's explicit event-workflow setting are required. Ordinary callers and
+historical imports remain unscored. The five excluded boards retain their
+source zero-award behavior. Operator closure takes its table gate before a
+runtime row lock can create a counter-update deadlock.
+
+Owned database tests cover cross-action proofs, one-use consumption, ordinary
+and Pass votes, self/duplicate refusal, exact cooldown boundaries, range
+bypass, capacity rollback and the posting opt-in. The upgrade fixture retains
+score accounts, vote history and counters across administrator dump/restore.
+Native HTTP tests use the real private verifier; real-browser qualification of
+the score form is still required before claiming frontend parity.

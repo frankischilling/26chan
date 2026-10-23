@@ -299,6 +299,7 @@ async fn drawing_post(
             op_password_proof: None,
         },
         board_store::PostMetadata {
+            event_scores: false,
             spoiler: false,
             country_database: None,
             flag: "",
@@ -349,6 +350,7 @@ async fn exercise_drawing_annotations(fixture: &Fixture) {
             op_password_proof: None,
         },
         board_store::PostMetadata {
+            event_scores: false,
             spoiler: false,
             country_database: None,
             flag: "",
@@ -1270,6 +1272,7 @@ async fn poster_counts(f: &Fixture) {
                 op_password_proof: None,
             },
             board_store::PostMetadata {
+                event_scores: false,
                 drawing: None,
                 spoiler: false,
                 country_database: Some(&countries),

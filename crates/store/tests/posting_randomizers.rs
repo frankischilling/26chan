@@ -18,6 +18,7 @@ fn post(comment: &str) -> NewPost {
 
 fn metadata(options: &str) -> PostMetadata<'_> {
     PostMetadata {
+        event_scores: false,
         drawing: None,
         spoiler: false,
         keys: PostIdentityKeys {

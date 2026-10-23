@@ -173,6 +173,7 @@ pub async fn create_post_with_context_and_key(
         attachment,
         context,
         PostMetadata {
+            event_scores: false,
             keys: PostIdentityKeys {
                 tripcode,
                 poster_id: None,
@@ -208,6 +209,7 @@ pub async fn create_post_with_metadata(
         attachment,
         context,
         PostMetadata {
+            event_scores: metadata.event_scores,
             keys: PostIdentityKeys {
                 tripcode: metadata.keys.tripcode,
                 poster_id: Some(poster_id),
@@ -252,6 +254,7 @@ pub async fn create_post_with_anonymous_session(
         attachment,
         context,
         PostMetadata {
+            event_scores: metadata.event_scores,
             keys: PostIdentityKeys {
                 tripcode: metadata.keys.tripcode,
                 poster_id: Some(poster_id),

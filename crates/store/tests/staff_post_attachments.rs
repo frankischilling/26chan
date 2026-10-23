@@ -308,6 +308,7 @@ impl Fixture {
                 },
             },
             PostMetadata {
+                event_scores: false,
                 drawing: None,
                 keys: PostIdentityKeys {
                     tripcode: None,
@@ -386,6 +387,7 @@ impl Fixture {
                     asn_database: self.asn_database.as_deref(),
                 },
                 PostMetadata {
+                    event_scores: false,
                     drawing: None,
                     keys,
                     country_database: None,
@@ -1733,6 +1735,7 @@ async fn missing_ordinary_identity(f: &Fixture) {
             op_password_proof: None,
         },
         PostMetadata {
+            event_scores: false,
             keys: PostIdentityKeys {
                 tripcode: None,
                 poster_id: Some(&key),

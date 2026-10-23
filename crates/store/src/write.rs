@@ -149,6 +149,7 @@ pub async fn create_post_with_identity_keys(
         attachment,
         context,
         PostMetadata {
+            event_scores: false,
             spoiler: false,
             keys,
             country_database: None,
@@ -161,6 +162,8 @@ pub async fn create_post_with_identity_keys(
 }
 
 pub struct PostMetadata<'a> {
+    /// Trusted deployment opt-in; never deserialize this from posting fields.
+    pub event_scores: bool,
     pub keys: PostIdentityKeys<'a>,
     pub country_database: Option<&'a board_domain::country::CountryDatabase>,
     /// Public choice, validated against the locked operator-owned board policy.
@@ -490,6 +493,7 @@ pub async fn create_staff_post_with_network(
             hints,
             asn_database,
             metadata: PostMetadata {
+                event_scores: false,
                 spoiler: false,
                 keys,
                 country_database: None,
@@ -758,6 +762,14 @@ async fn create_post_in_context(
         .await?;
     crate::write_challenge::install(&mut tx, challenge.as_ref(), anonymous.as_ref()).await?;
     crate::write_vip::install(&mut tx, vip.as_ref(), anonymous.as_ref()).await?;
+    sqlx::query("SELECT set_config('board.event_scores',$1,true)")
+        .bind(if metadata.event_scores {
+            "true"
+        } else {
+            "false"
+        })
+        .execute(&mut *tx)
+        .await?;
     sqlx::query("SELECT set_config('board.pass_year_requested',$1,true)")
         .bind(
             if board_domain::posting_options::pass_year_requested(&prepared_options) {

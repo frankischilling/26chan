@@ -44,6 +44,9 @@ pub(crate) async fn challenge(
     State(state): State<AppState>,
     Json(input): Json<protocol::PostingChallengeRequest>,
 ) -> Response {
+    if matches!(input.context.purpose, protocol::Purpose::Like) {
+        return super::likes::challenge(state, input).await;
+    }
     let context = &input.context;
     let Some(fp) = handlers::session(&context.session) else {
         return error(StatusCode::BAD_REQUEST);

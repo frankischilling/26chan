@@ -35,6 +35,7 @@ async fn create(public: &PgPool, board: &str, capability: &Capability) -> i64 {
             },
         },
         PostMetadata {
+            event_scores: false,
             drawing: None,
             spoiler: false,
             keys: PostIdentityKeys {

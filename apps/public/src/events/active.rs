@@ -21,6 +21,7 @@ use std::{collections::BTreeMap, net::IpAddr};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
+        .merge(super::likes::routes())
         .route("/emotes_xa22.php", any(emotes))
         .route("/xa24tb.php", any(market))
         .route(

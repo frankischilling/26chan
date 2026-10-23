@@ -109,6 +109,30 @@ pub fn reported_score() -> i64 {
     0
 }
 
+/// Bind a challenge to one score run as well as its normal action/board/post
+/// scope. Resetting an event changes this nonce even for the same posting-form nonce.
+/// This is domain separation, not a replacement for validating the browser's CSRF cookie.
+pub fn form_nonce(run_id: i64, csrf: &str) -> Result<String, ValidationError> {
+    if run_id <= 0
+        || csrf.len() != 64
+        || !csrf
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(ValidationError("Invalid event form"));
+    }
+    let mut digest = ring::digest::Context::new(&ring::digest::SHA256);
+    digest.update(b"26chan-score-form-v1\0");
+    digest.update(&run_id.to_be_bytes());
+    digest.update(csrf.as_bytes());
+    Ok(digest
+        .finish()
+        .as_ref()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -193,6 +217,18 @@ mod tests {
                 }
             }
         }
+    }
+    #[test]
+    fn form_nonce_binds_event_reset_and_csrf_without_adding_identity() {
+        let csrf = "ab".repeat(32);
+        let first = form_nonce(1, &csrf).unwrap();
+        assert_eq!(first.len(), 64);
+        assert_ne!(first, form_nonce(2, &csrf).unwrap());
+        assert_ne!(first, form_nonce(1, &"cd".repeat(32)).unwrap());
+        assert_ne!(first, csrf);
+        assert!(form_nonce(0, &csrf).is_err());
+        assert!(form_nonce(1, &"AB".repeat(32)).is_err());
+        assert!(form_nonce(1, &"z".repeat(64)).is_err());
     }
     #[test]
     fn overflow_never_produces_a_partial_score_or_counter() {

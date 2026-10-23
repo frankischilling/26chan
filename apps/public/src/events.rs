@@ -1,6 +1,7 @@
 //! Snapshot-era event endpoints that are unconditionally closed in the source.
 //! Do not create accounts, read event cookies, or consume request bodies here.
 mod active;
+mod likes;
 
 use crate::AppState;
 use axum::{
@@ -19,6 +20,7 @@ pub(crate) fn routes(enabled: bool) -> Router<AppState> {
         .route("/xa24tb.php", any(market_closed))
         .route("/event-market.html", any(emotes_closed))
         .route("/event-emotes.html", any(emotes_closed))
+        .route("/event-like/{board}/{post}", any(emotes_closed))
 }
 
 async fn emotes_closed() -> Response {
@@ -57,7 +59,11 @@ mod tests {
             .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
             .unwrap();
         let web = crate::router(pool, "http://localhost:3000".into(), false);
-        for path in ["/event-market.html", "/event-emotes.html"] {
+        for path in [
+            "/event-market.html",
+            "/event-emotes.html",
+            "/event-like/b/123",
+        ] {
             let response = web
                 .clone()
                 .oneshot(Request::get(path).body(Body::empty()).unwrap())

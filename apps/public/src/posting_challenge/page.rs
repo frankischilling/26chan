@@ -18,7 +18,7 @@ pub struct View {
     pub message: &'static str,
 }
 
-fn valid_png(value: &str) -> bool {
+pub(crate) fn valid_png(value: &str) -> bool {
     let Some(encoded) = value.strip_prefix("data:image/png;base64,") else {
         return false;
     };

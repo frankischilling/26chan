@@ -1,5 +1,6 @@
 //! Capability-scoped optional event accounts. No runtime table access is needed.
 pub mod admin;
+pub mod scores;
 
 use crate::{PgPool, StoreError};
 use board_domain::source_events::{

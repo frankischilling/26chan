@@ -63,6 +63,37 @@ INSERT INTO event_private.accounts(run_id,kind,actor_hash,created_at,balance,las
 UPDATE event_private.accounts SET owned=ARRAY[108,109]::smallint[] WHERE run_id=2;
 CREATE TABLE public.owned_events_accounts AS SELECT * FROM event_private.accounts;
 SQL
+# Score proofs must upgrade an existing market/emote ledger without opening it.
+for drift in "GRANT SELECT ON event_private.accounts TO board_public;" \
+             "ALTER TABLE content.boards ALTER COLUMN title SET DEFAULT 'owned drift';"; do
+  if "${migrator[@]}" --single-transaction -c "$drift" -f migrations/0252_optional_score_receipts.sql >"$cluster/score-rejected.log" 2>&1; then
+    echo 'Score proof migration accepted pre-existing authority drift' >&2; exit 1
+  fi
+  grep -Eq 'Event authority drifted|Transfer authority drifted' "$cluster/score-rejected.log"
+done
+"${migrator[@]}" -c BEGIN -f migrations/0252_optional_score_receipts.sql -c ROLLBACK >"$cluster/score-rollback.log"
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('content.event_score_open()') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained score proof authority'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0252_optional_score_receipts.sql >"$cluster/score-accepted.log"
+for drift in "GRANT SELECT ON event_private.accounts TO board_public;" \
+             "ALTER TABLE content.boards ALTER COLUMN title SET DEFAULT 'owned drift';"; do
+  if "${migrator[@]}" --single-transaction -c "$drift" -f migrations/0253_optional_score_ledger.sql >"$cluster/ledger-rejected.log" 2>&1; then
+    echo 'Score ledger migration accepted pre-existing authority drift' >&2; exit 1
+  fi
+  grep -Eq 'Event authority drifted|Transfer authority drifted' "$cluster/ledger-rejected.log"
+done
+"${migrator[@]}" -c BEGIN -f migrations/0253_optional_score_ledger.sql -c ROLLBACK >"$cluster/ledger-rollback.log"
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regclass('event_private.score_accounts') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained score ledger'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0253_optional_score_ledger.sql >"$cluster/ledger-accepted.log"
+"${migrator[@]}" <<'SQL'
+INSERT INTO event_private.runs(id,kind,starts_at,ends_at,account_count,vote_count) VALUES(3,3,1,253402300799,2,1);
+INSERT INTO event_private.score_accounts VALUES(3,decode(repeat('33',32),'hex'),1,100),(3,decode(repeat('44',32),'hex'),10,NULL);
+INSERT INTO event_private.score_votes SELECT 3,decode(repeat('33',32),'hex'),id,board,100 FROM content.posts ORDER BY id LIMIT 1;
+INSERT INTO event_private.score_posts SELECT 3,id,1 FROM content.posts ORDER BY id LIMIT 1;
+CREATE TABLE public.owned_scores_before AS SELECT
+ (SELECT jsonb_agg(to_jsonb(a) ORDER BY run_id,actor_hash) FROM event_private.score_accounts a) AS accounts,
+ (SELECT jsonb_agg(to_jsonb(v) ORDER BY run_id,actor_hash,post_id) FROM event_private.score_votes v) AS votes,
+ (SELECT jsonb_agg(to_jsonb(p) ORDER BY run_id,post_id) FROM event_private.score_posts p) AS posts;
+SQL
 "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U "$pg_user" -d owned_optional_events -f scripts/test-optional-events-upgrade.sql
 # Compare the catalog preimage if administrator restore changes readiness.
 "${migrator[@]}" -At -c "SELECT prosrc FROM pg_proc WHERE oid='event_private.catalog_hash()'::regprocedure" >"$cluster/catalog.sql"

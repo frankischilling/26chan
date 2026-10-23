@@ -1,6 +1,6 @@
 //! Offline-validated, migrator-only event configuration. No runtime credential
 //! can activate/reset events or provide market quotes. Closing retains history.
-use board_domain::source_events::{STOCKS, credentials::Kind};
+use board_domain::source_events::STOCKS;
 use serde::{Deserialize, de};
 use sqlx::{Connection, PgConnection, Postgres, Transaction};
 use std::{collections::BTreeMap, io::Read};
@@ -36,12 +36,14 @@ impl From<sqlx::Error> for Error {
 enum InputKind {
     Market,
     Emotes,
+    Scores,
 }
 impl InputKind {
-    fn kind(self) -> Kind {
+    fn kind(self) -> i16 {
         match self {
-            Self::Market => Kind::Market,
-            Self::Emotes => Kind::Emotes,
+            Self::Market => 1,
+            Self::Emotes => 2,
+            Self::Scores => 3,
         }
     }
 }
@@ -102,7 +104,7 @@ impl Profile {
         }
         match self.kind {
             InputKind::Market if self.prices.0.len() != 18 => Err(Error::Input),
-            InputKind::Emotes if !self.prices.0.is_empty() => Err(Error::Input),
+            InputKind::Emotes | InputKind::Scores if !self.prices.0.is_empty() => Err(Error::Input),
             _ => Ok(()),
         }
     }
@@ -166,7 +168,10 @@ async fn transaction(connection: &mut PgConnection) -> Result<Transaction<'_, Po
         tx.rollback().await?;
         return Err(Error::Authority);
     }
-    sqlx::query("LOCK TABLE event_private.runs IN SHARE ROW EXCLUSIVE MODE")
+    // Also conflict with SELECT FOR UPDATE. Otherwise maintenance could hold
+    // the table gate while waiting for a runtime row lock whose owner still
+    // needs ROW EXCLUSIVE for its counter update.
+    sqlx::query("LOCK TABLE event_private.runs IN EXCLUSIVE MODE")
         .execute(&mut *tx)
         .await?;
     Ok(tx)
@@ -195,7 +200,7 @@ pub async fn start(connection: &mut PgConnection, profile: &Profile) -> Result<i
         tx.rollback().await?;
         return Err(Error::Expired);
     }
-    let kind = profile.kind.kind() as i16;
+    let kind = profile.kind.kind();
     sqlx::query(
         "UPDATE event_private.runs SET enabled=false WHERE kind=$1 AND ends_at<=$2 AND enabled",
     )
@@ -267,6 +272,7 @@ mod tests {
     }
     #[test]
     fn profiles_have_bounded_strict_operator_fields() {
+        assert!(read_profile(profile("scores").to_string().as_bytes()).is_ok());
         let valid = profile("emotes");
         assert!(read_profile(valid.to_string().as_bytes()).is_ok());
         for (key, value) in [

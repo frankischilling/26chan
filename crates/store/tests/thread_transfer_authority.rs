@@ -131,6 +131,7 @@ impl Fixture {
                     },
                 },
                 PostMetadata {
+                    event_scores: false,
                     drawing: None,
                     spoiler: false,
                     keys: PostIdentityKeys {

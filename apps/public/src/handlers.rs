@@ -1327,6 +1327,7 @@ async fn submit_post(
             },
         },
         board_store::PostMetadata {
+            event_scores: state.event_workflows,
             spoiler: form.spoiler,
             country_database: state.country_database.as_deref(),
             flag: &form.flag,

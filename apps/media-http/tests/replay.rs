@@ -251,6 +251,7 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>, board: &str
             op_password_proof: None,
         },
         board_store::PostMetadata {
+            event_scores: false,
             keys: board_store::PostIdentityKeys {
                 tripcode: None,
                 poster_id: Some(&identity),

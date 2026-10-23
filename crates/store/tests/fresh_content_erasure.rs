@@ -72,6 +72,7 @@ impl Fixture {
                     },
                 },
                 PostMetadata {
+                    event_scores: false,
                     keys: PostIdentityKeys {
                         tripcode: None,
                         poster_id: None,

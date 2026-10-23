@@ -34,6 +34,7 @@ async fn create(
             op_password_proof: None,
         },
         PostMetadata {
+            event_scores: false,
             drawing: None,
             spoiler: false,
             keys: PostIdentityKeys {
