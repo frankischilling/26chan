@@ -135,9 +135,9 @@ test('aggregate status assertions detect an omitted comparison and a result mapp
   assert.throws(() => assertAggregateOutcomes(wrongChild, dependencies), /aggregate gate outcome:/);
 });
 
-test('the required Linux browser matrix runs both complete suites independently', () => {
+test('the required Linux browser matrix runs all three complete suites independently', () => {
   const browser = workflowJob('browser-suites');
-  assert.equal(browser.match(/^        suite: \[([^\]]+)\]$/m)?.[1], 'content, interactions');
+  assert.equal(browser.match(/^        suite: \[([^\]]+)\]$/m)?.[1], 'content, interactions, posting');
   assert.match(browser, /^      fail-fast: false$/m);
   assert.ok(!/^    (?:needs|if):|continue-on-error|^        (?:include|exclude):/m.test(browser));
   assert.ok(browser.includes('BROWSER_SUITE: ${{ matrix.suite }}'));

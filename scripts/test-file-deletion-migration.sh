@@ -384,6 +384,21 @@ UPDATE public.upgraded_rows SET value=value||jsonb_build_object('since4pass',202
 WHERE relation='content.posts' AND (value->>'id')::bigint=13000002;
 SQL
 fi
+# The new perk column has no historical backfill. File-only deletion must
+# preserve an explicitly saved perk on its still-live text target.
+if [[ -f migrations/0257_optional_post_perks.sql ]]; then
+ "${admin[@]}" <<'SQL'
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM content.posts WHERE event_perk IS NOT NULL) THEN
+ RAISE EXCEPTION 'Upgrade invented historical event perks'; END IF; END $$;
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('event_perk',NULL)
+WHERE relation='content.posts';
+SET ROLE board_migrator;
+UPDATE content.posts SET event_perk=231 WHERE id=13000002;
+RESET ROLE;
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('event_perk',231)
+WHERE relation='content.posts' AND (value->>'id')::bigint=13000002;
+SQL
+fi
 # Image admission adds only these policy fields. Preserve every historical key;
 # recapturing whole board rows would conceal unrelated upgrade changes.
 if [[ -f migrations/0241_source_image_duplicates.sql ]]; then
@@ -497,13 +512,15 @@ if [[ -f migrations/0220_pass_purchase_year.sql ]]; then
  for mutation in \
   "UPDATE content.posts SET since4pass=2021 WHERE id=13000001;" \
   "UPDATE content.posts SET since4pass=0 WHERE id=13000002;" \
+  "SET LOCAL ROLE board_migrator; UPDATE content.posts SET event_perk=1 WHERE id=13000001; RESET ROLE;" \
+  "SET LOCAL ROLE board_migrator; UPDATE content.posts SET event_perk=NULL WHERE id=13000002; RESET ROLE;" \
   "UPDATE content.boards SET pass_post_only=true WHERE slug='filedel';"; do
   {
    printf '%s\n' "$mutation"
    cat "$cluster/assert-retained.sql"
   } > "$cluster/pass-history-negative.sql"
   if "${admin[@]}" --single-transaction -f - < "$cluster/pass-history-negative.sql" > "$cluster/pass-history-negative.log" 2>&1; then
-   echo 'File-deletion history guard accepted a Pass year or board gate mutation.' >&3; exit 1
+   echo 'File-deletion history guard accepted a Pass year, event perk or board gate mutation.' >&3; exit 1
   fi
   grep -Eq 'File action (changed unrelated history|rewrote content)' "$cluster/pass-history-negative.log"
   "${admin[@]}" -f - < "$cluster/assert-retained.sql"
