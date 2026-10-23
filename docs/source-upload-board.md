@@ -45,3 +45,22 @@ Local guest and transport checks are separate from the real VM qualification.
 The latter must run on the owned CI Linux host before this feature can be
 considered qualified. These primitives do not yet establish complete `/f/`
 listing, posting, download or playback parity.
+
+## Player runtime preparation
+
+`scripts/media/prepare-swf-player.py` prepares the official Ruffle 0.7.1
+self-hosted release in a new directory. It verifies the release archive against
+the pinned SHA-256 before extracting a fixed asset list. Both WebAssembly
+modules receive a maximum of 4,096 memory pages (256 MiB); their reviewed
+73-page minimum is unchanged. The output manifest records each resulting hash.
+The HTTP-side asset loader verifies against the manifest compiled into the
+application, not a mutable manifest beside the files.
+
+This cap applies only to WebAssembly linear memory. It is not a limit on total
+browser, JavaScript or GPU memory, nor a guarantee that every movie plays.
+Player loading and interaction still need browser qualification.
+
+Ruffle documents `allowNetworking: "none"` as unimplemented. That option must
+not be treated as a network boundary. The player integration needs a restrictive
+browser Content Security Policy and sandbox independently of player options.
+See the [Ruffle networking API documentation](https://ruffle.rs/js-docs/master/enums/Config.NetworkingAccessMode.html).

@@ -5,6 +5,7 @@
 mod input_receipt;
 pub use input_receipt::{InputComponent, InputReceipt};
 mod still;
+mod swf;
 pub use still::{ExifMetadata, StillOutput};
 
 use crate::{
@@ -25,6 +26,7 @@ pub enum MediaFormat {
     Pdf,
     Webm,
     Mp4,
+    Swf,
 }
 
 impl MediaFormat {
@@ -36,6 +38,7 @@ impl MediaFormat {
             Self::Pdf => "pdf",
             Self::Webm => "webm",
             Self::Mp4 => "mp4",
+            Self::Swf => "swf",
         }
     }
 
@@ -47,6 +50,7 @@ impl MediaFormat {
             Self::Pdf => "PDF",
             Self::Webm => "WEBM",
             Self::Mp4 => "MP4",
+            Self::Swf => "SWF",
         }
     }
 
@@ -58,13 +62,14 @@ impl MediaFormat {
             Self::Pdf => "application/pdf",
             Self::Webm => "video/webm",
             Self::Mp4 => "video/mp4",
+            Self::Swf => "application/x-shockwave-flash",
         }
     }
 
     fn byte_limit(self) -> i64 {
         match self {
             Self::Png => 5_242_880,
-            Self::Jpeg => 10_485_760,
+            Self::Jpeg | Self::Swf => 10_485_760,
             Self::Gif => 20_971_520,
             Self::Pdf | Self::Webm | Self::Mp4 => 8_388_608,
         }
@@ -221,7 +226,13 @@ impl OutputMetadata {
 
     fn validate_format(&self, format: MediaFormat) -> Result<(), StoreError> {
         validate_hex(&self.sha256, 64)?;
-        let dimension = if format.is_video() { 2048 } else { 1024 };
+        let dimension = if format == MediaFormat::Swf {
+            107_374_182
+        } else if format.is_video() {
+            2048
+        } else {
+            1024
+        };
         if !(1..=format.byte_limit()).contains(&self.bytes)
             || !(1..=dimension).contains(&self.width)
             || !(1..=dimension).contains(&self.height)
@@ -478,7 +489,7 @@ impl MediaQueue {
         output_kind: (MediaFormat, Option<&VideoMetadata>),
     ) -> Result<Asset, StoreError> {
         let (format, video) = output_kind;
-        if format == MediaFormat::Jpeg
+        if matches!(format, MediaFormat::Jpeg | MediaFormat::Swf)
             || provenance.is_some_and(|source| {
                 matches!(
                     source.profile,

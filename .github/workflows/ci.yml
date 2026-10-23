@@ -364,6 +364,8 @@ jobs:
           cargo build -p board-media-guest --bins --example containment-probe --target x86_64-unknown-linux-musl --locked --release
           python3 -m unittest discover -s tests/media -p test_runner.py
           python3 -m unittest discover -s tests/media -p test_swf_transport.py
+          python3 -m unittest discover -s tests/media -p test_swf_player_assets.py
+          sh scripts/test-swf-player-assets.sh
           python3 -m unittest discover -s tests/media -p test_pdf_runtime.py -v
           python3 -m unittest discover -s tests/media -p test_video_runtime.py -v
           python3 -m unittest discover -s tests/media -p test_still_runtime.py -v

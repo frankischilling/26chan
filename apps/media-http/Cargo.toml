@@ -15,6 +15,8 @@ board-media = { path = "../../crates/media" }
 board-http = { path = "../../crates/http" }
 board-observe = { path = "../../crates/observe" }
 axum.workspace = true
+sha2 = "0.10"
+serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

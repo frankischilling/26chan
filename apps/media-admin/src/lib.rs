@@ -6,6 +6,7 @@ pub mod backfill;
 pub mod drawing;
 pub mod paired;
 mod still;
+mod swf;
 use board_media::{
     ApprovedFiles, InputSnapshot, MAX_INPUT_BYTES, PublicationStore, Quarantine, ValidatedOutput,
     animation::ValidatedAnimation,
@@ -63,6 +64,13 @@ pub async fn dispatch(
                 return Err("private input rejected".into());
             }
         };
+        if matches!(snapshot.bytes().get(..3), Some(b"FWS" | b"CWS" | b"ZWS")) {
+            let result = swf::dispatch_context(queue, store, client, &job, snapshot).await;
+            if result.is_err() {
+                let _ = queue.fail(&job.id, token, Failure::Processing, false).await;
+            }
+            return result.map_err(|_| "SWF processing or approval unavailable".into());
+        }
         if still::format(snapshot.bytes()).is_some() {
             let result =
                 still::dispatch_context(queue, store, client, &job, &context, snapshot).await;
@@ -508,6 +516,7 @@ pub async fn read_approved(
         MediaFormat::Pdf => files.read_pdf(id, &approved.sha256, size)?,
         MediaFormat::Webm => files.read_video(id, &approved.sha256, size, VideoFormat::Webm)?,
         MediaFormat::Mp4 => files.read_video(id, &approved.sha256, size, VideoFormat::Mp4)?,
+        MediaFormat::Swf => files.read_swf(id, &approved.sha256, size)?,
     })
 }
 

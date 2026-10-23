@@ -19,7 +19,7 @@ if args.source:
     assert hashlib.sha256(raw).hexdigest() == PIN
     source = raw.decode().replace('\r\n', '\n')
     start = source.index('\t\tif( !$resto && !array_key_exists( (int)$filetag, $tags ) )')
-    end = source.index('\n\t\t\r', start) if '\n\t\t\r' in source[start:] else source.index('\n\t\t\n', start)
+    end = source.index('\n\t\t\n', start)
     admission = source[start:end].strip()
     table = (args.source / 'views/upboard.php').read_text().replace('\r\n', '\n')
     table = table[table.index('function upboard_tags()'):table.index('function updatelog(')].strip()

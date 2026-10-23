@@ -165,3 +165,137 @@ async fn pdf_and_video_receipts_describe_original_uploads_not_worker_envelopes()
             .unwrap();
     }
 }
+
+#[tokio::test]
+async fn swf_dispatch_preserves_original_bytes_and_rejects_worker_substitution() {
+    use board_store::media_intake::IntakeStore;
+    let admin = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let queue = MediaQueue::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("../../../fixtures/swf-header-reference.json")).unwrap();
+    let hex = fixture["cases"][0]["bytes_hex"].as_str().unwrap();
+    let input: Vec<u8> = hex
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+        .collect();
+    for substitute in [false, true] {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        certificates(root);
+        let quarantine = Quarantine::new(root.join("private")).unwrap();
+        let store = PublicationStore::new(root.join("objects"), &quarantine).unwrap();
+        let upload = intake
+            .reserve_image("owned.swf", "f", 0, false)
+            .await
+            .unwrap();
+        intake
+            .begin_upload(&upload.id, &upload.capability)
+            .await
+            .unwrap();
+        let length = quarantine
+            .receive_still(upload.id.parse().unwrap(), input.as_slice())
+            .await
+            .unwrap();
+        intake
+            .finish_upload(&upload.id, &upload.capability, length)
+            .await
+            .unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = listener.local_addr().unwrap();
+        let client = DispatchClient::new(&ClientSettings {
+            endpoint,
+            server_name: "dispatch.test".into(),
+            server_ca: root.join("ca.pem"),
+            client_certificate: root.join("client.pem"),
+            client_key: root.join("client.key"),
+        })
+        .unwrap();
+        let acceptor = TlsAcceptor::from(
+            server_config(&GatewaySettings {
+                listen: endpoint,
+                server_certificate: root.join("server.pem"),
+                server_key: root.join("server.key"),
+                client_ca: root.join("ca.pem"),
+                authorization_file: root.join("unused"),
+                broker_socket: root.join("unused.sock"),
+            })
+            .unwrap(),
+        );
+        let expected = input.clone();
+        let server = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut stream = acceptor.accept(socket).await.unwrap();
+            assert_eq!(
+                read_versioned_request(&mut stream).await.unwrap(),
+                Request::SwfV8(expected.clone())
+            );
+            let mut disk = vec![0; board_media::swf::OUTPUT_DISK_BYTES as usize];
+            disk[..8].copy_from_slice(b"IBSWF008");
+            disk[8..12].copy_from_slice(&640_u32.to_be_bytes());
+            disk[12..16].copy_from_slice(&480_u32.to_be_bytes());
+            disk[16..24].copy_from_slice(&(expected.len() as u64).to_be_bytes());
+            disk[24] = 10;
+            disk[32..32 + expected.len()].copy_from_slice(&expected);
+            if substitute {
+                disk[32 + expected.len() - 1] ^= 1;
+            }
+            board_media_dispatch::protocol::write_swf_response(&disk, &mut stream)
+                .await
+                .unwrap();
+        });
+        let result = board_media_admin::dispatch(&queue, &quarantine, &store, &client).await;
+        server.await.unwrap();
+        if substitute {
+            assert!(result.is_err());
+            let count: i64 =
+                sqlx::query_scalar("SELECT count(*) FROM media.assets WHERE job_id=$1")
+                    .bind(&upload.id)
+                    .fetch_one(&admin)
+                    .await
+                    .unwrap();
+            assert_eq!(count, 0);
+            assert!(!root.join("objects").read_dir().unwrap().any(|entry| {
+                entry
+                    .unwrap()
+                    .path()
+                    .extension()
+                    .is_some_and(|extension| extension == "swf")
+            }));
+        } else {
+            let asset = result.unwrap();
+            assert_eq!(
+                asset.output_format,
+                board_store::media_assets::MediaFormat::Swf
+            );
+            assert_eq!(
+                std::fs::read(root.join("objects").join(format!("{}.swf", asset.id))).unwrap(),
+                input
+            );
+            let receipt: (String, i64) =
+                sqlx::query_as("SELECT sha256,bytes FROM media.input_receipts WHERE asset_id=$1")
+                    .bind(&asset.id)
+                    .fetch_one(&admin)
+                    .await
+                    .unwrap();
+            assert_eq!(receipt, (asset.sha256, asset.bytes));
+            sqlx::query("DELETE FROM media.assets WHERE id=$1")
+                .bind(&asset.id)
+                .execute(&admin)
+                .await
+                .unwrap();
+        }
+        sqlx::query("DELETE FROM media.jobs WHERE id=$1")
+            .bind(&upload.id)
+            .execute(&admin)
+            .await
+            .unwrap();
+    }
+}

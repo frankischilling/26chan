@@ -2,6 +2,7 @@
 
 mod security;
 mod serving;
+pub mod swf_player;
 
 use axum::{Router, http::HeaderValue, middleware, routing::get};
 use board_media::{ApprovedFiles, MediaError};
