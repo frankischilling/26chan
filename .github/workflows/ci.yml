@@ -54,6 +54,10 @@ jobs:
           python3 scripts/extract-json-directory-build-reference.py --check --php php
           python3 scripts/extract-json-post-state-reference.py --check --php php
           python3 scripts/extract-json-feed-reference.py --check --php php
+      - name: Qualify source event gates and presentation helpers
+        run: |
+          python3 scripts/extract-event-reference.py --check --php php
+          python3 scripts/extract-event-endpoint-reference.py --check --php php
       - name: Qualify isolated source page-title function
         run: python3 scripts/extract-page-title-reference.py --fixture-check fixtures/page-title-reference.json --php php
       - name: Qualify isolated source quote callbacks

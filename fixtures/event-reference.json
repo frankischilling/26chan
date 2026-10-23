@@ -1,0 +1,812 @@
+{
+  "source": {
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+    "lib/like_score.php": "f62362649585ec9956cf412c8de9174ebdf6cac6c9b46f0d1a41bc4a2f835992"
+  },
+  "scope": "Execute isolated source event presentation helpers, not dormant controllers.\n\nThe score and net-worth reads are explicit scalar boundaries. No source entry\npoint, database connection, historical secret or account record is executed.\n",
+  "functions": {
+    "stock": "function april_2024_get_stock_list() {\n  static $stocks = [\n    'PEPE', 'WOJK', 'ANIME', 'CHAD', 'CLOWN', 'LOL', 'SICP', 'AUTSM', 'BANE',\n    'CIA', 'BOOB', 'RDDT', 'DESU', 'JANNY', 'GME', 'CHUCK', 'YTSB', 'GACHI'\n  ];\n  \n  return $stocks;\n}\n\nfunction april_2024_get_stock_from_s4p($since4pass) {\n  if ($since4pass < 10000) {\n    return false;\n  }\n  \n  $val = $since4pass - 10000;\n  \n  if ($val < 0) {\n    return false;\n  }\n  \n  $badges = april_2024_get_stock_list();\n  \n  if ($val >= 0 && $val < count($badges)) {\n    return $badges[$val];\n  }\n  else {\n    return false;\n  }\n}\n\nfunction april_2024_get_name() {\n  $net_worth = april_2024_get_net_worth();\n  \n  if ($net_worth < 500) {\n    return 'Destitute Investor';\n  }\n  else if ($net_worth < 1500) {\n    return 'Helpless Investor';\n  }\n  else if ($net_worth < 5000) {\n    return 'Poor Investor';\n  }\n  else if ($net_worth < 50000) {\n    return 'Fledgling Investor';\n  }\n  else if ($net_worth < 500000) {\n    return 'Aspiring Investor';\n  }\n  else if ($net_worth < 2000000) {\n    return 'Rich Investor';\n  }\n  else if ($net_worth < 5000000) {\n    return 'Anonymous Magnate';\n  }\n  else {\n    return 'Anonymous Mogul';\n  }\n}\n\nfunction april_2024_get_post_cls($since4pass) {\n  $stock = april_2024_get_stock_from_s4p($since4pass);\n  \n  if ($stock) {\n    return \" p-xa24-$stock\";\n  }\n  else {\n    return '';\n  }\n}\n\nfunction april_2024_get_name_badge($since4pass) {\n  $stock = april_2024_get_stock_from_s4p($since4pass);\n  \n  if ($stock) {\n    return \" <span data-tip=\\\"$stock\\\" class=\\\"n-xa24 n-xa24-$stock\\\"></span>\";\n  }\n  else {\n    return '';\n  }\n}",
+    "halloween": "function get_halloween_css_cls($trick_count) {\n  if ($trick_count >= 1000) {\n    return \" n-jol-6\";\n  }\n  if ($trick_count >= 500) {\n    return \" n-jol-5\";\n  }\n  if ($trick_count >= 200) {\n    return \" n-jol-4\";\n  }\n  if ($trick_count >= 100) {\n    return \" n-jol-3\";\n  }\n  if ($trick_count >= 50) {\n    return \" n-jol-2\";\n  }\n  if ($trick_count >= 25) {\n    return \" n-jol-1\";\n  }\n  return '';\n}",
+    "perks": "function like_get_perks_state($current_score = null, $only_unlocked = false) {\n  if ($current_score === null) {\n    $current_score = like_get_user_score();\n  }\n  \n  $req_points = array(\n    //'showscore'    => 0,\n    'smiley'       => 0,     // single emoji\n    'sad'          => 0,     // single emoji\n    //'coinflip'     => 0,\n    //'dice+1d6'     => 0,\n    'ok'           => 0,     // single emoji\n    'animal'       => 0,    // random animal emoji\n    'food'         => 0,    // random food emoji\n    'check'        => 0,\n    'cross'        => 0,\n    //'nofile'       => 0,\n    //'card'         => 0,    // random playing card emoji\n    //'wflag'        => 0,\n    //'bflag'        => 0,\n    'like'         => 0,    // red heart emoji\n    //'rabbit'       => 0,    // single emoji\n    'unlove'       => 0,    // broken heart emoji\n    'rage'         => 0,\n    'perfect'      => 0,\n    //'fortune'      => 0,\n    //'dice+1d100'   => 0,\n    //'bricks'       => 0,\n    'onsen'        => 0,\n    //'party'        => 0,    // partyhat image\n    //'verified'     => 0,\n    //'partyhat'     => 0,    // partyhat image, adjusted\n    //'pickle'       => 0,    // pickle rick image\n    //'trash'        => 0,    // trashcan image\n    'heart'        => 0,    // random heart emoji (different colors)\n    //'santa'        => 0,    // santa hat image\n    'joy'          => 0,    // single emoji\n    //'marquee'      => 0,\n    'pig'          => 0,    // single emoji\n    'dog'          => 0,    // single emoji\n    'cat'          => 0,    // single emoji\n    'rainbow'      => 0,\n    'frog'         => 0,    // single emoji\n    //'dino'         => 750,    // dinosaur gif from /fit/\n    //'spooky'       => 1000,   // random skeleton\n  );\n  \n  $perks = array();\n  \n  if ($only_unlocked) {\n    foreach ($req_points as $perk => $score) {\n      if ($current_score >= $score) {\n        $perks[] = $perk;\n      }\n    }\n  }\n  else {\n    foreach ($req_points as $perk => $score) {\n      $perks[$perk] = $current_score >= $score;\n    }\n  }\n  \n  return $perks;\n}\n\nfunction like_parse_options_field($options) {\n  $show_score = false;\n  $active_perk = null;\n  \n  if (strlen($options) > 100) {\n    return array($show_score, $active_perk);\n  }\n  \n  $user_perks = like_get_perks_state();\n  \n  $opts = explode(' ', $options);\n  \n  foreach ($opts as $opt) {\n    if ($user_perks[$opt] === true) {\n      if ($opt === 'showscore') {\n        $show_score = true;\n      }\n      else {\n        $active_perk = $opt;\n        break;\n      }\n    }\n  }\n  \n  return array($show_score, $active_perk);\n}"
+  },
+  "cases": {
+    "stock": [
+      {
+        "value": -1,
+        "stock": false,
+        "class": "",
+        "badge": ""
+      },
+      {
+        "value": 0,
+        "stock": false,
+        "class": "",
+        "badge": ""
+      },
+      {
+        "value": 9999,
+        "stock": false,
+        "class": "",
+        "badge": ""
+      },
+      {
+        "value": 10000,
+        "stock": "PEPE",
+        "class": " p-xa24-PEPE",
+        "badge": " <span data-tip=\"PEPE\" class=\"n-xa24 n-xa24-PEPE\"></span>"
+      },
+      {
+        "value": 10001,
+        "stock": "WOJK",
+        "class": " p-xa24-WOJK",
+        "badge": " <span data-tip=\"WOJK\" class=\"n-xa24 n-xa24-WOJK\"></span>"
+      },
+      {
+        "value": 10002,
+        "stock": "ANIME",
+        "class": " p-xa24-ANIME",
+        "badge": " <span data-tip=\"ANIME\" class=\"n-xa24 n-xa24-ANIME\"></span>"
+      },
+      {
+        "value": 10003,
+        "stock": "CHAD",
+        "class": " p-xa24-CHAD",
+        "badge": " <span data-tip=\"CHAD\" class=\"n-xa24 n-xa24-CHAD\"></span>"
+      },
+      {
+        "value": 10004,
+        "stock": "CLOWN",
+        "class": " p-xa24-CLOWN",
+        "badge": " <span data-tip=\"CLOWN\" class=\"n-xa24 n-xa24-CLOWN\"></span>"
+      },
+      {
+        "value": 10005,
+        "stock": "LOL",
+        "class": " p-xa24-LOL",
+        "badge": " <span data-tip=\"LOL\" class=\"n-xa24 n-xa24-LOL\"></span>"
+      },
+      {
+        "value": 10006,
+        "stock": "SICP",
+        "class": " p-xa24-SICP",
+        "badge": " <span data-tip=\"SICP\" class=\"n-xa24 n-xa24-SICP\"></span>"
+      },
+      {
+        "value": 10007,
+        "stock": "AUTSM",
+        "class": " p-xa24-AUTSM",
+        "badge": " <span data-tip=\"AUTSM\" class=\"n-xa24 n-xa24-AUTSM\"></span>"
+      },
+      {
+        "value": 10008,
+        "stock": "BANE",
+        "class": " p-xa24-BANE",
+        "badge": " <span data-tip=\"BANE\" class=\"n-xa24 n-xa24-BANE\"></span>"
+      },
+      {
+        "value": 10009,
+        "stock": "CIA",
+        "class": " p-xa24-CIA",
+        "badge": " <span data-tip=\"CIA\" class=\"n-xa24 n-xa24-CIA\"></span>"
+      },
+      {
+        "value": 10010,
+        "stock": "BOOB",
+        "class": " p-xa24-BOOB",
+        "badge": " <span data-tip=\"BOOB\" class=\"n-xa24 n-xa24-BOOB\"></span>"
+      },
+      {
+        "value": 10011,
+        "stock": "RDDT",
+        "class": " p-xa24-RDDT",
+        "badge": " <span data-tip=\"RDDT\" class=\"n-xa24 n-xa24-RDDT\"></span>"
+      },
+      {
+        "value": 10012,
+        "stock": "DESU",
+        "class": " p-xa24-DESU",
+        "badge": " <span data-tip=\"DESU\" class=\"n-xa24 n-xa24-DESU\"></span>"
+      },
+      {
+        "value": 10013,
+        "stock": "JANNY",
+        "class": " p-xa24-JANNY",
+        "badge": " <span data-tip=\"JANNY\" class=\"n-xa24 n-xa24-JANNY\"></span>"
+      },
+      {
+        "value": 10014,
+        "stock": "GME",
+        "class": " p-xa24-GME",
+        "badge": " <span data-tip=\"GME\" class=\"n-xa24 n-xa24-GME\"></span>"
+      },
+      {
+        "value": 10015,
+        "stock": "CHUCK",
+        "class": " p-xa24-CHUCK",
+        "badge": " <span data-tip=\"CHUCK\" class=\"n-xa24 n-xa24-CHUCK\"></span>"
+      },
+      {
+        "value": 10016,
+        "stock": "YTSB",
+        "class": " p-xa24-YTSB",
+        "badge": " <span data-tip=\"YTSB\" class=\"n-xa24 n-xa24-YTSB\"></span>"
+      },
+      {
+        "value": 10017,
+        "stock": "GACHI",
+        "class": " p-xa24-GACHI",
+        "badge": " <span data-tip=\"GACHI\" class=\"n-xa24 n-xa24-GACHI\"></span>"
+      },
+      {
+        "value": 10018,
+        "stock": false,
+        "class": "",
+        "badge": ""
+      },
+      {
+        "value": 10019,
+        "stock": false,
+        "class": "",
+        "badge": ""
+      },
+      {
+        "value": 32767,
+        "stock": false,
+        "class": "",
+        "badge": ""
+      },
+      {
+        "value": 2147483647,
+        "stock": false,
+        "class": "",
+        "badge": ""
+      }
+    ],
+    "investor": [
+      {
+        "value": -1,
+        "name": "Destitute Investor"
+      },
+      {
+        "value": 0,
+        "name": "Destitute Investor"
+      },
+      {
+        "value": 499,
+        "name": "Destitute Investor"
+      },
+      {
+        "value": 500,
+        "name": "Helpless Investor"
+      },
+      {
+        "value": 501,
+        "name": "Helpless Investor"
+      },
+      {
+        "value": 1499,
+        "name": "Helpless Investor"
+      },
+      {
+        "value": 1500,
+        "name": "Poor Investor"
+      },
+      {
+        "value": 1501,
+        "name": "Poor Investor"
+      },
+      {
+        "value": 4999,
+        "name": "Poor Investor"
+      },
+      {
+        "value": 5000,
+        "name": "Fledgling Investor"
+      },
+      {
+        "value": 5001,
+        "name": "Fledgling Investor"
+      },
+      {
+        "value": 49999,
+        "name": "Fledgling Investor"
+      },
+      {
+        "value": 50000,
+        "name": "Aspiring Investor"
+      },
+      {
+        "value": 50001,
+        "name": "Aspiring Investor"
+      },
+      {
+        "value": 499999,
+        "name": "Aspiring Investor"
+      },
+      {
+        "value": 500000,
+        "name": "Rich Investor"
+      },
+      {
+        "value": 500001,
+        "name": "Rich Investor"
+      },
+      {
+        "value": 1999999,
+        "name": "Rich Investor"
+      },
+      {
+        "value": 2000000,
+        "name": "Anonymous Magnate"
+      },
+      {
+        "value": 2000001,
+        "name": "Anonymous Magnate"
+      },
+      {
+        "value": 4999999,
+        "name": "Anonymous Magnate"
+      },
+      {
+        "value": 5000000,
+        "name": "Anonymous Mogul"
+      },
+      {
+        "value": 5000001,
+        "name": "Anonymous Mogul"
+      }
+    ],
+    "halloween": [
+      {
+        "value": -1,
+        "class": ""
+      },
+      {
+        "value": 0,
+        "class": ""
+      },
+      {
+        "value": 24,
+        "class": ""
+      },
+      {
+        "value": 25,
+        "class": " n-jol-1"
+      },
+      {
+        "value": 26,
+        "class": " n-jol-1"
+      },
+      {
+        "value": 49,
+        "class": " n-jol-1"
+      },
+      {
+        "value": 50,
+        "class": " n-jol-2"
+      },
+      {
+        "value": 51,
+        "class": " n-jol-2"
+      },
+      {
+        "value": 99,
+        "class": " n-jol-2"
+      },
+      {
+        "value": 100,
+        "class": " n-jol-3"
+      },
+      {
+        "value": 101,
+        "class": " n-jol-3"
+      },
+      {
+        "value": 199,
+        "class": " n-jol-3"
+      },
+      {
+        "value": 200,
+        "class": " n-jol-4"
+      },
+      {
+        "value": 201,
+        "class": " n-jol-4"
+      },
+      {
+        "value": 499,
+        "class": " n-jol-4"
+      },
+      {
+        "value": 500,
+        "class": " n-jol-5"
+      },
+      {
+        "value": 501,
+        "class": " n-jol-5"
+      },
+      {
+        "value": 999,
+        "class": " n-jol-5"
+      },
+      {
+        "value": 1000,
+        "class": " n-jol-6"
+      },
+      {
+        "value": 1001,
+        "class": " n-jol-6"
+      }
+    ],
+    "perks": [
+      {
+        "score": -1,
+        "state": {
+          "smiley": false,
+          "sad": false,
+          "ok": false,
+          "animal": false,
+          "food": false,
+          "check": false,
+          "cross": false,
+          "like": false,
+          "unlove": false,
+          "rage": false,
+          "perfect": false,
+          "onsen": false,
+          "heart": false,
+          "joy": false,
+          "pig": false,
+          "dog": false,
+          "cat": false,
+          "rainbow": false,
+          "frog": false
+        },
+        "unlocked": []
+      },
+      {
+        "score": 0,
+        "state": {
+          "smiley": true,
+          "sad": true,
+          "ok": true,
+          "animal": true,
+          "food": true,
+          "check": true,
+          "cross": true,
+          "like": true,
+          "unlove": true,
+          "rage": true,
+          "perfect": true,
+          "onsen": true,
+          "heart": true,
+          "joy": true,
+          "pig": true,
+          "dog": true,
+          "cat": true,
+          "rainbow": true,
+          "frog": true
+        },
+        "unlocked": [
+          "smiley",
+          "sad",
+          "ok",
+          "animal",
+          "food",
+          "check",
+          "cross",
+          "like",
+          "unlove",
+          "rage",
+          "perfect",
+          "onsen",
+          "heart",
+          "joy",
+          "pig",
+          "dog",
+          "cat",
+          "rainbow",
+          "frog"
+        ]
+      },
+      {
+        "score": 1,
+        "state": {
+          "smiley": true,
+          "sad": true,
+          "ok": true,
+          "animal": true,
+          "food": true,
+          "check": true,
+          "cross": true,
+          "like": true,
+          "unlove": true,
+          "rage": true,
+          "perfect": true,
+          "onsen": true,
+          "heart": true,
+          "joy": true,
+          "pig": true,
+          "dog": true,
+          "cat": true,
+          "rainbow": true,
+          "frog": true
+        },
+        "unlocked": [
+          "smiley",
+          "sad",
+          "ok",
+          "animal",
+          "food",
+          "check",
+          "cross",
+          "like",
+          "unlove",
+          "rage",
+          "perfect",
+          "onsen",
+          "heart",
+          "joy",
+          "pig",
+          "dog",
+          "cat",
+          "rainbow",
+          "frog"
+        ]
+      },
+      {
+        "score": 749,
+        "state": {
+          "smiley": true,
+          "sad": true,
+          "ok": true,
+          "animal": true,
+          "food": true,
+          "check": true,
+          "cross": true,
+          "like": true,
+          "unlove": true,
+          "rage": true,
+          "perfect": true,
+          "onsen": true,
+          "heart": true,
+          "joy": true,
+          "pig": true,
+          "dog": true,
+          "cat": true,
+          "rainbow": true,
+          "frog": true
+        },
+        "unlocked": [
+          "smiley",
+          "sad",
+          "ok",
+          "animal",
+          "food",
+          "check",
+          "cross",
+          "like",
+          "unlove",
+          "rage",
+          "perfect",
+          "onsen",
+          "heart",
+          "joy",
+          "pig",
+          "dog",
+          "cat",
+          "rainbow",
+          "frog"
+        ]
+      },
+      {
+        "score": 750,
+        "state": {
+          "smiley": true,
+          "sad": true,
+          "ok": true,
+          "animal": true,
+          "food": true,
+          "check": true,
+          "cross": true,
+          "like": true,
+          "unlove": true,
+          "rage": true,
+          "perfect": true,
+          "onsen": true,
+          "heart": true,
+          "joy": true,
+          "pig": true,
+          "dog": true,
+          "cat": true,
+          "rainbow": true,
+          "frog": true
+        },
+        "unlocked": [
+          "smiley",
+          "sad",
+          "ok",
+          "animal",
+          "food",
+          "check",
+          "cross",
+          "like",
+          "unlove",
+          "rage",
+          "perfect",
+          "onsen",
+          "heart",
+          "joy",
+          "pig",
+          "dog",
+          "cat",
+          "rainbow",
+          "frog"
+        ]
+      },
+      {
+        "score": 999,
+        "state": {
+          "smiley": true,
+          "sad": true,
+          "ok": true,
+          "animal": true,
+          "food": true,
+          "check": true,
+          "cross": true,
+          "like": true,
+          "unlove": true,
+          "rage": true,
+          "perfect": true,
+          "onsen": true,
+          "heart": true,
+          "joy": true,
+          "pig": true,
+          "dog": true,
+          "cat": true,
+          "rainbow": true,
+          "frog": true
+        },
+        "unlocked": [
+          "smiley",
+          "sad",
+          "ok",
+          "animal",
+          "food",
+          "check",
+          "cross",
+          "like",
+          "unlove",
+          "rage",
+          "perfect",
+          "onsen",
+          "heart",
+          "joy",
+          "pig",
+          "dog",
+          "cat",
+          "rainbow",
+          "frog"
+        ]
+      },
+      {
+        "score": 1000,
+        "state": {
+          "smiley": true,
+          "sad": true,
+          "ok": true,
+          "animal": true,
+          "food": true,
+          "check": true,
+          "cross": true,
+          "like": true,
+          "unlove": true,
+          "rage": true,
+          "perfect": true,
+          "onsen": true,
+          "heart": true,
+          "joy": true,
+          "pig": true,
+          "dog": true,
+          "cat": true,
+          "rainbow": true,
+          "frog": true
+        },
+        "unlocked": [
+          "smiley",
+          "sad",
+          "ok",
+          "animal",
+          "food",
+          "check",
+          "cross",
+          "like",
+          "unlove",
+          "rage",
+          "perfect",
+          "onsen",
+          "heart",
+          "joy",
+          "pig",
+          "dog",
+          "cat",
+          "rainbow",
+          "frog"
+        ]
+      },
+      {
+        "score": 2147483647,
+        "state": {
+          "smiley": true,
+          "sad": true,
+          "ok": true,
+          "animal": true,
+          "food": true,
+          "check": true,
+          "cross": true,
+          "like": true,
+          "unlove": true,
+          "rage": true,
+          "perfect": true,
+          "onsen": true,
+          "heart": true,
+          "joy": true,
+          "pig": true,
+          "dog": true,
+          "cat": true,
+          "rainbow": true,
+          "frog": true
+        },
+        "unlocked": [
+          "smiley",
+          "sad",
+          "ok",
+          "animal",
+          "food",
+          "check",
+          "cross",
+          "like",
+          "unlove",
+          "rage",
+          "perfect",
+          "onsen",
+          "heart",
+          "joy",
+          "pig",
+          "dog",
+          "cat",
+          "rainbow",
+          "frog"
+        ]
+      }
+    ],
+    "options": [
+      {
+        "value": "",
+        "result": [
+          false,
+          null
+        ]
+      },
+      {
+        "value": "smiley",
+        "result": [
+          false,
+          "smiley"
+        ]
+      },
+      {
+        "value": "sad smiley",
+        "result": [
+          false,
+          "sad"
+        ]
+      },
+      {
+        "value": " smiley  sad ",
+        "result": [
+          false,
+          "smiley"
+        ]
+      },
+      {
+        "value": "showscore smiley",
+        "result": [
+          false,
+          "smiley"
+        ]
+      },
+      {
+        "value": "SMILEY",
+        "result": [
+          false,
+          null
+        ]
+      },
+      {
+        "value": "unknown sad",
+        "result": [
+          false,
+          "sad"
+        ]
+      },
+      {
+        "value": "party",
+        "result": [
+          false,
+          null
+        ]
+      },
+      {
+        "value": "dino",
+        "result": [
+          false,
+          null
+        ]
+      },
+      {
+        "value": "spooky",
+        "result": [
+          false,
+          null
+        ]
+      },
+      {
+        "value": "smiley\tsad",
+        "result": [
+          false,
+          null
+        ]
+      },
+      {
+        "value": "smiley\nsad",
+        "result": [
+          false,
+          null
+        ]
+      },
+      {
+        "value": "animal food",
+        "result": [
+          false,
+          "animal"
+        ]
+      },
+      {
+        "value": "joy",
+        "result": [
+          false,
+          "joy"
+        ]
+      },
+      {
+        "value": "frog",
+        "result": [
+          false,
+          "frog"
+        ]
+      },
+      {
+        "value": "smiley                                                                                              ",
+        "result": [
+          false,
+          "smiley"
+        ]
+      },
+      {
+        "value": "smiley                                                                                               ",
+        "result": [
+          false,
+          null
+        ]
+      },
+      {
+        "value": "<script>",
+        "result": [
+          false,
+          null
+        ]
+      }
+    ]
+  }
+}

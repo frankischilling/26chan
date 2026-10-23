@@ -1,0 +1,213 @@
+{
+  "source": {
+    "emotes_xa22.php": "8322e1123561001ab624da00932ebe94e2779839a1ae5d15c9c8413408310138",
+    "xa24tb.php": "527f29c568739fc2a0340d8540f71016b5c02cd0712bc1fa070a27688f018be5"
+  },
+  "scope": "Replay the source's unconditional closed-event gates without its includes.\n\nDatabase/bootstrap includes are excluded. A sentinel rejects any attempt to\nreach dormant account, purchase, roll or sale handlers.\n",
+  "blocks": {
+    "/emotes_xa22.php": "http_response_code(404);\necho('File not found.');\ndie();",
+    "/xa24tb.php": "function output_json($data) {\n  header('Content-Type: application/json');\n  echo json_encode($data);\n}\n\nfunction output_error($msg) {\n  output_json(['error' => $msg]);\n  die();\n}\n\noutput_error('The market is closed');\n\nif (isset($_POST['create'])) {\n  create_account();\n}\nelse if (isset($_POST['mode'])) {\n  if ($_POST['mode'] === 'buy') {\n    buy_stock();\n  }\n  else if ($_POST['mode'] === 'sell') {\n    sell_stock();\n  }\n  else {\n    output_error('Bad request');\n  }\n}\nelse {\n  output_error('Bad request');\n}"
+  },
+  "cases": [
+    {
+      "route": "/emotes_xa22.php",
+      "fields": {},
+      "expected": {
+        "status": 404,
+        "body": "File not found."
+      }
+    },
+    {
+      "route": "/emotes_xa22.php",
+      "fields": {
+        "action": "start"
+      },
+      "expected": {
+        "status": 404,
+        "body": "File not found."
+      }
+    },
+    {
+      "route": "/emotes_xa22.php",
+      "fields": {
+        "action": "roll3"
+      },
+      "expected": {
+        "status": 404,
+        "body": "File not found."
+      }
+    },
+    {
+      "route": "/emotes_xa22.php",
+      "fields": {
+        "action": "roll10"
+      },
+      "expected": {
+        "status": 404,
+        "body": "File not found."
+      }
+    },
+    {
+      "route": "/emotes_xa22.php",
+      "fields": {
+        "action": "buy",
+        "eid": "Owned"
+      },
+      "expected": {
+        "status": 404,
+        "body": "File not found."
+      }
+    },
+    {
+      "route": "/emotes_xa22.php",
+      "fields": {
+        "create": "1"
+      },
+      "expected": {
+        "status": 404,
+        "body": "File not found."
+      }
+    },
+    {
+      "route": "/emotes_xa22.php",
+      "fields": {
+        "mode": "buy",
+        "stock": "PEPE",
+        "amount": "1",
+        "price": "1"
+      },
+      "expected": {
+        "status": 404,
+        "body": "File not found."
+      }
+    },
+    {
+      "route": "/emotes_xa22.php",
+      "fields": {
+        "mode": "sell",
+        "stock": "PEPE",
+        "amount": "1",
+        "price": "1"
+      },
+      "expected": {
+        "status": 404,
+        "body": "File not found."
+      }
+    },
+    {
+      "route": "/emotes_xa22.php",
+      "fields": {
+        "action": [
+          "buy"
+        ],
+        "mode": [
+          "sell"
+        ]
+      },
+      "expected": {
+        "status": 404,
+        "body": "File not found."
+      }
+    },
+    {
+      "route": "/xa24tb.php",
+      "fields": {},
+      "expected": {
+        "status": 200,
+        "body": "{\"error\":\"The market is closed\"}"
+      }
+    },
+    {
+      "route": "/xa24tb.php",
+      "fields": {
+        "action": "start"
+      },
+      "expected": {
+        "status": 200,
+        "body": "{\"error\":\"The market is closed\"}"
+      }
+    },
+    {
+      "route": "/xa24tb.php",
+      "fields": {
+        "action": "roll3"
+      },
+      "expected": {
+        "status": 200,
+        "body": "{\"error\":\"The market is closed\"}"
+      }
+    },
+    {
+      "route": "/xa24tb.php",
+      "fields": {
+        "action": "roll10"
+      },
+      "expected": {
+        "status": 200,
+        "body": "{\"error\":\"The market is closed\"}"
+      }
+    },
+    {
+      "route": "/xa24tb.php",
+      "fields": {
+        "action": "buy",
+        "eid": "Owned"
+      },
+      "expected": {
+        "status": 200,
+        "body": "{\"error\":\"The market is closed\"}"
+      }
+    },
+    {
+      "route": "/xa24tb.php",
+      "fields": {
+        "create": "1"
+      },
+      "expected": {
+        "status": 200,
+        "body": "{\"error\":\"The market is closed\"}"
+      }
+    },
+    {
+      "route": "/xa24tb.php",
+      "fields": {
+        "mode": "buy",
+        "stock": "PEPE",
+        "amount": "1",
+        "price": "1"
+      },
+      "expected": {
+        "status": 200,
+        "body": "{\"error\":\"The market is closed\"}"
+      }
+    },
+    {
+      "route": "/xa24tb.php",
+      "fields": {
+        "mode": "sell",
+        "stock": "PEPE",
+        "amount": "1",
+        "price": "1"
+      },
+      "expected": {
+        "status": 200,
+        "body": "{\"error\":\"The market is closed\"}"
+      }
+    },
+    {
+      "route": "/xa24tb.php",
+      "fields": {
+        "action": [
+          "buy"
+        ],
+        "mode": [
+          "sell"
+        ]
+      },
+      "expected": {
+        "status": 200,
+        "body": "{\"error\":\"The market is closed\"}"
+      }
+    }
+  ]
+}

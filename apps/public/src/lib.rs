@@ -7,6 +7,7 @@ pub mod archive;
 mod blotter;
 pub mod catalog;
 mod derefer;
+mod events;
 mod handlers;
 mod intake;
 mod legacy_form;
@@ -367,6 +368,7 @@ pub fn routers_with_classifiers(
         .merge(search::routes())
         .merge(site::routes())
         .merge(polls::routes())
+        .merge(events::routes())
         .merge(restrictions::routes())
         .merge(blotter::routes())
         .merge(signin::routes())
