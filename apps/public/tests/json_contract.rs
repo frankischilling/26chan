@@ -34,8 +34,8 @@ async fn documented_text_contract_matches_synthetic_board_across_endpoints() {
         .unwrap();
     assert_eq!(demo["per_page"], 10);
     assert_eq!(demo["ws_board"], 1);
-    assert_eq!(demo["text_only"], 1);
-    assert_eq!(demo["max_filesize"], 0);
+    assert!(demo.get("text_only").is_none());
+    assert_eq!(demo["max_filesize"], 4_194_304);
     assert!(demo.get("is_archived").is_none());
     let thread = get(&app, "/demo/thread/1000001.json").await;
     let op = &thread["posts"][0];
@@ -46,6 +46,8 @@ async fn documented_text_contract_matches_synthetic_board_across_endpoints() {
     assert_eq!(op["semantic_url"], "what-are-you-making");
     assert_eq!(op["replies"], 1);
     assert_eq!(op["images"], 0);
+    assert_eq!(op["bumplimit"], 0);
+    assert_eq!(op["imagelimit"], 1);
     assert_eq!(thread["posts"][1]["resto"], 1000001);
     for field in ["replies", "images", "sub", "semantic_url"] {
         assert!(thread["posts"][1].get(field).is_none(), "{field}");
@@ -54,7 +56,6 @@ async fn documented_text_contract_matches_synthetic_board_across_endpoints() {
         "sticky",
         "sticky_cap",
         "closed",
-        "bumplimit",
         "tim",
         "filename",
         "unique_ips",

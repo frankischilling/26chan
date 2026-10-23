@@ -31,10 +31,9 @@ the active template and handler do not use it. This implementation preserves
 that distinction rather than adding an unsupported rejection rule.
 
 Development media availability remains a separate condition. With processing
-disabled, uploads are still unavailable and the API retains its existing
-media-disabled `text_only` advertisement. That advertisement alone does not
-enable source subject requirements. Production media stays disabled pending
-qualification.
+disabled, uploads are still unavailable. The [JSON directory](source-json-contracts.md)
+advertises stored board policy, including `text_only`, independently of that
+availability. Production media stays disabled pending qualification.
 
 ## Database and rollout
 

@@ -84,14 +84,12 @@ async fn exercise(owner: &PgPool, public: &PgPool, slugs: &[String]) {
                         other["cooldowns"],
                         json!({"threads": 0, "replies": 0, "images": 0})
                     );
-                    for field in [
-                        "max_filesize",
-                        "max_webm_filesize",
-                        "max_webm_duration",
-                        "image_limit",
-                    ] {
-                        assert_eq!(other[field], 0, "No new media capability: {field}");
-                    }
+                    // Directory values describe policy even without a media
+                    // client. This fixture retains its disabled image count.
+                    assert_eq!(other["max_filesize"], 4_194_304);
+                    assert_eq!(other["max_webm_filesize"], 4_194_304);
+                    assert_eq!(other["max_webm_duration"], 120);
+                    assert_eq!(other["image_limit"], 0);
                     baseline.push(other);
                 } else {
                     assert_eq!(

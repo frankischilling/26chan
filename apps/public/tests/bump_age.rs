@@ -105,6 +105,9 @@ impl Fixture {
     }
 
     async fn indicators(&self, app: &axum::Router) {
+        let thread = board_store::thread(&self.public, &self.slug, self.id)
+            .await
+            .unwrap();
         for (suffix, kind) in [
             (format!("thread/{}.json", self.id), 0),
             (format!("thread/{}-tail.json", self.id), 1),
@@ -131,7 +134,7 @@ impl Fixture {
             };
             assert_eq!(op["no"], self.id);
             assert!(op.get("permasage_hours").is_none());
-            if kind == 1 {
+            if kind == 1 || (!thread.sticky && !thread.permaage) {
                 assert_eq!(op["bumplimit"], 0);
             } else {
                 assert!(op.get("bumplimit").is_none());

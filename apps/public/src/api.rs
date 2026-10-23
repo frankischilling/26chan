@@ -1,3 +1,5 @@
+mod directory_data;
+
 use crate::{
     AppState,
     handlers::AppError,
@@ -115,15 +117,20 @@ pub async fn boards(
         let mut value = json!({
         "board": board.slug, "title": board.title, "ws_board": i32::from(board.worksafe),
         "per_page": board.threads_per_page, "pages": (board.thread_limit + board.threads_per_page - 1) / board.threads_per_page,
-        "max_filesize": 0, "max_webm_filesize": 0, "max_webm_duration": 0,
-        "max_comment_chars": board.max_comment_chars, "bump_limit": board.bump_limit, "image_limit": 0,
+        "max_filesize": board.max_image_bytes, "max_webm_filesize": board.max_video_bytes, "max_webm_duration": board.max_video_duration,
+        "max_comment_chars": board.max_comment_chars, "bump_limit": board.bump_limit, "image_limit": board.image_limit,
         "cooldowns": {
             "threads": board.posting_thread_seconds,
             "replies": board.posting_reply_seconds,
             "images": board.posting_image_seconds
         },
-        "meta_description": board.description, "text_only": 1
+        "meta_description": directory_data::description(&board.slug, &board.description)
         });
+        // Source catalog-info describes configured policy, not deployment
+        // health. Upload handlers still require their isolated media boundary.
+        if board.text_only {
+            value["text_only"] = json!(1);
+        }
         if board.archives_enabled() {
             value["is_archived"] = json!(1);
         }
@@ -146,27 +153,41 @@ pub async fn boards(
                 value["custom_spoilers"] = json!(board.custom_spoiler_count);
             }
         }
-        if state.media.is_some() && board.image_limit > 0 {
-            if !board.text_only {
-                value.as_object_mut().expect("board object").remove("text_only");
-            }
-            value["max_filesize"] = json!(board.image_file_limit());
-            value["image_limit"] = json!(board.image_limit);
-            if board.video_enabled {
-                value["max_webm_filesize"] = json!(board.max_video_bytes);
-                value["max_webm_duration"] = json!(board.max_video_duration);
-                if board.video_audio { value["webm_audio"] = json!(1); }
-            }
-            if board.min_image_width > 1 {
-                value["min_image_width"] = json!(board.min_image_width);
-            }
-            if board.min_image_height > 1 {
-                value["min_image_height"] = json!(board.min_image_height);
-            }
+        if board.video_audio { value["webm_audio"] = json!(1); }
+        if board.min_image_width > 1 {
+            value["min_image_width"] = json!(board.min_image_width);
+        }
+        if board.min_image_height > 1 {
+            value["min_image_height"] = json!(board.min_image_height);
         }
         BoardMetadata { value, board_flags: flags }
     }).collect();
     response(&state.limits, BoardDirectory { boards }, None, &headers)
+}
+
+fn tail_op_json(
+    thread: &Thread,
+    board: &Board,
+    replies: usize,
+    images: usize,
+    original: &Value,
+) -> Value {
+    let mut op = json!({"no": thread.id, "replies": replies, "images": images,
+            "bumplimit": i32::from(board_domain::bump::limited(thread.sticky, thread.permaage, replies as u64, board.bump_limit as u32)),
+            "imagelimit": i32::from(board_domain::image_limit::json_limited(thread.sticky, thread.permaage, thread.undead, images as u64, board.image_limit as u32))});
+    for key in [
+        "sticky",
+        "sticky_cap",
+        "closed",
+        "archived",
+        "unique_ips",
+        "custom_spoiler",
+    ] {
+        if let Some(value) = original.get(key) {
+            op[key] = value.clone();
+        }
+    }
+    op
 }
 
 struct QuoteContext<'a> {
@@ -236,8 +257,26 @@ fn post_json(
     if !comment.is_empty() {
         value["com"] = json!(comment);
     }
-    if !post.post.subject.is_empty() {
-        value["sub"] = json!(board_domain::source_html_entities(&post.post.subject));
+    let mut subject = post.post.subject.as_str();
+    if op
+        && board.upload_board
+        && let Some((prefix, title)) = subject.split_once('|')
+        && !prefix.is_empty()
+        && prefix.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        let tags = [
+            "Hentai", "Japanese", "Anime", "Game", "Other", "Loop", "Porn",
+        ];
+        value["tag"] = json!(
+            prefix
+                .parse::<usize>()
+                .ok()
+                .and_then(|index| tags.get(index))
+        );
+        subject = title;
+    }
+    if !subject.is_empty() {
+        value["sub"] = json!(board_domain::source_html_entities(subject));
     }
     if op {
         if board.comment_spoiler_cleanup {
@@ -249,9 +288,7 @@ fn post_json(
             value["unique_ips"] = json!(count);
         }
         let context = crate::semantic_thread::context(&post, board)?;
-        if !context.is_empty() {
-            value["semantic_url"] = json!(context);
-        }
+        value["semantic_url"] = json!(context);
         if thread.sticky {
             value["sticky"] = json!(1);
             if thread.undead {
@@ -265,34 +302,39 @@ fn post_json(
             value["archived"] = json!(1);
             value["archived_on"] = json!(archived_at.timestamp());
         }
-        if board_domain::bump::limited(
-            thread.sticky,
-            thread.permaage,
-            replies as u64,
-            board.bump_limit as u32,
-        ) {
-            value["bumplimit"] = json!(1);
+        if !thread.sticky && !thread.permaage {
+            value["bumplimit"] = json!(i32::from(board_domain::bump::limited(
+                thread.sticky,
+                thread.permaage,
+                replies as u64,
+                board.bump_limit as u32,
+            )));
         }
-        if board_domain::image_limit::json_limited(
-            thread.sticky,
-            thread.permaage,
-            thread.undead,
-            images as u64,
-            board.image_limit as u32,
-        ) {
-            value["imagelimit"] = json!(1);
+        if !thread.sticky {
+            value["imagelimit"] = json!(i32::from(board_domain::image_limit::json_limited(
+                thread.sticky,
+                thread.permaage,
+                thread.undead,
+                images as u64,
+                board.image_limit as u32,
+            )));
         }
     }
     if post.post.image_spoiler {
         value["spoiler"] = json!(1);
     }
+    if post
+        .post
+        .attachment
+        .as_ref()
+        .is_some_and(|file| file.has_mobile)
+    {
+        value["m_img"] = json!(1);
+    }
     if post.post.file_deleted() {
         value["filedeleted"] = json!(1);
     } else if let Some(file) = post.post.attachment {
         value["tim"] = json!(file.tim);
-        if file.has_mobile {
-            value["m_img"] = json!(1);
-        }
         value["filename"] = json!(board_domain::file_name::basename(&file.filename));
         value["ext"] = json!(format!(".{}", file.output_format.extension()));
         value["fsize"] = json!(file.bytes);
@@ -394,22 +436,9 @@ pub async fn thread_selection(
         .collect::<Result<_, _>>()?;
     if tail {
         let original = &posts[0];
-        let mut op = json!({"no": thread.id, "replies": replies, "images": images,
-            "bumplimit": i32::from(board_domain::bump::limited(thread.sticky, thread.permaage, replies as u64, board.bump_limit as u32)),
-            "imagelimit": i32::from(board_domain::image_limit::json_limited(thread.sticky, thread.permaage, thread.undead, images as u64, board.image_limit as u32)),
-            "tail_size": tail_size, "tail_id": tail_id});
-        for key in [
-            "sticky",
-            "sticky_cap",
-            "closed",
-            "archived",
-            "unique_ips",
-            "custom_spoiler",
-        ] {
-            if let Some(value) = original.get(key) {
-                op[key] = value.clone();
-            }
-        }
+        let mut op = tail_op_json(&thread, &board, replies, images, original);
+        op["tail_size"] = json!(tail_size);
+        op["tail_id"] = json!(tail_id);
         posts[0] = op;
     } else if tail_size > 0 {
         posts[0]["tail_size"] = json!(tail_size);
@@ -728,7 +757,7 @@ mod tests {
     }
 
     #[test]
-    fn retained_jpeg_metadata_exposes_mobile_presence_and_source_basename_only_when_visible() {
+    fn retained_jpeg_metadata_preserves_mobile_marker_but_hides_deleted_urls() {
         let fixture = crate::native_updater_snapshot::tests::fixture();
         for (deleted, mobile) in [(false, true), (false, false), (true, true)] {
             let mut post = fixture.posts[0].clone();
@@ -763,8 +792,9 @@ mod tests {
                 },
             )
             .unwrap();
+            assert_eq!(value.get("m_img"), mobile.then_some(&json!(1)));
             if deleted {
-                for key in ["m_img", "ext", "filename", "w", "h"] {
+                for key in ["ext", "filename", "w", "h"] {
                     assert!(value.get(key).is_none());
                 }
             } else {
@@ -1164,6 +1194,214 @@ mod preview_reference_tests {
                 "{}",
                 case["id"]
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod directory_description_tests {
+    use super::directory_data;
+    #[test]
+    fn imported_encoding_is_exact_and_operator_edits_stay_literal() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../fixtures/json-directory-reference.json"
+        ))
+        .unwrap();
+        for case in fixture["cases"].as_array().unwrap() {
+            let slug = case["board"].as_str().unwrap();
+            let logical = case["logical_description"].as_str().unwrap();
+            let raw = case["expected"]["meta_description"].as_str().unwrap();
+            assert_eq!(directory_data::description(slug, logical), raw, "{slug}");
+            let edited = format!("{logical} <owned & \"edit\">");
+            assert_eq!(directory_data::description(slug, &edited), edited);
+            assert_eq!(directory_data::description("owned", logical), logical);
+        }
+    }
+}
+
+#[cfg(test)]
+mod source_post_state_tests {
+    use super::*;
+
+    #[test]
+    fn full_post_state_matches_independently_executed_source() {
+        let source: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/json-post-state-reference.json"
+        ))
+        .unwrap();
+        for row in source["cases"].as_array().unwrap() {
+            let mut fixture = crate::native_updater_snapshot::tests::fixture();
+            fixture.thread.sticky = row["sticky"].as_bool().unwrap();
+            fixture.thread.permaage = row["permaage"].as_bool().unwrap();
+            fixture.thread.undead = row["undead"].as_bool().unwrap();
+            fixture.thread.closed = row["closed"].as_bool().unwrap();
+            fixture.thread.archived_at = None;
+            fixture.board.bump_limit = 5;
+            fixture.board.image_limit = 3;
+            fixture.board.reply_limit = 99;
+            fixture.board.comment_spoiler_cleanup = true;
+            fixture.board.custom_spoiler_count = 4;
+            let mut post = fixture.posts[0].clone();
+            post.id = fixture.thread.id;
+            post.subject = row["context"].as_str().unwrap().replace('-', " ");
+            post.comment.clear();
+            let value = post_json(
+                post,
+                &fixture.thread,
+                &fixture.board,
+                row["replies"].as_u64().unwrap() as usize,
+                row["images"].as_u64().unwrap() as usize,
+                None,
+                QuoteContext {
+                    targets: &fixture.quote_targets,
+                    current_thread: Some(fixture.thread.id),
+                },
+            )
+            .unwrap();
+            let tail = tail_op_json(
+                &fixture.thread,
+                &fixture.board,
+                row["replies"].as_u64().unwrap() as usize,
+                row["images"].as_u64().unwrap() as usize,
+                &value,
+            );
+            let mut expected_tail = row["expected"]["tail"].clone();
+            expected_tail["no"] = json!(fixture.thread.id);
+            assert_eq!(tail, expected_tail, "tail: {row}");
+            for key in [
+                "bumplimit",
+                "imagelimit",
+                "sticky",
+                "sticky_cap",
+                "closed",
+                "archived",
+                "archived_on",
+                "semantic_url",
+                "custom_spoiler",
+                "replies",
+                "images",
+            ] {
+                assert_eq!(
+                    value.get(key),
+                    row["expected"]["full"].get(key),
+                    "{key}: {row}"
+                );
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod source_media_state_tests {
+    use super::*;
+    #[test]
+    fn retained_mobile_and_membership_fields_match_source_after_file_deletion() {
+        let source: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/json-post-state-reference.json"
+        ))
+        .unwrap();
+        for row in source["media_cases"].as_array().unwrap() {
+            let media = &row["media"];
+            // Current approved attachments have an extension. Unknown historical
+            // records with no attachment cannot establish companion provenance.
+            if media["ext"] == "" {
+                continue;
+            }
+            let fixture = crate::native_updater_snapshot::tests::fixture();
+            let mut post = fixture.posts[0].clone();
+            post.file_deleted = media["filedeleted"] == 1;
+            post.since4pass = media["since4pass"].as_i64().unwrap() as i32;
+            post.attachment = Some(board_store::post_media::PostAttachment {
+                post_id: post.id,
+                asset_id: "a".repeat(32),
+                filename: "sample.jpg".into(),
+                bytes: 100,
+                width: 640,
+                height: 480,
+                spoiler: false,
+                file_deleted: false,
+                tim: 1704067200123,
+                md5: Some("EjRWeJCrze8SNFZ4kKvN7w==".into()),
+                thumbnail_width: Some(250),
+                thumbnail_height: Some(187),
+                output_format: board_store::media_assets::MediaFormat::Jpeg,
+                has_replay: false,
+                has_mobile: media["m_img"] == 1,
+            });
+            let value = post_json(
+                post,
+                &fixture.thread,
+                &fixture.board,
+                0,
+                0,
+                None,
+                QuoteContext {
+                    targets: &fixture.quote_targets,
+                    current_thread: Some(fixture.thread.id),
+                },
+            )
+            .unwrap();
+            for key in [
+                "m_img",
+                "since4pass",
+                "filedeleted",
+                "tim",
+                "filename",
+                "ext",
+                "md5",
+                "w",
+                "h",
+                "tn_w",
+                "tn_h",
+                "fsize",
+            ] {
+                assert_eq!(
+                    value.get(key),
+                    row["expected"]["full"].get(key),
+                    "{key}: {row}"
+                );
+            }
+            for key in ["host", "pwd", "4pass_id", "email", "asset_id"] {
+                assert!(value.get(key).is_none(), "{key}");
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod source_upload_subject_tests {
+    use super::*;
+    #[test]
+    fn upload_board_tags_and_stripped_subjects_match_source() {
+        let source: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/json-post-state-reference.json"
+        ))
+        .unwrap();
+        for row in source["upload_cases"].as_array().unwrap() {
+            let mut fixture = crate::native_updater_snapshot::tests::fixture();
+            fixture.board.upload_board = true;
+            let mut post = fixture.posts[0].clone();
+            post.subject = row["media"]["sub"].as_str().unwrap().to_owned();
+            let value = post_json(
+                post,
+                &fixture.thread,
+                &fixture.board,
+                0,
+                0,
+                None,
+                QuoteContext {
+                    targets: &fixture.quote_targets,
+                    current_thread: Some(fixture.thread.id),
+                },
+            )
+            .unwrap();
+            for key in ["tag", "sub"] {
+                assert_eq!(
+                    value.get(key),
+                    row["expected"]["full"].get(key),
+                    "{key}: {row}"
+                );
+            }
         }
     }
 }

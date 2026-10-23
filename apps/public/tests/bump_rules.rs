@@ -82,7 +82,14 @@ async fn append(
     reply
 }
 
-async fn flags(app: &axum::Router, slug: &str, id: i64, replies: i64, limited: bool) -> String {
+async fn flags(
+    app: &axum::Router,
+    slug: &str,
+    id: i64,
+    replies: i64,
+    limited: bool,
+    suppressed: bool,
+) -> String {
     let mut thread_etag = String::new();
     for (suffix, kind) in [
         (format!("thread/{id}.json"), 0),
@@ -129,7 +136,7 @@ async fn flags(app: &axum::Router, slug: &str, id: i64, replies: i64, limited: b
             op.get("permaage").is_none(),
             "internal flag is not an API field"
         );
-        if kind == 1 || limited {
+        if kind == 1 || !suppressed {
             assert_eq!(
                 op["bumplimit"].as_i64(),
                 Some(i64::from(limited)),
@@ -176,21 +183,21 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     let first = append(&owner, &public, &slug, id, false, true).await;
-    flags(&app, &slug, id, 1, false).await;
+    flags(&app, &slug, id, 1, false, false).await;
     let second = append(&owner, &public, &slug, id, false, true).await;
-    flags(&app, &slug, id, 2, false).await;
+    flags(&app, &slug, id, 2, false, false).await;
     append(&owner, &public, &slug, id, false, false).await;
-    let before = flags(&app, &slug, id, 3, true).await;
+    let before = flags(&app, &slug, id, 3, true, false).await;
     board_store::delete_post(&public, &slug, first)
         .await
         .unwrap();
     board_store::delete_post(&public, &slug, second)
         .await
         .unwrap();
-    assert_ne!(flags(&app, &slug, id, 1, false).await, before);
+    assert_ne!(flags(&app, &slug, id, 1, false, false).await, before);
     append(&owner, &public, &slug, id, false, true).await;
     append(&owner, &public, &slug, id, true, false).await;
-    flags(&app, &slug, id, 3, true).await;
+    flags(&app, &slug, id, 3, true, false).await;
     // Sticky suppression applies both below and above the configured limit.
     sqlx::query("UPDATE content.threads SET sticky=true WHERE id=$1")
         .bind(id)
@@ -203,19 +210,19 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     append(&owner, &public, &slug, id, false, false).await;
-    flags(&app, &slug, id, 4, false).await;
+    flags(&app, &slug, id, 4, false, true).await;
     sqlx::query("UPDATE content.boards SET bump_limit=0 WHERE slug=$1")
         .bind(&slug)
         .execute(&owner)
         .await
         .unwrap();
-    flags(&app, &slug, id, 4, false).await;
+    flags(&app, &slug, id, 4, false, true).await;
     sqlx::query("UPDATE content.threads SET sticky=false WHERE id=$1")
         .bind(id)
         .execute(&owner)
         .await
         .unwrap();
-    flags(&app, &slug, id, 4, true).await;
+    flags(&app, &slug, id, 4, true, false).await;
     // Permaage overrides both sage and a zero count limit, but neither
     // permasage nor sticky. Permasage alone does not alter the limit marker.
     for (index, (sticky, permasage, permaage, sage, bump, limited)) in [
@@ -238,7 +245,15 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .await
             .unwrap();
         append(&owner, &public, &slug, id, sage, bump).await;
-        flags(&app, &slug, id, 5 + index as i64, limited).await;
+        flags(
+            &app,
+            &slug,
+            id,
+            5 + index as i64,
+            limited,
+            sticky || permaage,
+        )
+        .await;
     }
     // These flags do not bypass closed-thread admission.
     sqlx::query("UPDATE content.threads SET closed=true,permaage=true WHERE id=$1")
@@ -290,7 +305,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     let after = board_store::thread(&public, &slug, id).await.unwrap();
     assert_eq!(after.bumped_at, before.bumped_at);
     assert_eq!(after.reply_count, 8);
-    flags(&app, &slug, id, 8, true).await;
+    flags(&app, &slug, id, 8, true, false).await;
 }
 
 #[tokio::test]

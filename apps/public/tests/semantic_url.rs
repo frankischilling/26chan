@@ -42,7 +42,7 @@ fn assert_op_links(html: &str, slug: &str, id: i64, context: Option<&str>) {
     // Source JSON may retain whitespace which cannot be used as an alias.
     // Keep that JSON value unchanged and use the canonical HTML destination.
     let href = match context {
-        Some(context) if !context.contains(char::is_whitespace) => {
+        Some(context) if !context.is_empty() && !context.contains(char::is_whitespace) => {
             format!("{base}/{context}")
         }
         _ => base.clone(),
@@ -249,7 +249,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     {
         let json = get(&app, &format!("/{slug}/thread/{id}.json")).await;
         let context = json["posts"][0].get("semantic_url").and_then(Value::as_str);
-        assert_eq!(context, expected, "source JSON OP {id}");
+        assert_eq!(context, Some(expected.unwrap_or("")), "source JSON OP {id}");
         assert_op_links(&board_html, &slug, id, context);
         let thread_html = get_text(&app, &format!("/{slug}/thread/{id}")).await;
         assert_op_links(&thread_html, &slug, id, context);
@@ -290,7 +290,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 thread["posts"][0]
                     .get("semantic_url")
                     .and_then(Value::as_str),
-                *expected
+                Some(expected.unwrap_or(""))
             );
             let entry = catalog
                 .as_array()
@@ -299,7 +299,10 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .flat_map(|page| page["threads"].as_array().unwrap())
                 .find(|entry| entry["no"] == *id)
                 .unwrap();
-            assert_eq!(entry.get("semantic_url").and_then(Value::as_str), *expected);
+            assert_eq!(
+                entry.get("semantic_url").and_then(Value::as_str),
+                Some(expected.unwrap_or(""))
+            );
         }
         for (id, reply, expected) in &ids {
             let thread = get(router, &format!("/{slug}/thread/{id}.json")).await;
@@ -307,7 +310,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 thread["posts"][0]
                     .get("semantic_url")
                     .and_then(Value::as_str),
-                *expected,
+                Some(expected.unwrap_or("")),
                 "OP {id}"
             );
             assert_eq!(thread["posts"][1]["no"], *reply);
@@ -321,7 +324,10 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .flat_map(|page| page["threads"].as_array().unwrap())
                 .find(|entry| entry["no"] == *id)
                 .unwrap();
-            assert_eq!(entry.get("semantic_url").and_then(Value::as_str), *expected);
+            assert_eq!(
+                entry.get("semantic_url").and_then(Value::as_str),
+                Some(expected.unwrap_or(""))
+            );
             assert!(entry["last_replies"][0].get("semantic_url").is_none());
             let preview = index["threads"]
                 .as_array()
@@ -333,7 +339,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 preview["posts"][0]
                     .get("semantic_url")
                     .and_then(Value::as_str),
-                *expected
+                Some(expected.unwrap_or(""))
             );
         }
     }

@@ -41,13 +41,18 @@ jobs:
           test -f /etc/apt/sources.list.d/ubuntu.sources
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light libicu-dev libpcre2-dev ghostscript fonts-urw-base35
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light libicu-dev libpcre2-dev ghostscript fonts-urw-base35 php8.3-cli php8.3-mbstring
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: ubuntu-24.04-${{ hashFiles('Cargo.toml') }}
           cache-bin: false
           cache-on-failure: true
+      - name: Qualify source JSON directory and post states
+        run: |
+          python3 scripts/extract-json-directory-reference.py --fixture-only --check --php php
+          python3 scripts/extract-json-post-state-reference.py --check --php php
+          python3 scripts/extract-json-feed-reference.py --check --php php
       - name: Qualify isolated source page-title function
         run: python3 scripts/extract-page-title-reference.py --fixture-check fixtures/page-title-reference.json --php php
       - name: Qualify isolated source quote callbacks
