@@ -14,6 +14,7 @@ pub mod pdf;
 pub mod replay;
 pub mod replay_output;
 pub mod still;
+pub mod swf;
 #[cfg(target_os = "linux")]
 pub mod video;
 pub mod video_probe;

@@ -54,6 +54,10 @@ jobs:
           python3 scripts/extract-json-directory-build-reference.py --check --php php
           python3 scripts/extract-json-post-state-reference.py --check --php php
           python3 scripts/extract-json-feed-reference.py --check --php php
+          python3 scripts/extract-swf-header-reference.py --check --php php
+          python3 scripts/extract-upload-board-reference.py --check --php php
+          node scripts/extract-swf-embed-reference.mjs --check
+          node --test tests/browser/native-swf-core.test.mjs
       - name: Qualify isolated source page-title function
         run: python3 scripts/extract-page-title-reference.py --fixture-check fixtures/page-title-reference.json --php php
       - name: Qualify isolated source quote callbacks
@@ -359,6 +363,7 @@ jobs:
           rustup target add x86_64-unknown-linux-musl --toolchain 1.94.0
           cargo build -p board-media-guest --bins --example containment-probe --target x86_64-unknown-linux-musl --locked --release
           python3 -m unittest discover -s tests/media -p test_runner.py
+          python3 -m unittest discover -s tests/media -p test_swf_transport.py
           python3 -m unittest discover -s tests/media -p test_pdf_runtime.py -v
           python3 -m unittest discover -s tests/media -p test_video_runtime.py -v
           python3 -m unittest discover -s tests/media -p test_still_runtime.py -v
@@ -382,6 +387,7 @@ jobs:
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             python3 tests/media/test_video_vm.py -v
+            python3 tests/media/test_swf_vm.py -v
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \

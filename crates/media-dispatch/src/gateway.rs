@@ -101,6 +101,12 @@ impl Gateway {
                 return Err(Error::Authentication);
             }
             match input {
+                protocol::Request::SwfV8(input) => {
+                    protocol::write_swf_request(&input, &mut broker).await?;
+                    let disk = protocol::read_swf_response(&mut broker).await?;
+                    self.authorize(&fingerprint)?;
+                    protocol::write_swf_response(&disk, &mut stream).await
+                }
                 protocol::Request::ImageV1(input) => {
                     protocol::write_request(input.as_slice(), input.len() as u64, &mut broker)
                         .await?;

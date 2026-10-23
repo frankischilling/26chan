@@ -21,7 +21,7 @@ import uuid
 
 from job_lifecycle import ENV, JOBS, locked_jobs, reconcile_jobs, remove_workspace, run_service, stop_job
 
-from dispatch_protocol import (IMAGE_V1, PAIRED_V2, GIF_V3, PDF_V4, VIDEO_V5, STILL_V6, GIF_V7, GIF_SOURCE_INPUT_BYTES, STILL_INPUT_BYTES, INPUT_BYTES, OUTPUT_BYTES,
+from dispatch_protocol import (IMAGE_V1, PAIRED_V2, GIF_V3, PDF_V4, VIDEO_V5, STILL_V6, GIF_V7, SWF_V8, SWF_INPUT_BYTES, GIF_SOURCE_INPUT_BYTES, STILL_INPUT_BYTES, INPUT_BYTES, OUTPUT_BYTES,
                                PAIRED_INPUT_BYTES, output_bytes, request_kind)
 
 
@@ -108,10 +108,12 @@ def input_disk(source, destination, *, input_kind=IMAGE_V1):
             maximum = STILL_INPUT_BYTES
         if input_kind == GIF_V7:
             maximum = GIF_SOURCE_INPUT_BYTES
-        minimum = 17 if input_kind in (STILL_V6, GIF_V7) else 2 if input_kind == VIDEO_V5 else 1
+        if input_kind == SWF_V8:
+            maximum = SWF_INPUT_BYTES
+        minimum = 8 if input_kind == SWF_V8 else 17 if input_kind in (STILL_V6, GIF_V7) else 2 if input_kind == VIDEO_V5 else 1
         if not stat.S_ISREG(info.st_mode) or not minimum <= info.st_size <= maximum:
             raise ValueError('input size or file type rejected')
-        if input_kind in (IMAGE_V1, GIF_V3, PDF_V4, VIDEO_V5, STILL_V6, GIF_V7):
+        if input_kind in (IMAGE_V1, GIF_V3, PDF_V4, VIDEO_V5, STILL_V6, GIF_V7, SWF_V8):
             writer.write(info.st_size.to_bytes(8, 'big'))
             disk_size = info.st_size + 8
             remaining = info.st_size
@@ -273,7 +275,7 @@ def run(config, source, destination, *, input_kind=IMAGE_V1, diagnostics=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--input-kind', choices=(IMAGE_V1, PAIRED_V2, GIF_V3, PDF_V4, VIDEO_V5, STILL_V6, GIF_V7), default=IMAGE_V1,
+    parser.add_argument('--input-kind', choices=(IMAGE_V1, PAIRED_V2, GIF_V3, PDF_V4, VIDEO_V5, STILL_V6, GIF_V7, SWF_V8), default=IMAGE_V1,
                         help='explicit input contract; paired-v2 takes a complete IBJOB002 request')
     parser.add_argument('--owned-diagnostics', action='store_true',
                         help='bounded boot console for operator-owned PDF/video fixtures only')
@@ -307,6 +309,8 @@ def main():
             config = configuration(args.config)
             if args.input_kind == PAIRED_V2:
                 run(config, args.input, args.output, input_kind=PAIRED_V2)
+            elif args.input_kind == SWF_V8:
+                run(config, args.input, args.output, input_kind=SWF_V8)
             elif args.input_kind == GIF_V3:
                 run(config, args.input, args.output, input_kind=GIF_V3)
             elif args.input_kind in (STILL_V6, GIF_V7):

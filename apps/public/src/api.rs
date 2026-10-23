@@ -327,22 +327,12 @@ fn post_json(
         value["com"] = json!(comment);
     }
     let mut subject = post.post.subject.as_str();
-    if op
-        && board.upload_board
-        && let Some((prefix, title)) = subject.split_once('|')
-        && !prefix.is_empty()
-        && prefix.bytes().all(|byte| byte.is_ascii_digit())
-    {
-        let tags = [
-            "Hentai", "Japanese", "Anime", "Game", "Other", "Loop", "Porn",
-        ];
-        value["tag"] = json!(
-            prefix
-                .parse::<usize>()
-                .ok()
-                .and_then(|index| tags.get(index))
-        );
-        subject = title;
+    if op && board.upload_board {
+        let (category, title, prefixed) = board_domain::upload_board::subject(subject);
+        if prefixed {
+            value["tag"] = json!(category.map(|category| category.name));
+            subject = title;
+        }
     }
     if !subject.is_empty() {
         value["sub"] = json!(board_domain::source_html_entities(subject));
