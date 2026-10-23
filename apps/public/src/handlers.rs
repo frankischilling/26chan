@@ -356,6 +356,12 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
     if state.event_workflows {
         board_store::events::ready(&state.pool).await?;
     }
+    if !board_store::site_submissions::ready(&state.pool).await? {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Site submission authority is unavailable.",
+        ));
+    }
     if let Some(verification) = &state.verification {
         verification.ready().await.map_err(|_| {
             AppError(

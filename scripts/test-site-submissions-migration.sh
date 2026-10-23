@@ -68,6 +68,14 @@ grep -Eq '(Posting|Transfer|Snapshot|Restriction) authority drifted' "$cluster/v
 "${migrator[@]}" -c BEGIN -f migrations/0260_contest_pass_receipts.sql -c ROLLBACK >"$cluster/vote-rollback.log" 2>&1 || { cat "$cluster/vote-rollback.log" >&2; exit 1; }
 "${migrator[@]}" -c "DO \$\$ BEGIN IF to_regclass('verification_private.pass_site_receipts') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained contest membership receipts'; END IF; END \$\$;" >/dev/null
 "${migrator[@]}" --single-transaction -f migrations/0260_contest_pass_receipts.sql >"$cluster/vote-accepted.log" 2>&1 || { cat "$cluster/vote-accepted.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT ON submission_private.feedback TO board_public;' \
+ -f migrations/0261_feedback_submission.sql >"$cluster/feedback-rejected.log" 2>&1; then
+ echo 'Feedback migration accepted private submission drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/feedback-rejected.log" || { cat "$cluster/feedback-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0261_feedback_submission.sql -c ROLLBACK >"$cluster/feedback-rollback.log" 2>&1 || { cat "$cluster/feedback-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('submission_api.submit_feedback(bigint,integer,text,text,inet,text,text,bytea,bytea,bytea,bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained feedback writes'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0261_feedback_submission.sql >"$cluster/feedback-accepted.log" 2>&1 || { cat "$cluster/feedback-accepted.log" >&2; exit 1; }
 "${migrator[@]}" <<'SQL'
 INSERT INTO submission_private.application_campaigns(id,starts_at,ends_at,boards,questions,field_limit,answer_limit,capacity)
 VALUES(777,100,200,ARRAY['g'],ARRAY['Owned one','Owned two','Owned three','Owned four'],150,2000,100);

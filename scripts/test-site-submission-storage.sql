@@ -52,6 +52,14 @@ END $$;
 SET LOCAL ROLE board_submission_owner;
 SELECT submission_api.ready();
 DO $$ BEGIN
+ BEGIN PERFORM message FROM submission_private.feedback LIMIT 0;
+  RAISE EXCEPTION 'Submission owner can read private feedback messages';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN PERFORM email FROM submission_private.application_identity LIMIT 0;
+  RAISE EXCEPTION 'Submission owner can read application contact identity';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $$;
+DO $$ BEGIN
  IF submission_api.ready() IS DISTINCT FROM true
   OR submission_api.feedback_profile() IS NOT NULL
   OR submission_api.application_profile() IS NOT NULL

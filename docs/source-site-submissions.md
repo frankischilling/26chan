@@ -1,9 +1,9 @@
 # Feedback, applications, and contests
 
 This work covers the remaining submission workflows in issue #225. Poll pages
-and voting already have separate implementations. Feedback submission/review,
-janitor applications, and banner contests are still being built; the domain
-models and source-template checks do not make those routes functional.
+and voting already have separate implementations. Feedback submission has a protected native form. Feedback review, janitor
+applications, and banner contests are still being built; their domain models
+and source-template checks do not make those routes functional.
 
 ## What the supplied source establishes
 
@@ -64,8 +64,9 @@ Application identity and initial-review answers have separate Rust structures.
 Private tables and bounded configuration readers are in place. Runtime roles
 cannot read submission rows; the configuration function owner currently has
 access to profiles, its authority catalog, and the record identifiers/state
-needed to check whether a submission action is open. It cannot read application
-contact fields. The catalog fingerprints
+needed to check whether a submission action is open. The feedback writer can
+insert feedback and read its bounded quota metadata, but cannot read feedback
+message bodies or application contact fields. The catalog fingerprints
 permissions and definitions, using names rather than transient database object
 IDs so restoration can be checked without accepting fresh authority.
 
@@ -73,8 +74,8 @@ On an existing installation, bootstrap the NOLOGIN owner with
 `deploy/site-submission-role.sql` before migration 0258. This migration leaves
 all campaigns closed and adds no historical submissions.
 
-Remaining implementation includes protected submission writes, challenge consumption,
-ownership checks, staff actions, upload processing, native forms, and browser
+Remaining implementation includes application and contest writes, ownership
+checks, staff actions, upload processing, their native forms, and browser
 qualification. No application automatically grants staff access. No contest
 entry automatically earns a Pass. Missing original styles and artwork remain
 separate visual-parity gaps.
@@ -102,8 +103,8 @@ application authentication, application editing, contest submission, and contest
 deletion. Each challenge binds the anonymous session, verified peer, action,
 resource ID, and form nonce. These scopes have no board and cannot spend or grant
 posting credits. A separate private consumer prevents them from authorizing
-ordinary posts or reports. The protected submission write still needs to lock
-and recheck its campaign before consuming a proof in the same transaction.
+ordinary posts or reports. Each protected write must lock and recheck its profile or campaign before
+consuming a proof in the same transaction.
 
 The verifier checks that the configured workflow is open before issuing or
 accepting an answer. Private consumption rechecks the workflow, session, context,
@@ -111,8 +112,8 @@ and expiry. Direct public consumption is denied. Local integration tests cover
 six scope/target pairs, wrong context, cross-action use, closure, expiry,
 transaction rollback, and one-use replay. The domain suite passes 345 tests,
 and the original public readiness contract still passes with these scopes. Contest voting is excluded from CAPTCHA issuance;
-its separate Pass-only receipts are described below. These verification primitives do
-not yet make the public submission forms functional.
+its separate Pass-only receipts are described below. Application and contest
+forms still need their write workflows.
 
 
 ## Contest membership receipts
@@ -137,3 +138,36 @@ cover wrong entries and contexts, direct public refusal, rollback, replay,
 revocation, expired membership, and stable identity across owned device
 sessions. Final vote storage, staff approval, media publication, and public
 forms are still unfinished.
+
+
+## Feedback writes and native form
+
+Migration 0261 provides a narrow public write function. It locks the configured
+profile, validates its category and text limits, checks capacity and a per-peer
+cooldown, and consumes the feedback receipt in the insertion transaction. The
+verified peer digest supplies the quota identity. Public callers cannot provide
+a separate identity to evade that quota. The 60-second default cooldown and
+bounded capacity are native safety controls, not recovered source constants.
+
+The `/feedback` form keeps the source multipart encoding and category, subject,
+message, verification, and submit controls. It requires an explicitly enabled
+profile with operator-provided categories and limits. Without one, GET retains
+the existing informational page and POST refuses submission. Operator tooling
+for these profiles is still unfinished.
+
+The native form bounds the whole body to 128 KiB and rejects files, duplicate or
+unknown fields, invalid UTF-8, wrong CSRF values, and mismatched profile IDs.
+Verification binds the session, peer, profile, purpose, and form nonce. Pass
+credentials do not bypass feedback verification. Submitted text stays literal
+in private storage. Successful POST redirects to a read-only result page;
+refreshing that page does not submit again. Error and success views use the
+source template classes. The original stylesheet and script remain missing, so
+this is not a claim of visual parity.
+
+Restricted-role tests cover invalid categories without proof consumption,
+replay, closure, cooldowns, and two submissions competing for the last slot. A
+category removed while a writer waits forces a foreign-key failure after proof
+consumption; the transaction restores both the receipt and the capacity count.
+HTTP tests exercise the real isolated verifier, multipart submission, escaped
+category labels, cross-origin and CSRF rejection, replay, and read-only success
+refreshes. Browser execution and screenshots remain to be qualified.
