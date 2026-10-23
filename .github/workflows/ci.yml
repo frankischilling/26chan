@@ -63,6 +63,8 @@ jobs:
           python3 scripts/extract-event-emote-ledger-reference.py --check --php php
           python3 scripts/extract-event-score-reference.py --check --php php
           python3 scripts/extract-event-perk-reference.py --check --php php
+      - name: Qualify isolated site-submission templates
+        run: python3 scripts/extract-site-submission-reference.py --check
       - name: Qualify isolated source page-title function
         run: python3 scripts/extract-page-title-reference.py --fixture-check fixtures/page-title-reference.json --php php
       - name: Qualify isolated source quote callbacks
