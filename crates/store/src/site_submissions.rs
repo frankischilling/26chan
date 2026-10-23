@@ -1,9 +1,12 @@
 //! Narrow configuration readers for native site submissions. Personal records
 //! never pass through these readers. Mutations have separate proof boundaries.
 pub mod admin;
+pub mod applications;
 pub mod feedback;
 use crate::{PgPool, StoreError};
-use board_domain::site_submissions::{applications, contests, feedback as feedback_domain};
+use board_domain::site_submissions::{
+    applications as application_domain, contests, feedback as feedback_domain,
+};
 use serde::Deserialize;
 
 pub struct FeedbackProfile {
@@ -12,7 +15,7 @@ pub struct FeedbackProfile {
 }
 pub struct ApplicationProfile {
     pub id: i64,
-    pub form: applications::Profile,
+    pub form: application_domain::Profile,
 }
 pub struct ContestProfile {
     pub campaign: contests::Campaign,
@@ -107,7 +110,7 @@ pub async fn application_profile(pool: &PgPool) -> Result<Option<ApplicationProf
         if input.id <= 0 {
             return Err(protocol());
         }
-        let form = applications::Profile {
+        let form = application_domain::Profile {
             boards: input.boards,
             questions: input.questions,
             field_limit: input.field_limit,

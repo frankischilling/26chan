@@ -2,8 +2,19 @@
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
 async fn login(variable: &str, role: &str) -> PgPool {
+    let owned_migrator = role == "board_migrator";
     let pool = PgPoolOptions::new()
         .max_connections(3)
+        .after_connect(move |connection, _| {
+            Box::pin(async move {
+                if owned_migrator {
+                    sqlx::query("SET statement_timeout='10s'")
+                        .execute(connection)
+                        .await?;
+                }
+                Ok(())
+            })
+        })
         .connect(&std::env::var(variable).expect("owned test database URL"))
         .await
         .unwrap();
@@ -208,6 +219,59 @@ async fn operator_feedback_profiles_require_real_migrator_and_retain_history() {
             "DELETE FROM submission_private.feedback WHERE profile_id=$1",
             "DELETE FROM submission_private.feedback_categories WHERE profile_id=$1",
             "DELETE FROM submission_private.feedback_profiles WHERE id=$1",
+        ] {
+            sqlx::query(query).bind(id).execute(&owner).await.unwrap();
+        }
+    }
+    sqlx::query("SELECT pg_advisory_unlock(2250258)")
+        .execute(&mut *lock)
+        .await
+        .unwrap();
+    drop(lock);
+    public.close().await;
+    owner.close().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn operator_application_campaigns_require_real_migrator_and_retain_history() {
+    use board_store::site_submissions::{self as store, admin};
+    use std::sync::{Arc, Mutex};
+    let owner = login("MIGRATION_DATABASE_URL", "board_migrator").await;
+    let public = login("TEST_PUBLIC_DATABASE_URL", "board_public").await;
+    let mut lock = owner.acquire().await.unwrap();
+    sqlx::query("SELECT pg_advisory_lock(2250258)")
+        .execute(&mut *lock)
+        .await
+        .unwrap();
+    let ids = Arc::new(Mutex::new(Vec::new()));
+    let result=tokio::spawn({let owner=owner.clone();let public=public.clone();let ids=ids.clone();async move {
+        let profile=admin::applications::read(br#"{"version":1,"starts_at":1,"ends_at":253402300799,"boards":["g"],"questions":["One","Two","Three","Four"],"field_limit":150,"answer_limit":2000,"capacity":100,"cooldown_seconds":60}"#.as_slice()).unwrap();
+        let mut denied=public.acquire().await.unwrap();
+        assert!(matches!(admin::applications::open(&mut denied,&profile).await,Err(admin::Error::Role)));
+        drop(denied);
+        let mut connection=owner.acquire().await.unwrap();
+        let first=admin::applications::open(&mut connection,&profile).await.unwrap();ids.lock().unwrap().push(first);
+        assert_eq!(store::application_profile(&public).await.unwrap().unwrap().id,first);
+        assert!(matches!(admin::applications::open(&mut connection,&profile).await,Err(admin::Error::ApplicationActive)));
+        sqlx::query("INSERT INTO submission_private.applications(campaign_id,age,timezone,hours,times,board1,answers,created_at,updated_at) VALUES($1,25,0,1,'Owned','g',ARRAY['one','two','three','four'],1,1)").bind(first).execute(&owner).await.unwrap();
+        assert!(admin::applications::close(&mut connection,first).await.unwrap());
+        assert!(!admin::applications::close(&mut connection,first).await.unwrap());
+        assert!(store::application_profile(&public).await.unwrap().is_none());
+        let retained:i64=sqlx::query_scalar("SELECT count(*) FROM submission_private.applications WHERE campaign_id=$1").bind(first).fetch_one(&owner).await.unwrap();assert_eq!(retained,1);
+        drop(connection);
+        let mut left=owner.acquire().await.unwrap();let mut right=owner.acquire().await.unwrap();
+        let (a,b)=tokio::join!(admin::applications::open(&mut left,&profile),admin::applications::open(&mut right,&profile));
+        assert_ne!(a.is_ok(),b.is_ok());
+        let (next,refused)=match (a,b){(Ok(id),Err(error))|(Err(error),Ok(id))=>(id,error),_=>panic!("Exactly one operator start must win")};
+        assert!(matches!(refused,admin::Error::ApplicationActive));assert_ne!(next,first);ids.lock().unwrap().push(next);
+        assert!(admin::applications::close(&mut left,next).await.unwrap());
+    }}).await;
+    let saved = ids.lock().unwrap().clone();
+    for id in saved {
+        for query in [
+            "DELETE FROM submission_private.applications WHERE campaign_id=$1",
+            "DELETE FROM submission_private.application_campaigns WHERE id=$1",
         ] {
             sqlx::query(query).bind(id).execute(&owner).await.unwrap();
         }

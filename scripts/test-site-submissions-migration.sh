@@ -106,6 +106,19 @@ SELECT id,777,decode(repeat('a1',32),'hex'),decode(repeat('b2',32),'hex'),'Owned
 FROM submission_private.applications WHERE campaign_id=777;
 CREATE TABLE public.owned_submission_identity_before AS SELECT * FROM submission_private.application_identity;
 SQL
+if "${migrator[@]}" --single-transaction -c 'GRANT USAGE ON SCHEMA public TO board_application_owner;' \
+ -f migrations/0263_application_ownership.sql >"$cluster/application-owner-rejected.log" 2>&1; then
+ echo 'Application migration accepted existing owner authority' >&2; exit 1
+fi
+grep -q 'Application owner has unexpected existing authority' "$cluster/application-owner-rejected.log" || { cat "$cluster/application-owner-rejected.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT(email) ON submission_private.application_identity TO board_submission_review_owner;' \
+ -f migrations/0263_application_ownership.sql >"$cluster/application-rejected.log" 2>&1; then
+ echo 'Application migration accepted private identity drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/application-rejected.log"
+"${migrator[@]}" -c BEGIN -f migrations/0263_application_ownership.sql -c ROLLBACK >"$cluster/application-rollback.log" 2>&1 || { cat "$cluster/application-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('submission_api.application_target(bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained application ownership'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0263_application_ownership.sql >"$cluster/application-accepted.log" 2>&1 || { cat "$cluster/application-accepted.log" >&2; exit 1; }
 cat >"$cluster/check.sql" <<'SQL'
 DO $$ BEGIN
  IF (SELECT boards FROM public.owned_submissions_before) IS DISTINCT FROM

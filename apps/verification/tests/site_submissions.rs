@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "site_submissions/applications.rs"]
+mod applications;
 #[path = "site_submissions/feedback.rs"]
 mod feedback;
 #[path = "site_submissions/pass_vote.rs"]
@@ -212,6 +214,7 @@ async fn site_captcha_receipts_are_closed_bound_atomic_and_separate_from_posting
         sqlx::query("UPDATE submission_private.application_campaigns SET ends_at=253402300799 WHERE id=$1")
             .bind(id).execute(&owner).await.unwrap();
         feedback::exercise(&owner, &public, &app, &store, &key, &context).await;
+        applications::exercise(&owner, &public, &app, &store, &key, &context).await;
         let mut vote=context.clone();vote.purpose=protocol::Purpose::SiteContestVote;
         let request=protocol::PostingChallengeRequest {context:vote,ticket:None,ticket_answer:None};
         assert_eq!(call(&app,"/v1/posting/challenge",&request).await.0,StatusCode::BAD_REQUEST);

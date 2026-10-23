@@ -1,4 +1,5 @@
-//! Explicit migrator-only feedback configuration. Closing retains submissions.
+//! Explicit migrator-only configuration. Closing retains submissions.
+pub mod applications;
 use board_domain::site_submissions::feedback::{Category, Profile as FormProfile};
 use serde::Deserialize;
 use sqlx::{Connection, PgConnection, Postgres, Transaction};
@@ -9,6 +10,14 @@ pub enum Error {
         "Expected bounded version-1 feedback JSON with valid categories, limits, capacity and cooldown."
     )]
     Input,
+    #[error(
+        "Expected bounded version-1 application campaign JSON with valid dates, boards, questions and limits."
+    )]
+    ApplicationInput,
+    #[error("An application campaign is already enabled. Close it first.")]
+    ApplicationActive,
+    #[error("The retained application campaign budget is full.")]
+    ApplicationFull,
     #[error("Submission configuration requires the actual board_migrator login.")]
     Role,
     #[error("Submission authority has drifted; configuration was not changed.")]
@@ -82,7 +91,10 @@ pub fn read_feedback(reader: impl Read) -> Result<FeedbackProfile, Error> {
     profile.validate()?;
     Ok(profile)
 }
-async fn transaction(connection: &mut PgConnection) -> Result<Transaction<'_, Postgres>, Error> {
+async fn transaction<'a>(
+    connection: &'a mut PgConnection,
+    lock: &'static str,
+) -> Result<Transaction<'a, Postgres>, Error> {
     let mut tx = connection.begin().await?;
     let allowed: bool = sqlx::query_scalar(
         "SELECT current_user='board_migrator' AND session_user='board_migrator'",
@@ -90,6 +102,7 @@ async fn transaction(connection: &mut PgConnection) -> Result<Transaction<'_, Po
     .fetch_one(&mut *tx)
     .await?;
     if !allowed {
+        tx.rollback().await?;
         return Err(Error::Role);
     }
     sqlx::query("SET LOCAL lock_timeout='5s'")
@@ -106,13 +119,12 @@ async fn transaction(connection: &mut PgConnection) -> Result<Transaction<'_, Po
         .await?;
     sqlx::query("RESET ROLE").execute(&mut *tx).await?;
     if !ready {
+        tx.rollback().await?;
         return Err(Error::Authority);
     }
     // Conflict with row-lock acquisition too, so a writer cannot hold the row
     // while waiting to obtain the table lock needed for its counter update.
-    sqlx::query("LOCK TABLE submission_private.feedback_profiles IN EXCLUSIVE MODE")
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query(lock).execute(&mut *tx).await?;
     Ok(tx)
 }
 pub async fn start_feedback(
@@ -120,13 +132,18 @@ pub async fn start_feedback(
     profile: &FeedbackProfile,
 ) -> Result<i64, Error> {
     profile.validate()?;
-    let mut tx = transaction(connection).await?;
+    let mut tx = transaction(
+        connection,
+        "LOCK TABLE submission_private.feedback_profiles IN EXCLUSIVE MODE",
+    )
+    .await?;
     let active: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM submission_private.feedback_profiles WHERE enabled)",
     )
     .fetch_one(&mut *tx)
     .await?;
     if active {
+        tx.rollback().await?;
         return Err(Error::Active);
     }
     let count: i64 =
@@ -134,6 +151,7 @@ pub async fn start_feedback(
             .fetch_one(&mut *tx)
             .await?;
     if count >= 10000 {
+        tx.rollback().await?;
         return Err(Error::Full);
     }
     let id: i64 = sqlx::query_scalar(
@@ -154,7 +172,11 @@ pub async fn close_feedback(connection: &mut PgConnection, id: i64) -> Result<bo
     if id <= 0 {
         return Err(Error::Input);
     }
-    let mut tx = transaction(connection).await?;
+    let mut tx = transaction(
+        connection,
+        "LOCK TABLE submission_private.feedback_profiles IN EXCLUSIVE MODE",
+    )
+    .await?;
     let changed = sqlx::query(
         "UPDATE submission_private.feedback_profiles SET enabled=false WHERE id=$1 AND enabled",
     )

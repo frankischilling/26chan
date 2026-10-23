@@ -97,3 +97,6 @@ GRANT board_submission_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
 -- Bootstrap before 0262. Feedback review has no public write authority.
 CREATE ROLE board_submission_review_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT board_submission_review_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+-- Bootstrap before 0263. Applicant identity is isolated from feedback review.
+CREATE ROLE board_application_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_application_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;

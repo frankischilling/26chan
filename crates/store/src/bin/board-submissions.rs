@@ -2,14 +2,14 @@
 use board_store::site_submissions::admin;
 use sqlx::{Connection, PgConnection, postgres::PgConnectOptions};
 use std::{ffi::OsString, fs::File, process::ExitCode, str::FromStr};
-const HELP: &str = "Usage: board-submissions validate-feedback <profile.json>\n       board-submissions open-feedback <profile.json>\n       board-submissions close-feedback <profile-id>\n\nValidation is offline. Writes require MIGRATION_DATABASE_URL and the actual\nboard_migrator login. Closing retains submissions. See docs/source-site-submissions.md.";
+const HELP: &str = "Usage: board-submissions validate-feedback <profile.json>\n       board-submissions open-feedback <profile.json>\n       board-submissions close-feedback <profile-id>\n       board-submissions validate-applications <campaign.json>\n       board-submissions open-applications <campaign.json>\n       board-submissions close-applications <campaign-id>\n\nValidation is offline. Writes require MIGRATION_DATABASE_URL and the actual\nboard_migrator login. Closing retains submissions. See docs/source-site-submissions.md.";
 fn id(value: &std::ffi::OsStr) -> Result<i64, String> {
     value
         .to_str()
         .filter(|v| !v.is_empty() && !v.starts_with('0') && v.bytes().all(|b| b.is_ascii_digit()))
         .and_then(|v| v.parse().ok())
         .filter(|v| *v > 0)
-        .ok_or_else(|| "Invalid feedback profile ID.".into())
+        .ok_or_else(|| "Invalid submission profile ID.".into())
 }
 async fn database() -> Result<PgConnection, String> {
     let raw = std::env::var("MIGRATION_DATABASE_URL")
@@ -46,6 +46,31 @@ async fn run(args: Vec<OsString>) -> Result<(), String> {
                     "Feedback closed; submissions retained."
                 } else {
                     "No enabled matching profile."
+                }
+            );
+        }
+        [command, path] if command == "validate-applications" || command == "open-applications" => {
+            let file = File::open(path).map_err(|_| "Cannot open application campaign.")?;
+            let campaign = admin::applications::read(file).map_err(|e| e.to_string())?;
+            if command == "validate-applications" {
+                println!("Valid application campaign. No database accessed.");
+            } else {
+                let id = admin::applications::open(&mut database().await?, &campaign)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                println!("Configured application campaign {id}.");
+            }
+        }
+        [command, value] if command == "close-applications" => {
+            let changed = admin::applications::close(&mut database().await?, id(value)?)
+                .await
+                .map_err(|e| e.to_string())?;
+            println!(
+                "{}",
+                if changed {
+                    "Applications closed; records retained."
+                } else {
+                    "No enabled matching campaign."
                 }
             );
         }

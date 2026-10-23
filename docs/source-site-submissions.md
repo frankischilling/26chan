@@ -253,3 +253,83 @@ depend on the broader staff-search work; the current detail page does not link
 to unfinished or external search services. Pass credentials are never stored
 in feedback, and credential-based search links are intentionally omitted.
 These pages do not establish complete source visual parity.
+
+## Applicant-owned records
+
+Migration 0263 adds application creation and owner authentication/editing in the
+store. Bootstrap `deploy/application-owner-role.sql` first on an existing
+installation. These APIs are not yet wired to a public application page.
+
+The source form asks for contact email on initial submission. Its later email
+prompt asks the holder of the private edit URL to repeat that address. It does
+not establish mailbox ownership and does not send a verification link. The
+native APIs use that matching-email rule with separate creation, authentication,
+and editing CAPTCHA purposes. No mail is sent. A wrong email consumes the
+attempt's proof, and authentication proofs cannot authorize edits.
+
+Applicant identity remains in its separate private relation. The new no-login
+owner supplies capability-bound operations to the public login. The public
+login, feedback writer, and feedback reviewer cannot read the identity relation
+directly. A valid random
+application capability reveals only the IDs needed to request authentication.
+Editable fields require the matching email and a fresh proof. Neither the raw
+capability nor its digest implements debugging or serialization in Rust.
+
+Creation checks the current campaign, its capacity, field limits, board choices,
+and a peer-bound cooldown. The default cooldown is 60 seconds, configurable
+between zero and one day. Identity, blind answers, counter, and proof consumption
+commit together. One canonical email can own one application per campaign.
+These limits are native abuse protections; the original submission controller
+was not supplied. Full campaigns still permit existing applicants to authenticate
+and edit until the campaign closes.
+
+Edits preserve the ownership capability and review state, update both sets of
+fields atomically, and require the current revision. Competing edits to one
+revision admit one update. Changing the contact email changes the address needed
+for later authentication. The accepted and signed states identified by the
+source agreement code (2 and 4) refuse public edits. This native safeguard keeps
+an accepted record from changing after staff selection. The original edit
+controller's behavior in those states is unknown. No application operation
+creates a staff account, accepts an agreement, or awards a Pass.
+
+Store integration tests use the real verifier and owned CAPTCHA answers. They
+cover literal private fields, malformed direct database input, wrong emails,
+proof separation/replay, full-campaign editing, stale and competing revisions,
+accepted/signed records, closure during a proof-lock wait, duplicate-email
+rollback, and competing requests for the last capacity slot. Migration checks reject existing
+owner authority and identity-grant drift, roll back cleanly, preserve prior
+records, and verify a restored catalog without resealing it. Public application
+forms, blind staff review, selection, and visual qualification remain unfinished.
+
+### Application campaign commands
+
+Use explicit UTC Unix seconds for the half-open application window. No campaign
+or question text is enabled by default. For example:
+
+```json
+{
+  "version": 1,
+  "starts_at": 1792800000,
+  "ends_at": 1793404800,
+  "boards": ["g"],
+  "questions": ["First question", "Second question", "Third question", "Fourth question"],
+  "field_limit": 150,
+  "answer_limit": 2000,
+  "capacity": 100,
+  "cooldown_seconds": 60
+}
+```
+
+```sh
+cargo run -p board-store --bin board-submissions -- validate-applications applications.json
+cargo run -p board-store --bin board-submissions -- open-applications applications.json
+cargo run -p board-store --bin board-submissions -- close-applications 1
+```
+
+Choose the actual dates, boards, and questions before opening. Use the ID printed
+by the open command when closing. Validation is offline; writes require the
+actual migrator login. Closing retains applications and their identities. An
+enabled campaign must be explicitly closed before another can open, including
+when its date window has ended. At most 10,000 campaigns may be retained through
+this tool. Concurrent opens admit one campaign. The exclusive campaign-table
+lock also excludes row-lock acquisition, avoiding a counter-update lock cycle.
