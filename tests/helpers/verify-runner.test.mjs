@@ -85,6 +85,7 @@ cargo test -p board-public --example deletion-fixture --features database-tests 
 cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
 npm run test:images-core
 npm run test:files-core
+npm run test:exif
 timeout 300s npm run test:drawing
 npm run test:drawing
 npx playwright test tests/browser/anonymous-session.spec.js

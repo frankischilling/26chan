@@ -135,6 +135,34 @@ DO $$ BEGIN
  RAISE EXCEPTION 'Transfer comparison upgrade expanded runtime or erasure authority'; END IF;
 END $$;
 SQL
+# The final-comment policy upgrade must reject drift and preserve posting data.
+if "${migrator[@]}" -c BEGIN -c 'ALTER TABLE content.boards ADD COLUMN owned_opening_drift boolean' \
+    -f migrations/0245_opening_comment_rules.sql -c ROLLBACK > "$cluster/opening-drift.log" 2>&1; then
+    echo 'Opening policy upgrade accepted unsealed board drift' >&2
+    exit 1
+fi
+"${migrator[@]}" -c BEGIN -f migrations/0245_opening_comment_rules.sql -c ROLLBACK >/dev/null
+"${psql[@]}" -d comment_history <<'SQL'
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='content.boards'::regclass AND attname='opening_comment_pattern' AND NOT attisdropped)
+ OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
+ RAISE EXCEPTION 'Opening policy rollback changed board state or authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0245_opening_comment_rules.sql >/dev/null
+"${psql[@]}" -d comment_history <<'SQL'
+DO $$ BEGIN
+ IF (SELECT opening_comment_pattern FROM content.boards WHERE slug='news') IS DISTINCT FROM '@https?://@'
+ OR EXISTS(SELECT 1 FROM content.boards WHERE slug<>'news' AND opening_comment_pattern<>'')
+ OR (SELECT opening_comment_refusal FROM content.boards WHERE slug='news') IS DISTINCT FROM 'Your post must contain at least one valid URL'
+ OR (SELECT count(*) FROM content.posts WHERE board='owneddupe')<>1005
+ OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
+ RAISE EXCEPTION 'Opening policy upgrade changed content or source policy'; END IF;
+ IF has_column_privilege('board_public','content.boards','opening_comment_pattern','UPDATE')
+ OR has_column_privilege('board_staff','content.boards','opening_comment_pattern','UPDATE') THEN
+ RAISE EXCEPTION 'Opening policy upgrade granted runtime editing'; END IF;
+END $$;
+SQL
 [[ $(history_fingerprint comment_history) = "$history_before" ]]
 "${runner[@]}" "$pg_bin/pg_dump" -h 127.0.0.1 -p 15458 -U postgres -d comment_history > "$cluster/restore.sql"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE comment_history_restore OWNER board_migrator'
@@ -142,7 +170,8 @@ SQL
 "${psql[@]}" -d comment_history_restore <<'SQL'
 DO $$ BEGIN
  IF content.restrictions_ready() IS DISTINCT FROM true OR content.text_thread_transfer_ready() IS DISTINCT FROM true
- OR (SELECT count(*) FROM post_secrets.comment_history)<>2 THEN
+ OR (SELECT count(*) FROM post_secrets.comment_history)<>2
+ OR (SELECT opening_comment_pattern FROM content.boards WHERE slug='news') IS DISTINCT FROM '@https?://@' THEN
  RAISE EXCEPTION 'Restore changed comment authority'; END IF;
 END $$;
 SQL

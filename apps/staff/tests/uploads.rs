@@ -1251,6 +1251,7 @@ async fn source_board_upload_binds_the_selected_metadata_policy_before_processin
             assert_eq!(job.id, id, "requires isolated disposable media queue");
             let lease = job.lease_token.as_deref().unwrap();
             let output = StillOutput {
+                exif: None,
                 format: MediaFormat::Png,
                 primary: OutputMetadata {
                     sha256: "a".repeat(64),
@@ -1428,6 +1429,71 @@ async fn ordinary_staff_file_dmca_repeat_returns_a_fixed_delayed_redirect() {
         .execute(&fixture.owner)
         .await
         .unwrap();
+    Arc::try_unwrap(fixture).ok().unwrap().cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn exif_comments_follow_ordinary_and_badged_staff_authority() {
+    let _serial = SERIAL.lock().await;
+    let fixture = Arc::new(Fixture::new().await);
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        let queue = MediaQueue::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap()).await.unwrap();
+        for badge in ["none", "mod"] {
+            let upload = case.intake.reserve_image(&format!("{}.jpg",case.board),"p",0,badge=="mod").await.unwrap();
+            case.intake.begin_upload(&upload.id,&upload.capability).await.unwrap();
+            case.intake.finish_upload(&upload.id,&upload.capability,256).await.unwrap();
+            let job = queue.claim().await.unwrap().unwrap();
+            assert_eq!(job.id,upload.id);
+            let lease = job.lease_token.as_deref().unwrap();
+            let output = StillOutput {
+                exif: Some(board_store::media_assets::ExifMetadata { text: format!("Camera: Owned {badge}\\n"), mode: 2 }),
+                format: MediaFormat::Jpeg,
+                primary: OutputMetadata { sha256: "a".repeat(64), bytes:123, width:10, height:20 },
+                variants: OutputVariants { md5:"07".repeat(16), thumbnail:OutputMetadata {sha256:"b".repeat(64),bytes:100,width:10,height:20} },
+                mobile:None,
+                source:SourceProvenance {input_sha256:"c".repeat(64),input_bytes:256,profile:SourceProfile::StillV6,retained_bytes:123,md5:[7;16]},
+            };
+            let asset=queue.prepare_still_output(&upload.id,lease,&output).await.unwrap();
+            let input=board_store::media_assets::InputReceipt { component:board_store::media_assets::InputComponent::Upload,sha256:"c".repeat(64),bytes:256,md5:[9;16] };
+            queue.record_input_receipt(&upload.id,lease,&asset.id,&input).await.unwrap();
+            queue.approve_output_with_input(&upload.id,lease,&asset.id,&input).await.unwrap();
+            let form=case.form(&upload.id,&upload.capability).replace(&format!("board={}",case.board),"board=p")
+                + &format!("&name=Owned&subject=&comment=&badge={badge}{}",if badge=="none" {"&password=owned-exif-password"} else {""});
+            let response=case.send_form("/post",form).await;
+            let status=response.status();
+            let body=String::from_utf8(to_bytes(response.into_body(),262_144).await.unwrap().to_vec()).unwrap();
+            assert_eq!(status,StatusCode::SEE_OTHER,"{body}");
+            let (id,tim,capcode,comment,payload,authorized):(i64,i64,Option<String>,String,Vec<u8>,bool)=sqlx::query_as("SELECT p.id,m.tim,p.capcode,p.comment,p.wordfilter_payload,p.staff_authorized_limits FROM content.posts p JOIN content.post_media m ON m.post_id=p.id WHERE m.job_id=$1")
+                .bind(&upload.id).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(capcode.as_deref(),if badge=="none" {None} else {Some("mod")});
+            assert_eq!(&payload[..4],if authorized {b"WF06"} else {b"WF05"});
+            assert!(comment.contains(&format!("id=\"exif{tim}\"")));
+            assert!(board_domain::wordfiltered_comment::PreparedComment::decode(&payload).is_ok());
+            let response = case.send_form("/thread-options", format!("csrf={}&board=p&target={id}&closed=1", case.csrf)).await;
+            let status = response.status();
+            let body = String::from_utf8(to_bytes(response.into_body(),262_144).await.unwrap().to_vec()).unwrap();
+            assert_eq!(status, StatusCode::SEE_OTHER, "{body}");
+            let snapshot: (String, bool, bool) = sqlx::query_as("SELECT snapshot_comment,snapshot_staff_authorized_limits,snapshot_wordfiltered FROM content.moderation_audit WHERE board='p' AND target_id=$1 AND action='thread-options'")
+                .bind(id).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(snapshot.0, comment);
+            assert_eq!(snapshot.1, authorized);
+            assert!(snapshot.2);
+            let actor:Vec<u8>=sqlx::query_scalar("SELECT actor_hash FROM post_secrets.posting_history WHERE post_id=$1").bind(id).fetch_one(&case.owner).await.unwrap();
+            for statement in [
+                "DELETE FROM content.moderation_audit WHERE board='p' AND target_id=$1",
+                "DELETE FROM content.post_media WHERE post_id=$1",
+                "DELETE FROM post_secrets.deletion WHERE post_id=$1",
+                "DELETE FROM content.posts WHERE id=$1",
+                "DELETE FROM content.threads WHERE id=$1",
+            ] {sqlx::query(statement).bind(id).execute(&case.owner).await.unwrap();}
+            sqlx::query("DELETE FROM post_secrets.posting_thread_actions WHERE board='p' AND actor_hash=$1").bind(actor).execute(&case.owner).await.unwrap();
+            for statement in ["DELETE FROM media.assets WHERE job_id=$1","DELETE FROM media_intake.handles WHERE job_id=$1","DELETE FROM media.jobs WHERE id=$1"] {
+                sqlx::query(statement).bind(&upload.id).execute(&case.owner).await.unwrap();
+            }
+        }
+    }).await;
     Arc::try_unwrap(fixture).ok().unwrap().cleanup().await;
     result.unwrap();
 }

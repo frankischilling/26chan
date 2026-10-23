@@ -99,6 +99,7 @@ browser_content() {
   # Owned DOM checks need no server state; run them before slower page suites.
   npm run test:images-core
   npm run test:files-core
+  npm run test:exif
   # Drawing uses the public browser setup, which requires the built quota fixture.
   timeout 300s npm run test:drawing
   npx playwright test tests/browser/anonymous-session.spec.js

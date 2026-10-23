@@ -1,3 +1,4 @@
+import { exifTags, exifRecipe } from './native-exif.js';
 import { defaultTreeAdapter, parseFragment } from 'parse5';
 import { quotePostId } from './native-quote-identity.js';
 import { isPostFlagClass, isPostFlagToken } from './native-post-flags.js';
@@ -108,13 +109,23 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   const charge = text => { budget.chars += text.length; require(budget.chars <= limits.bytes); };
   const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'pim', 'm', 'f', 'fT', 'delete', 'report', 'select'].map(prefix => prefix + no));
   let selection = null;
+  const exifTables = new Set(), exifLinks = new Set();
   function visit(node, depth, form = null, comment = false, link = false) {
     require(++budget.nodes <= limits.nodes && depth <= limits.depth);
     if (typeof node === 'string') { charge(node); return; }
     exactKeys(node, ['tag', 'attrs', 'children']);
     const attrs = node.attrs;
-    require((Object.hasOwn(attributes, node.tag) || isWordfilterMarkupTag(node.tag)) && Array.isArray(node.children));
+    require((Object.hasOwn(attributes, node.tag) || isWordfilterMarkupTag(node.tag) || exifTags.has(node.tag)) && Array.isArray(node.children));
     require(attrs && typeof attrs === 'object' && !Array.isArray(attrs));
+    const exif = exifRecipe(node.tag, attrs);
+    if (exif) {
+      require(comment && !link);
+      if (exif.kind === 'table') { require(exifTables.size === 0 && !ids.has(exif.id)); exifTables.add(exif.id); ids.add(exif.id); }
+      if (exif.kind === 'toggle') { require(exifLinks.size === 0); exifLinks.add(exif.id); }
+      for (const [key, value] of Object.entries(attrs)) { charge(key); charge(value); }
+      for (const child of node.children) visit(child, depth + 1, form, true, node.tag === 'a');
+      return;
+    }
     if (comment && isWordfilterMarkup(node.tag, attrs)) {
       for (const [key, value] of Object.entries(attrs)) { charge(key); charge(value); }
       for (const child of node.children) visit(child, depth + 1, form, true, link);
@@ -245,6 +256,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     for (const child of node.children) visit(child, depth + 1, form, comment || message, link || node.tag === 'a');
   }
   visit(tree, 0);
+  require(exifTables.size === exifLinks.size && [...exifLinks].every(id => exifTables.has(id)));
   if (selection) {
     const post = tree.children.find(node => typeof node !== 'string' && node.tag === 'div' && node.attrs.id === `p${no}`);
     const header = post?.children.find(node => typeof node !== 'string' && node.tag === 'div' && node.attrs.id === `pi${no}` && node.attrs.class === 'postInfo');
@@ -269,7 +281,7 @@ export function parsePostRecipe(html, context, no, budget, limits) {
     require(depth <= limits.depth);
     if (node.nodeName === '#text') return node.value;
     require(node.namespaceURI === 'http://www.w3.org/1999/xhtml'
-      && (Object.hasOwn(attributes, node.tagName) || isWordfilterMarkupTag(node.tagName)));
+      && (Object.hasOwn(attributes, node.tagName) || isWordfilterMarkupTag(node.tagName) || exifTags.has(node.tagName)));
     return { tag: node.tagName, attrs: Object.fromEntries(node.attrs.map(a => {
       require(!a.namespace && !a.prefix); return [a.name, a.value];
     })), children: node.childNodes.map(child => recipe(child, depth + 1)) };

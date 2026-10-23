@@ -166,7 +166,9 @@ name preparation, ordinary staff filtering and the `/test/` exception. The
 fortune transformations; the [PCRE2 wrapper record](third-party/pcre2.md) covers
 `D` and PHP 8 `X` semantics. Their qualification is recorded separately.
 
-Issue #212 still includes final caller-order coverage, remaining automatic-range
+The [final opening-comment rule](opening-comment-rules.md) runs after formatting,
+before ordinary cooldowns. Quiet apparent success exits earlier from the filter. Issue #212 still
+includes other final caller-order coverage, remaining automatic-range
 producers and classifier interfaces. The
 [network evaluator](admission/network-policy.md) has posting and reporting
 integration with scoped providers. [File blocking](admission/file-blocking.md)

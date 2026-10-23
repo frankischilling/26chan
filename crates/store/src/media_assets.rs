@@ -5,7 +5,7 @@
 mod input_receipt;
 pub use input_receipt::{InputComponent, InputReceipt};
 mod still;
-pub use still::StillOutput;
+pub use still::{ExifMetadata, StillOutput};
 
 use crate::{
     StoreError,

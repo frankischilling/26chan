@@ -404,6 +404,22 @@ DO $$ BEGIN IF EXISTS(SELECT 1 FROM post_secrets.image_upload_history) THEN
  RAISE EXCEPTION 'Upgrade invented historical upload-image identity'; END IF; END $$;
 SQL
 fi
+if [[ -f migrations/0245_opening_comment_rules.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
+ 'opening_comment_pattern',CASE WHEN value->>'slug'='news' THEN '@https?://@' ELSE '' END,
+ 'opening_comment_refusal',CASE WHEN value->>'slug'='news' THEN 'Your post must contain at least one valid URL' ELSE 'Invalid comment' END)
+WHERE relation='content.boards';
+SQL
+fi
+if [[ -f migrations/0246_exif_extraction_provenance.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('exif_text',NULL::text,'exif_mode',NULL::smallint)
+WHERE relation='media.assets';
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM post_secrets.exif_preparations) THEN
+ RAISE EXCEPTION 'Upgrade invented EXIF preparations'; END IF; END $$;
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)

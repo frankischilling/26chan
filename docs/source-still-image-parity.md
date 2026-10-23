@@ -12,6 +12,8 @@ Opening-post thumbnails use JPEG quality 50; replies use quality 40. Transparent
 
 Mobile resizing is enabled on `/aco/`, `/e/`, `/h/`, `/k/`, `/m/`, `/v/`, `/co/`, `/fa/`, `/tg/`, `/tv/`, `/b/`, `/pol/`, `/hc/`, `/vg/` and `/vt/`. `resize_mobile_image` accepts `.jpg` and `.png`. PNGs at or below 524,288 processed bytes have no mobile derivative. Otherwise, a derivative requires both a side greater than 1,024 and an area greater than 524,288 pixels. The longer output side is 1,024; the other is rounded to the nearest integer, with positive halves rounded upward. It writes a quality-80 JPEG named `<tim>m.jpg`. Unlike thumbnails, this function does not explicitly fill a theme-colored background.
 
+The [EXIF-comment path](exif-comments.md) records extraction before capcode-only cleanup and has its own qualification status.
+
 Every imported board strips JPEG EXIF except `/p/`. The capcode-specific strip switch is enabled on all 82 boards, including `/p/`. The source invokes `jpegtran -copy none`, and recomputes the public MD5 after cleanup. The pre-cleanup MD5 has a separate blacklist purpose. Public hashes must describe the bytes actually published.
 
 PNG cleanup retains the original framing and bytes of allowed chunks, discards other chunks and stops at the first IEND. Its allowed types are IHDR, PLTE, IDAT, IEND, tRNS, gAMA, sBIT, pHYs, sRGB, bKGD, tIME, cHRM and iCCP, compared without case sensitivity. Decoder validation remains necessary before publication. The existing retained-byte digest scanner does not establish image validity or permission to publish a file.

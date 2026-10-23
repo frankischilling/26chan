@@ -5,6 +5,7 @@ use super::*;
 pub struct GeneratedDelimiter {
     // Zero is bold; 1..=13 selects one exact source fortune palette entry.
     number: u8,
+    tim: Option<i64>,
     opening: bool,
     rolls: Option<LeetRolls>,
 }
@@ -13,11 +14,68 @@ impl GeneratedDelimiter {
     pub(crate) fn from_saved(number: u8, opening: bool, rolls: Option<LeetRolls>) -> Option<Self> {
         (number <= 13).then_some(Self {
             number,
+            tim: None,
             opening,
             rolls,
         })
     }
 
+    pub(crate) fn from_exif(
+        number: u8,
+        opening: bool,
+        tim: i64,
+        rolls: Option<LeetRolls>,
+    ) -> Option<Self> {
+        ((14..=19).contains(&number) && (1..=crate::exif_comment::MAX_TIM).contains(&tim))
+            .then_some(Self {
+                number,
+                tim: Some(tim),
+                opening,
+                rolls,
+            })
+    }
+    pub fn is_exif(self) -> bool {
+        self.tim.is_some()
+    }
+    pub(super) fn tim(self) -> Option<i64> {
+        self.tim
+    }
+    pub fn is_exif_toggle(self) -> bool {
+        self.number == 15
+    }
+    pub fn is_exif_table(self) -> bool {
+        self.number == 16
+    }
+    pub fn exif_colspan_attribute(self) -> String {
+        self.filtered("colspan")
+    }
+    pub fn exif_colspan(self) -> bool {
+        self.number == 19
+    }
+    pub fn exif_id(self) -> String {
+        self.filtered(&format!("exif{}", self.tim.unwrap_or_default()))
+    }
+    pub fn exif_toggle_active(self) -> bool {
+        self.number == 15
+            && self.filtered("onclick") == "onclick"
+            && self.filtered("toggle") == "toggle"
+    }
+    pub fn exif_element(self) -> String {
+        self.filtered(match self.number {
+            14 => "span",
+            15 => "a",
+            16 => "table",
+            17 => "tr",
+            18 | 19 => "td",
+            _ => "b",
+        })
+    }
+    pub fn exif_valid_element(self) -> bool {
+        self.exif_element()
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphabetic)
+    }
     pub(super) fn number(self) -> u8 {
         self.number
     }
@@ -28,21 +86,27 @@ impl GeneratedDelimiter {
         }
     }
     pub fn closes_span(self) -> bool {
-        !self.opening && self.element_name() == "span"
+        !self.opening && (self.number == 14 || (!self.is_exif() && self.element_name() == "span"))
     }
 
     pub fn opening(self) -> bool {
         self.opening
     }
     pub fn valid_element(self) -> bool {
-        !self.element_name().starts_with('5')
+        self.element_name()
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphabetic)
     }
     pub fn has_class(self) -> bool {
-        self.opening && self.number != 0
+        self.opening && matches!(self.number, 1..=14 | 16)
     }
-    pub fn element_name(self) -> &'static str {
+    pub fn element_name(self) -> String {
+        if self.is_exif() {
+            return self.exif_element();
+        }
         if self.number == 0 {
-            return "b";
+            return "b".into();
         }
         let selected = |choice| {
             self.rolls
@@ -54,18 +118,23 @@ impl GeneratedDelimiter {
             (false, true) => "5pan",
             (true, true) => "5p4n",
         }
+        .into()
     }
     pub fn class_attribute(self) -> String {
         self.filtered("class")
     }
     pub fn class_value(self) -> String {
-        self.filtered("fortune")
+        self.filtered(match self.number {
+            14 => "abbr",
+            16 => "exif",
+            _ => "fortune",
+        })
     }
     pub fn style_attribute(self) -> String {
         self.filtered("style")
     }
     pub fn style_value(self) -> String {
-        if self.number == 0 {
+        if self.number == 0 || self.is_exif() {
             return String::new();
         }
         self.filtered(&format!(
@@ -78,6 +147,7 @@ impl GeneratedDelimiter {
     /// Mutated style attributes/properties have no color effect in the source.
     pub fn color_class(self) -> Option<String> {
         if self.number == 0
+            || self.is_exif()
             || !self.valid_element()
             || self.style_attribute() != "style"
             || !self.style_value().starts_with("color:")
@@ -108,6 +178,33 @@ impl GeneratedDelimiter {
     }
 
     pub fn source_projection(self) -> String {
+        if self.is_exif() {
+            let tim = self.tim.expect("validated EXIF timestamp");
+            let tag = match self.number {
+                14 => "span",
+                15 => "a",
+                16 => "table",
+                17 => "tr",
+                18 | 19 => "td",
+                _ => unreachable!("finite EXIF tag"),
+            };
+            let literal = if !self.opening {
+                format!("</{tag}>")
+            } else {
+                match self.number {
+                    14 => "<span class=\"abbr\">".into(),
+                    15 => {
+                        format!("<a href=\"javascript:void(0)\" onclick=\"toggle('exif{tim}')\">")
+                    }
+                    16 => format!("<table class=\"exif\" id=\"exif{tim}\">"),
+                    17 => "<tr>".into(),
+                    18 => "<td>".into(),
+                    19 => "<td colspan=\"2\">".into(),
+                    _ => unreachable!("finite EXIF tag"),
+                }
+            };
+            return self.filtered(&literal);
+        }
         let literal = match (self.number, self.opening) {
             (0, true) => "<b>".into(),
             (0, false) => "</b>".into(),
@@ -136,6 +233,26 @@ pub(super) fn prepare(
     post_limits: PostLimits,
     outcome: &crate::posting_randomizers::Outcome,
 ) -> Result<PreparedComment, ValidationError> {
+    prepare_metadata(
+        comment,
+        policy,
+        profile,
+        rolls,
+        post_limits,
+        Some(outcome),
+        None,
+    )
+}
+
+pub(super) fn prepare_metadata(
+    comment: &str,
+    policy: MarkupPolicy,
+    profile: Option<Profile>,
+    rolls: Option<LeetRolls>,
+    post_limits: PostLimits,
+    outcome: Option<&crate::posting_randomizers::Outcome>,
+    exif: Option<(&crate::exif_comment::ExtractedExif, i64)>,
+) -> Result<PreparedComment, ValidationError> {
     const ERROR: ValidationError = ValidationError("Invalid generated comment projection.");
     if comment.len() > post_limits.prepared_bytes()
         || comment.chars().count() > post_limits.prepared_chars()
@@ -145,7 +262,10 @@ pub(super) fn prepare(
     if (profile == Some(Profile::Test)) != rolls.is_some() {
         return Err(ERROR);
     }
-    let (prefix, suffix) = crate::posting_randomizers::source_wrappers(Some(outcome))?;
+    let (prefix, mut suffix) = crate::posting_randomizers::source_wrappers(outcome)?;
+    if let Some((exif, tim)) = exif {
+        suffix.push_str(&exif.comparison_markup(tim).map_err(|_| ERROR)?);
+    }
     let source = crate::comment_markup::admission_source(comment, policy, &prefix, &suffix);
     let limits = WordfilterLimits::for_post(post_limits);
     let source = match profile {
@@ -203,6 +323,19 @@ pub(super) fn prepare(
                     }
                 }
             }
+            if matched.is_none()
+                && let Some((_, tim)) = exif
+            {
+                for number in 14..=19 {
+                    let part = Part::Generated(
+                        GeneratedDelimiter::from_exif(number, true, tim, rolls).ok_or(ERROR)?,
+                    );
+                    if remaining.starts_with(&projection(&part)) {
+                        matched = Some(part);
+                        break;
+                    }
+                }
+            }
             let part = matched.ok_or(ERROR)?;
             remaining = &remaining[projection(&part).len()..];
             stack.push(part.clone());
@@ -250,6 +383,150 @@ fn projection(part: &Part) -> String {
 mod tests {
     use super::*;
     use crate::posting_randomizers::Outcome;
+
+    #[test]
+    fn exif_codec_rejects_forged_identifiers_kinds_and_unbalanced_tables() {
+        let exif = crate::exif_comment::ExtractedExif::parse("Header\nCamera: Owned\n").unwrap();
+        let mut prepared = prepare_metadata(
+            "",
+            MarkupPolicy::default(),
+            None,
+            None,
+            PostLimits::ordinary(MAX_COMMENT_CHARS),
+            None,
+            Some((&exif, 1730000000000)),
+        )
+        .unwrap();
+        prepared.freeze_format("p");
+        let bytes = prepared.encode().unwrap();
+        let mut offsets = Vec::new();
+        let mut offset = 11;
+        while offset < bytes.len() {
+            match bytes[offset] {
+                0 => {
+                    let count =
+                        u32::from_be_bytes(bytes[offset + 1..offset + 5].try_into().unwrap())
+                            as usize;
+                    offset += 5 + count;
+                }
+                1 => offset += 2,
+                2 => offset += 1,
+                3 | 4 => offset += 3,
+                5 => {
+                    offsets.push(offset);
+                    offset += 11;
+                }
+                _ => panic!("unexpected owned encoding"),
+            }
+        }
+        assert!(offsets.len() > 8);
+        let mut unknown = bytes.clone();
+        unknown[offsets[0] + 1] = 20;
+        assert!(PreparedComment::decode(&unknown).is_err());
+        let mut zero = bytes.clone();
+        zero[offsets[0] + 3..offsets[0] + 11].fill(0);
+        assert!(PreparedComment::decode(&zero).is_err());
+        let mut changed = bytes.clone();
+        changed[offsets[1] + 10] ^= 1;
+        assert!(PreparedComment::decode(&changed).is_err());
+        let mut unclosed = bytes.clone();
+        unclosed[*offsets.last().unwrap() + 2] = 1;
+        assert!(PreparedComment::decode(&unclosed).is_err());
+        let mut old = bytes.clone();
+        old[..4].copy_from_slice(b"WF03");
+        assert!(PreparedComment::decode(&old).is_err());
+        let exif =
+            crate::exif_comment::ExtractedExif::parse(&vec!["Header"; 256].join("\n")).unwrap();
+        let mut full = prepare_metadata(
+            "",
+            MarkupPolicy::default(),
+            None,
+            None,
+            PostLimits::ordinary(MAX_COMMENT_CHARS),
+            None,
+            Some((&exif, 1)),
+        )
+        .unwrap();
+        full.freeze_format("p");
+        assert_eq!(
+            PreparedComment::decode(&full.encode().unwrap()).unwrap(),
+            full
+        );
+    }
+
+    #[test]
+    fn exif_payloads_match_independent_source_composition() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/wordfilter-posting-reference.json"
+        ))
+        .unwrap();
+        let mut count = 0;
+        for (name, profile) in [
+            ("global", Profile::Global),
+            ("ck", Profile::Basic),
+            ("asp", Profile::Asp),
+            ("v", Profile::Video),
+            ("test", Profile::Test),
+        ] {
+            for case in fixture["exif_projection"][name].as_array().unwrap() {
+                let p = &case["policy"];
+                let markup = MarkupPolicy {
+                    spoilers: p["spoilers"].as_bool().unwrap(),
+                    code: p["code"].as_bool().unwrap(),
+                    sjis: p["sjis"].as_bool().unwrap(),
+                    op: p["op"].as_bool().unwrap(),
+                };
+                let enabled = case["filter_enabled"].as_bool().unwrap();
+                let rolls = if enabled && profile == Profile::Test {
+                    Some(
+                        LeetRolls::from_choices(
+                            case["rolls"][0].as_u64().unwrap() as u8,
+                            case["rolls"][1].as_u64().unwrap() as u8,
+                        )
+                        .unwrap(),
+                    )
+                } else {
+                    None
+                };
+                let outcome = case["randomizer"].is_object().then(|| Outcome::Fortune {
+                    text: "You will meet a dark handsome stranger",
+                    color: "#0893e1".into(),
+                });
+                let exif = crate::exif_comment::ExtractedExif::parse(
+                    case["exif"]["raw"].as_str().unwrap(),
+                )
+                .unwrap();
+                let mut prepared = super::prepare_metadata(
+                    case["prepared_comment"].as_str().unwrap(),
+                    markup,
+                    enabled.then_some(profile),
+                    rolls,
+                    PostLimits::ordinary(MAX_COMMENT_CHARS),
+                    outcome.as_ref(),
+                    Some((&exif, case["exif"]["tim"].as_i64().unwrap())),
+                )
+                .unwrap();
+                assert_eq!(
+                    prepared.source_projection(),
+                    case["filtered"].as_str().unwrap(),
+                    "{name} {case}"
+                );
+                prepared.freeze_format("g");
+                let bytes = prepared.encode().unwrap();
+                assert_eq!(&bytes[..4], b"WF05");
+                let decoded = PreparedComment::decode(&bytes).unwrap();
+                assert_eq!(decoded, prepared);
+                let lines = crate::filtered_formatting::lines_for_post(&decoded, "g", 488);
+                assert_eq!(
+                    crate::filtered_formatting::source_projection(&lines),
+                    case["final"].as_str().unwrap(),
+                    "{name} {case}"
+                );
+                count += 1;
+            }
+        }
+        assert_eq!(count, 180);
+    }
 
     #[test]
     fn generated_payloads_match_independent_php_composition_vectors() {

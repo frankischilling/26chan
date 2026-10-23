@@ -207,7 +207,7 @@ fn marker_at(input: &[Atom], index: usize, marker: &str) -> bool {
         slice
             .iter()
             .zip(marker.bytes())
-            .all(|(atom, byte)| *atom == Atom::Char(char::from(byte)))
+            .all(|(atom, byte)| matches!(atom, Atom::Char(ch) | Atom::Generated(ch) if *ch == char::from(byte)))
     })
 }
 
@@ -296,7 +296,9 @@ fn remove_empty_spoilers(input: Vec<Atom>) -> Vec<Atom> {
             _ => {
                 if !matches!(
                     atom,
-                    Atom::Break | Atom::Char(' ' | '\t' | '\r' | '\u{b}' | '\u{c}')
+                    Atom::Break
+                        | Atom::Char(' ' | '\t' | '\r' | '\u{b}' | '\u{c}')
+                        | Atom::Generated(' ' | '\t' | '\r' | '\u{b}' | '\u{c}')
                 ) && let Some((_, empty)) = stack.last_mut()
                 {
                     *empty = false;

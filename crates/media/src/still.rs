@@ -9,6 +9,7 @@ mod board_policy;
 pub use board_policy::source_policy;
 
 pub const OUTPUT_DISK_BYTES: u64 = 16 * 1024 * 1024;
+pub const MAX_EXIF_BYTES: u32 = 16_384;
 pub const MAX_IMAGE_BYTES: u32 = 10 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -34,6 +35,8 @@ impl StillFormat {
 pub struct StillPolicy {
     pub format: StillFormat,
     pub strip_exif: bool,
+    /// 0: disabled, 1: cleaned file, 2: before capcode-only cleanup.
+    pub exif_mode: u8,
     pub mobile: bool,
     pub thread: bool,
     pub blue_background: bool,
@@ -49,7 +52,9 @@ fn word(bytes: &[u8]) -> u32 {
 
 impl StillPolicy {
     pub fn header(self) -> Result<[u8; 16], MediaError> {
-        if !(1..=250).contains(&self.thumbnail.0)
+        if self.exif_mode > 2
+            || (self.exif_mode != 0 && self.format != StillFormat::Jpeg)
+            || !(1..=250).contains(&self.thumbnail.0)
             || !(1..=250).contains(&self.thumbnail.1)
             || (self.format == StillFormat::Gif && (self.strip_exif || self.mobile))
         {
@@ -72,6 +77,7 @@ impl StillPolicy {
         };
         output[10..12].copy_from_slice(&self.thumbnail.0.to_be_bytes());
         output[12..14].copy_from_slice(&self.thumbnail.1.to_be_bytes());
+        output[14] = self.exif_mode;
         Ok(output)
     }
 
@@ -146,6 +152,7 @@ pub struct ValidatedStill {
     retained: EncodedStillFile,
     thumbnail: EncodedStillFile,
     mobile: Option<EncodedStillFile>,
+    exif: Option<String>,
 }
 
 fn jpeg_signature(bytes: &[u8]) -> bool {
@@ -169,6 +176,7 @@ impl ValidatedStill {
         let retained_length = word(&header[48..52]);
         let thumbnail_length = word(&header[52..56]);
         let mobile_length = word(&header[56..60]);
+        let exif_length = word(&header[60..64]);
         if &header[..8]
             != if expected.format == StillFormat::Gif {
                 b"IBIMG007"
@@ -176,7 +184,8 @@ impl ValidatedStill {
                 b"IBIMG006"
             }
             || header[8..24] != policy_header
-            || header[60..64] != [0; 4]
+            || exif_length > MAX_EXIF_BYTES
+            || (expected.exif_mode != 2 && exif_length != 0)
             || !(1..=10_000).contains(&size.0)
             || !(1..=10_000).contains(&size.1)
             || !(12..=if expected.format == StillFormat::Gif {
@@ -203,7 +212,8 @@ impl ValidatedStill {
         let total = 64
             + u64::from(retained_length)
             + u64::from(thumbnail_length)
-            + u64::from(mobile_length);
+            + u64::from(mobile_length)
+            + u64::from(exif_length);
         if total > OUTPUT_DISK_BYTES {
             return Err(invalid());
         }
@@ -213,6 +223,12 @@ impl ValidatedStill {
         input.read_exact(&mut retained).await?;
         input.read_exact(&mut thumbnail).await?;
         input.read_exact(&mut mobile).await?;
+        let mut exif = vec![0; exif_length as usize];
+        input.read_exact(&mut exif).await?;
+        let exif = String::from_utf8(exif).map_err(|_| invalid())?;
+        if exif.contains('\0') || exif.split('\n').count() > 256 {
+            return Err(invalid());
+        }
         if !jpeg_signature(&thumbnail)
             || (!mobile.is_empty() && !jpeg_signature(&mobile))
             || match expected.format {
@@ -241,10 +257,15 @@ impl ValidatedStill {
         }
         Ok(Self {
             policy: expected,
+            exif: (expected.exif_mode != 0).then_some(exif),
             retained: EncodedStillFile::new(retained, size),
             thumbnail: EncodedStillFile::new(thumbnail, thumb_size),
             mobile: (!mobile.is_empty()).then(|| EncodedStillFile::new(mobile, mobile_size)),
         })
+    }
+    /// Bounded untrusted text. This grants no HTML or posting authority.
+    pub fn exif(&self) -> Option<&str> {
+        self.exif.as_deref()
     }
     pub fn policy(&self) -> StillPolicy {
         self.policy

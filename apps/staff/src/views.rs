@@ -219,7 +219,9 @@ mod tests {
             assert_eq!(html.contains("<summary>File MD5</summary>"), visible);
             assert_eq!(html.contains(&format!("<code>{digest}</code>")), visible);
             assert_eq!(html.contains("Approved normalized file MD5:"), visible);
-            assert!(!html.contains("<script"));
+            let exif_script = "<script type=\"module\" src=\"/exif.js\"></script>";
+            assert_eq!(html.matches(exif_script).count(), 1);
+            assert!(!html.replacen(exif_script, "", 1).contains("<script"));
             assert!(!html.contains("onclick="));
         }
     }

@@ -4,10 +4,18 @@ use super::*;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StillOutput {
     pub format: MediaFormat,
+    pub exif: Option<ExifMetadata>,
     pub primary: OutputMetadata,
     pub variants: OutputVariants,
     pub mobile: Option<OutputMetadata>,
     pub source: SourceProvenance,
+}
+
+/// Bounded extractor output from the isolated worker, not trusted markup.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExifMetadata {
+    pub text: String,
+    pub mode: i16,
 }
 
 impl StillOutput {
@@ -39,6 +47,14 @@ impl StillOutput {
             return Err(StoreError::Invalid("Invalid retained image provenance."));
         }
         self.source.validate()?;
+        if let Some(exif) = &self.exif
+            && (self.format != MediaFormat::Jpeg
+                || !matches!(exif.mode, 1 | 2)
+                || (exif.mode == 1 && !exif.text.is_empty())
+                || board_domain::exif_comment::ExtractedExif::parse(&exif.text).is_err())
+        {
+            return Err(StoreError::Invalid("Invalid EXIF extraction provenance."));
+        }
         bounded(
             &self.primary,
             if self.format == MediaFormat::Gif {
@@ -80,6 +96,8 @@ impl StillOutput {
 #[derive(sqlx::FromRow)]
 struct StillRecord {
     still_profile: Option<String>,
+    exif_text: Option<String>,
+    exif_mode: Option<i16>,
     thumbnail_format: String,
     mobile_sha256: Option<String>,
     mobile_bytes: Option<i64>,
@@ -90,6 +108,8 @@ struct StillRecord {
 impl StillRecord {
     fn matches(&self, output: &StillOutput) -> bool {
         self.still_profile.as_deref() == Some(output.source.profile.as_str())
+            && self.exif_text.as_deref() == output.exif.as_ref().map(|e| e.text.as_str())
+            && self.exif_mode == output.exif.as_ref().map(|e| e.mode)
             && self.thumbnail_format == "jpeg"
             && self.mobile_sha256.as_deref() == output.mobile.as_ref().map(|m| m.sha256.as_str())
             && self.mobile_bytes == output.mobile.as_ref().map(|m| m.bytes)
@@ -127,7 +147,7 @@ impl MediaQueue {
                 .bind(&reserved.asset.id).fetch_one(&mut *tx).await?;
             let source: SourceRecord = sqlx::query_as("SELECT source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5 FROM media.assets WHERE id=$1")
                 .bind(&reserved.asset.id).fetch_one(&mut *tx).await?;
-            let still: StillRecord = sqlx::query_as("SELECT still_profile,thumbnail_format,mobile_sha256,mobile_bytes,mobile_width,mobile_height FROM media.assets WHERE id=$1")
+            let still: StillRecord = sqlx::query_as("SELECT still_profile,thumbnail_format,mobile_sha256,mobile_bytes,mobile_width,mobile_height,exif_text,exif_mode FROM media.assets WHERE id=$1")
                 .bind(&reserved.asset.id).fetch_one(&mut *tx).await?;
             if !output.primary.matches(&reserved.asset)
                 || output.format != reserved.asset.output_format
@@ -156,11 +176,12 @@ impl MediaQueue {
         let variants = &output.variants;
         let source = &output.source;
         let mobile = output.mobile.as_ref();
-        let asset=sqlx::query_as("INSERT INTO media.assets(id,job_id,lease_token,sha256,bytes,width,height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5,output_format,still_profile,thumbnail_format,mobile_sha256,mobile_bytes,mobile_width,mobile_height) VALUES(replace(gen_random_uuid()::text,'-',''),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$21,$14,$15,$16,$21,'jpeg',$17,$18,$19,$20) RETURNING id,sha256,bytes,width,height,output_format")
+        let asset=sqlx::query_as("INSERT INTO media.assets(id,job_id,lease_token,sha256,bytes,width,height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5,output_format,still_profile,thumbnail_format,mobile_sha256,mobile_bytes,mobile_width,mobile_height,exif_text,exif_mode) VALUES(replace(gen_random_uuid()::text,'-',''),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$21,$14,$15,$16,$21,'jpeg',$17,$18,$19,$20,$22,$23) RETURNING id,sha256,bytes,width,height,output_format")
             .bind(job_id).bind(token).bind(&primary.sha256).bind(primary.bytes).bind(primary.width).bind(primary.height)
             .bind(&variants.md5).bind(&variants.thumbnail.sha256).bind(variants.thumbnail.bytes).bind(variants.thumbnail.width).bind(variants.thumbnail.height)
             .bind(&source.input_sha256).bind(source.input_bytes).bind(source.retained_bytes).bind(source.md5.as_slice()).bind(output.format)
             .bind(mobile.map(|m|&m.sha256)).bind(mobile.map(|m|m.bytes)).bind(mobile.map(|m|m.width)).bind(mobile.map(|m|m.height)).bind(source.profile.as_str())
+            .bind(output.exif.as_ref().map(|e| e.text.as_str())).bind(output.exif.as_ref().map(|e| e.mode))
             .fetch_one(&mut *tx).await?;
         tx.commit().await?;
         Ok(asset)
@@ -173,6 +194,7 @@ mod tests {
 
     fn output() -> StillOutput {
         StillOutput {
+            exif: None,
             format: MediaFormat::Jpeg,
             primary: OutputMetadata {
                 sha256: "a".repeat(64),

@@ -38,8 +38,10 @@ The writer computes the projection before consuming its prepared comment and
 shares the same word-filter random outcomes with display preparation. It checks
 before ordinary posting timers, including for VIP and Pass users. Independently
 verified staff authority selects the janitor timer path. Accepted drawing posts
-record the later annotation digest. Image posts on `/p/` and `/test/` still lack
-qualified EXIF provenance and are excluded from this new comparison path.
+record the later annotation digest. New `/p/` and `/test/` image posts with known
+[EXIF provenance](exif-comments.md) participate in comparison. Historical JPEG
+assets without extraction provenance remain excluded rather than being assigned
+an invented empty result. Current-head EXIF qualification is still pending.
 
 Archive does not remove comparison history. Post/thread deletion does, while
 file-only deletion leaves it intact. Lookup uses the actual post timestamp.

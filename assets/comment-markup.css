@@ -54,3 +54,10 @@ s:hover a { text-decoration: underline; }
 .fortune-a-8 { color: #2456fb; }
 
 .post-notice { color: red; }
+
+/* Source EXIF tables, with an external event handler instead of inline script. */
+table.exif { display: none; min-width: 450px; }
+table.exif td { color: var(--exif-color, #707070); min-width: 150px; font-size: 8pt; }
+table.exif td b { text-decoration: underline; }
+table[data-exif-table][data-exif-expanded="true"] { display: table; }
+table[data-exif-table][data-exif-expanded="false"] { display: none; }

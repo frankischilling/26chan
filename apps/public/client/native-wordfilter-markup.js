@@ -1,3 +1,4 @@
+import { exifRecipe } from './native-exif.js';
 // Test's two saved choices alter only these generated markup literals. Keep
 // their finite inert recipes separate from the surrounding post grammar.
 const recipes = new Map();
@@ -52,6 +53,9 @@ export function isWordfilterMarkup(tag, attrs) {
   return recipes.has(JSON.stringify([tag, keys[0] ?? '', keys.length ? attrs[keys[0]] : '']));
 }
 export function isCommentElement(node, attributes = node?.attributes) {
+  if (['TABLE', 'TBODY', 'TR', 'TD'].includes(node?.tagName)) {
+    return exifRecipe(node.localName, Object.fromEntries(Array.from(attributes, ({ name, value }) => [name, value]))) !== null;
+  }
   if (ordinaryTags.has(node?.tagName)) return true;
   if (!['PR3', 'SP4N'].includes(node?.tagName)) return false;
   return isWordfilterMarkup(node.localName, Object.fromEntries(Array.from(attributes, ({ name, value }) => [name, value])));

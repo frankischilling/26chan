@@ -35,6 +35,7 @@ async fn upload(
     let token = job.lease_token.as_deref().unwrap();
     let md5 = format!("{digest:02x}").repeat(16);
     let output = StillOutput {
+        exif: None,
         format: MediaFormat::Png,
         primary: OutputMetadata {
             sha256: "a".repeat(64),

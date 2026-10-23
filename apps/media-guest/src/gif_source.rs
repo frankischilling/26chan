@@ -364,6 +364,7 @@ mod tests {
             .unwrap();
         let expected = board_media::still::StillPolicy {
             format: board_media::still::StillFormat::Gif,
+            exif_mode: 0,
             strip_exif: false,
             mobile: false,
             thread: true,

@@ -99,6 +99,15 @@ pub fn source_policy(
     };
     Some(StillPolicy {
         format,
+        exif_mode: if format != StillFormat::Jpeg {
+            0
+        } else {
+            match board {
+                "p" => 2,
+                "test" => 1,
+                _ => 0,
+            }
+        },
         strip_exif: format != StillFormat::Gif && (strip || (capcode && capcode_strip)),
         mobile: format != StillFormat::Gif && mobile,
         thread,

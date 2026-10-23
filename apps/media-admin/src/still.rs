@@ -78,6 +78,12 @@ async fn publish(
         *byte = u8::from_str_radix(&output.retained().md5()[index * 2..index * 2 + 2], 16)?;
     }
     let manifest = StillOutput {
+        exif: output
+            .exif()
+            .map(|text| board_store::media_assets::ExifMetadata {
+                text: text.to_owned(),
+                mode: i16::from(output.policy().exif_mode),
+            }),
         format: match output.policy().format {
             StillFormat::Png => MediaFormat::Png,
             StillFormat::Jpeg => MediaFormat::Jpeg,

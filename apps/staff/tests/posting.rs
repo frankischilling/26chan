@@ -2754,3 +2754,37 @@ async fn named_janitor_http_cross_board_op_keeps_full_delay() {
     fixture.cleanup().await;
     result.unwrap();
 }
+
+#[tokio::test]
+async fn final_opening_comment_rule_has_no_staff_badge_exemption() {
+    let _posting_capacity = POSTING_CASES.lock().await;
+    let fixture = ordinary_fixture().await;
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        sqlx::query("UPDATE content.boards SET opening_comment_pattern='@https?://@',opening_comment_refusal='Owned final URL required' WHERE slug=$1").bind(&case.board).execute(&case.owner).await.unwrap();
+        for (role,badge) in [("janitor","none"),("moderator","none"),("moderator","mod"),("admin","admin")] {
+            sqlx::query("UPDATE staff_identity.accounts SET role=$2,allow_boards=ARRAY['all'] WHERE id=$1").bind(case.account).bind(role).execute(&case.owner).await.unwrap();
+            let form=if badge=="none" {
+                ordinary_form(&case,0,"","","Owned staff body without link")
+            } else {
+                staff_form(&case,0,"Owned","Owned","Owned staff body without link")+"&badge="+badge
+            };
+            let response=private_request(&case,"/post",Some(form)).await;
+            assert_eq!(response.status(),StatusCode::BAD_REQUEST,"{role}/{badge}");
+            let text=response_text(response).await;
+            assert!(text.contains("Owned final URL required"),"{role}/{badge}: {text}");
+        }
+        assert_eq!(private_request(&case,"/post",Some(ordinary_form(&case,0,"","","https://example.test/staff-op"))).await.status(),StatusCode::SEE_OTHER);
+        // The final pattern error wins over the five-second staff timer.
+        let response=private_request(&case,"/post",Some(ordinary_form(&case,0,"","","Owned immediate invalid OP"))).await;
+        assert_eq!(response.status(),StatusCode::BAD_REQUEST);
+        assert!(response_text(response).await.contains("Owned final URL required"));
+        let (op,_,_)=case.latest().await;
+        elapse_staff_timer(&case,&case.board,posting_fixture::peer()).await;
+        assert_eq!(private_request(&case,"/post",Some(ordinary_form(&case,op,"","","Owned staff reply without URL"))).await.status(),StatusCode::SEE_OTHER);
+        let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(count,2);
+    }).await;
+    fixture.cleanup().await;
+    result.unwrap();
+}

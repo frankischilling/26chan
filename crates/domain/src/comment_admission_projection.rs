@@ -139,9 +139,34 @@ pub fn project(
     input: Input<'_>,
     limits: PostLimits,
 ) -> Result<AdmissionProjection, ProjectionError> {
+    project_inner(input, limits, None)
+}
+
+/// Extracted metadata enters before markup and filtering, as in the source.
+/// The caller must establish extraction provenance and bind `tim` to the media.
+pub fn project_with_exif(
+    input: Input<'_>,
+    limits: PostLimits,
+    exif: &crate::exif_comment::ExtractedExif,
+    tim: i64,
+) -> Result<AdmissionProjection, ProjectionError> {
+    let markup = exif
+        .comparison_markup(tim)
+        .map_err(|_| ProjectionError::InvalidInput)?;
+    project_inner(input, limits, Some(&markup))
+}
+
+fn project_inner(
+    input: Input<'_>,
+    limits: PostLimits,
+    exif: Option<&str>,
+) -> Result<AdmissionProjection, ProjectionError> {
     if !matches!(
-        input.source_path,
-        SourcePath::OrdinaryWithoutExif | SourcePath::IncomingOekakiWithoutExif
+        (input.source_path, exif),
+        (
+            SourcePath::OrdinaryWithoutExif | SourcePath::IncomingOekakiWithoutExif,
+            None
+        ) | (SourcePath::ExifPresent, Some(_))
     ) {
         return Err(ProjectionError::Unsupported(input.source_path));
     }
@@ -153,8 +178,12 @@ pub fn project(
         return Err(ProjectionError::InvalidInput);
     }
     let budget = WordfilterLimits::for_post(limits);
-    let (prefix, suffix) = crate::posting_randomizers::source_wrappers(input.randomizer)
+    let (prefix, mut suffix) = crate::posting_randomizers::source_wrappers(input.randomizer)
         .map_err(|_| ProjectionError::InvalidInput)?;
+    if let Some(exif) = exif {
+        suffix.push_str(exif);
+        bounded(&suffix, budget.output_bytes())?;
+    }
     // Randomizer decorations precede markup, so an unclosed tag can contain
     // the fortune suffix. They also participate in the global filter/wrap pass.
     // Posting preparation already performed the initial marker cleanup. Doing
@@ -504,6 +533,8 @@ mod tests {
             for case in fixture["admission_projection"][name]
                 .as_array()
                 .expect("independent projection fixture group")
+                .iter()
+                .chain(fixture["exif_projection"][name].as_array().unwrap())
             {
                 let p = &case["policy"];
                 let randomizer = match case["randomizer"]["kind"].as_str() {
@@ -535,28 +566,40 @@ mod tests {
                 } else {
                     None
                 };
-                let projection = project(
-                    Input {
-                        prepared_comment: PreparedComment {
-                            text: case["prepared_comment"].as_str().unwrap(),
-                        },
-                        board: case["board"].as_str().unwrap(),
-                        markup: MarkupPolicy {
-                            spoilers: p["spoilers"].as_bool().unwrap(),
-                            code: p["code"].as_bool().unwrap(),
-                            sjis: p["sjis"].as_bool().unwrap(),
-                            op: p["op"].as_bool().unwrap(),
-                        },
-                        filter: if enabled {
-                            Filter::On { profile, rolls }
-                        } else {
-                            Filter::Off
-                        },
-                        randomizer: randomizer.as_ref(),
-                        source_path: SourcePath::OrdinaryWithoutExif,
+                let input = Input {
+                    prepared_comment: PreparedComment {
+                        text: case["prepared_comment"].as_str().unwrap(),
                     },
-                    limits(),
-                )
+                    board: case["board"].as_str().unwrap(),
+                    markup: MarkupPolicy {
+                        spoilers: p["spoilers"].as_bool().unwrap(),
+                        code: p["code"].as_bool().unwrap(),
+                        sjis: p["sjis"].as_bool().unwrap(),
+                        op: p["op"].as_bool().unwrap(),
+                    },
+                    filter: if enabled {
+                        Filter::On { profile, rolls }
+                    } else {
+                        Filter::Off
+                    },
+                    randomizer: randomizer.as_ref(),
+                    source_path: if case["exif"].is_object() {
+                        SourcePath::ExifPresent
+                    } else {
+                        SourcePath::OrdinaryWithoutExif
+                    },
+                };
+                let projection = if let Some(raw) = case["exif"]["raw"].as_str() {
+                    let exif = crate::exif_comment::ExtractedExif::parse(raw).unwrap();
+                    project_with_exif(
+                        input,
+                        limits(),
+                        &exif,
+                        case["exif"]["tim"].as_i64().unwrap(),
+                    )
+                } else {
+                    project(input, limits())
+                }
                 .unwrap();
                 assert_eq!(
                     projection.as_comparison_data(),

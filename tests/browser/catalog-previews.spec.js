@@ -27,7 +27,8 @@ test('persisted hover headers clone nested trips, follow reply deletion and safe
   };
   try {
     for (const board of ['demo', 'news']) {
-      const op = await post(board, { sub: marker, name: '<b>Owned OP & name</b>#password', com: '<img src=x onerror=owned()> literal body' });
+      const comment = `${board === 'news' ? 'https://example.org ' : ''}<img src=x onerror=owned()> literal body`;
+      const op = await post(board, { sub: marker, name: '<b>Owned OP & name</b>#password', com: comment });
       created.push({ board, op });
       const first = await post(board, { resto: op, name: 'Older reply', com: 'first owned reply' });
       const last = await post(board, { resto: op, name: '<script>Last & name</script>#password', com: 'last owned reply' });
@@ -77,7 +78,7 @@ test('persisted hover headers clone nested trips, follow reply deletion and safe
       })).toBe(true);
       expect(await source.evaluate(template => template.innerHTML === window.ownedPreviewMarkup)).toBe(true);
       await expect(tip.locator('.post-last')).toHaveAttribute('data-reply-id', last);
-      await expect(tip.locator('.post-teaser')).toHaveText('<img src=x onerror=owned()> literal body');
+      await expect(tip.locator('.post-teaser')).toHaveText(comment);
       await expect(tip.locator('script, img, b')).toHaveCount(0);
       violations.push(...await page.evaluate(() => window.ownedViolations));
       await remove(board, last);

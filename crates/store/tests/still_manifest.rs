@@ -67,6 +67,10 @@ async fn still_reservation_retries_compare_every_companion_and_reject_expired_le
         let token = job.lease_token.as_deref().unwrap();
         queue.extend_still_lease(&job.id, token).await.unwrap();
         let output = StillOutput {
+            exif: Some(board_store::media_assets::ExifMetadata {
+                text: "Camera: Synthetic\n".into(),
+                mode: 2,
+            }),
             format: MediaFormat::Jpeg,
             primary: OutputMetadata {
                 sha256: "a".repeat(64),
@@ -102,6 +106,20 @@ async fn still_reservation_retries_compare_every_companion_and_reject_expired_le
             .await
             .unwrap();
         assert_eq!(asset.output_format, MediaFormat::Jpeg);
+        let stored: (Option<String>, Option<i16>) =
+            sqlx::query_as("SELECT exif_text,exif_mode FROM media.assets WHERE id=$1")
+                .bind(&asset.id)
+                .fetch_one(&owner)
+                .await
+                .unwrap();
+        assert_eq!(stored, (Some("Camera: Synthetic\n".into()), Some(2)));
+        assert!(
+            sqlx::query("UPDATE media.assets SET exif_text='' WHERE id=$1")
+                .bind(&asset.id)
+                .execute(&owner)
+                .await
+                .is_err()
+        );
         assert_eq!(
             queue
                 .prepare_still_output(&job.id, token, &output)
@@ -110,6 +128,9 @@ async fn still_reservation_retries_compare_every_companion_and_reject_expired_le
             asset
         );
         for mutate in [
+            |o: &mut StillOutput| o.exif = None,
+            |o: &mut StillOutput| o.exif.as_mut().unwrap().text.push_str("changed"),
+            |o: &mut StillOutput| o.exif.as_mut().unwrap().mode = 1,
             |o: &mut StillOutput| o.mobile = None,
             |o: &mut StillOutput| o.mobile.as_mut().unwrap().sha256 = "e".repeat(64),
             |o: &mut StillOutput| o.mobile.as_mut().unwrap().height = 511,

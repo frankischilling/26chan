@@ -1,6 +1,11 @@
 //! Catalog checks complement the existing definition hash seals.
 pub const READINESS_SQL: &str = r#"
 WITH expected(signature, grantees, owner_name) AS (VALUES
+ ('content.prepare_attachment_exif(text,text,text,bigint,boolean,boolean)', ARRAY['board_public','board_staff']::text[], 'board_attachment_owner'),
+ ('content.discard_attachment_exif()', ARRAY['board_public','board_staff']::text[], 'board_attachment_owner'),
+ ('content.exif_post_prepared(text,bigint,bigint)', ARRAY['board_public','board_staff']::text[], 'board_attachment_owner'),
+ ('content.consume_attachment_exif()', ARRAY[]::text[], 'board_attachment_owner'),
+ ('content.require_consumed_exif()', ARRAY[]::text[], 'board_attachment_owner'),
  ('content.comment_duplicate_remaining(bytea,text,bytea,bigint)', ARRAY['board_public','board_staff']::text[], 'board_posting_cooldown_owner'),
  ('content.record_comment_projection(bigint,bytea,bytea)', ARRAY['board_public','board_staff']::text[], 'board_posting_cooldown_owner'),
  ('content.expire_comment_history()', ARRAY['board_moderation_retention']::text[], 'board_posting_cooldown_owner'),
@@ -9,7 +14,12 @@ WITH expected(signature, grantees, owner_name) AS (VALUES
  ('content.revalidate_staff_quota_refusal(bytea,bytea,integer,text)', ARRAY['board_staff']::text[], 'board_staff_post_owner')
 )
 SELECT
- NOT EXISTS (SELECT 1 FROM expected e LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.signature)
+ (SELECT count(*)=2 FROM pg_attribute a WHERE a.attrelid=(SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='media' AND c.relname='assets') AND NOT a.attisdropped
+   AND ((a.attname='exif_text' AND a.atttypid='text'::regtype) OR (a.attname='exif_mode' AND a.atttypid='int2'::regtype)))
+ AND (SELECT count(*)=2 FROM pg_attribute a WHERE a.attrelid='content.boards'::regclass
+   AND a.attname IN('opening_comment_pattern','opening_comment_refusal')
+   AND a.atttypid='text'::regtype AND a.attnotnull AND NOT a.attisdropped)
+ AND NOT EXISTS (SELECT 1 FROM expected e LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.signature)
  WHERE p.oid IS NULL OR NOT p.prosecdef OR p.proowner<>e.owner_name::regrole
  OR p.provolatile<>'v' OR p.prolang<>(SELECT oid FROM pg_language WHERE lanname='plpgsql')
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp']::text[]

@@ -21,6 +21,7 @@ const auditedInputs = new Set([
   'apps/public/client/native-comment-projection.js',
   'apps/public/client/native-math.js',
   'apps/public/client/native-wordfilter-markup.js',
+  'apps/public/client/native-exif.js',
   'node_modules/@mathjax/mathjax-tex-font/mjs/common.js',
   'node_modules/@mathjax/mathjax-tex-font/mjs/svg.js',
   'node_modules/@mathjax/mathjax-tex-font/mjs/svg/bold-italic.js',

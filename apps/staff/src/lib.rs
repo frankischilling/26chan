@@ -201,6 +201,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/request-queue.js", get(handlers::request_queue_javascript))
         .route("/post-limits.js", get(handlers::post_limits_javascript))
         .route("/comment-markup.css", get(handlers::comment_css))
+        .route("/exif.js", get(handlers::exif_javascript))
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
         .route("/messages", get(staff_messages::show))

@@ -6,6 +6,7 @@ use board_media_guest::{
 fn policy(format: StillFormat) -> Policy {
     Policy {
         format,
+        exif_mode: 0,
         strip_exif: false,
         mobile: true,
         thread: true,
@@ -174,6 +175,7 @@ async fn guest_output_matches_independent_host_envelope_checks() {
     let guest_policy = policy(StillFormat::Png);
     let host_policy = StillPolicy {
         format: HostFormat::Png,
+        exif_mode: 0,
         strip_exif: guest_policy.strip_exif,
         mobile: guest_policy.mobile,
         thread: guest_policy.thread,

@@ -60,9 +60,21 @@ for (const javaScriptEnabled of [false, true]) {
       await page.goto(`${origin}/news/`);
       if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
       await page.locator('#sub').fill(marker); await expect(page.locator('#postPassword')).toHaveValue('');
+      // /news/ also applies its final COM_REGEX rule. A valid subject does not
+      // exempt an opening post from the independently imported URL requirement.
+      const missingUrl = page.waitForResponse(response => response.url().endsWith('/news/imgboard.php') && response.request().method() === 'POST');
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
+      expect((await missingUrl).status()).toBe(422);
+      await expect(page.locator('body')).toContainText('Your post must contain at least one valid URL');
+      await page.goto(`${origin}/news/`);
+      if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
+      await page.locator('#sub').fill(marker);
+      const sourceUrl = 'https://example.org/owned-required-subject';
+      await page.locator('#com').fill(sourceUrl);
+      await expect(page.locator('#postPassword')).toHaveValue('');
       await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       await expect(page).toHaveURL(/\/news\/thread\/\d+#p\d+$/); op = /#p(\d+)$/.exec(page.url())[1];
-      await expect(page.locator(`#m${op}`)).toBeEmpty();
+      await expect(page.locator(`#m${op}`)).toContainText(sourceUrl);
       if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
       await expect(page.locator('#sub')).toHaveCount(0);
       await page.locator('#com').fill('Owned subjectless reply'); await expect(page.locator('#postPassword')).toHaveValue('');

@@ -1,0 +1,79 @@
+{
+  "source_sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+  "strings_sha256": "3b3b60083db74fb1693af6f0824cccd6ec3ca446242474008cf9be474c65cd17",
+  "toggle": "[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif%d')\">here</a> to show/hide.]",
+  "table_php": "if( ENABLE_EXIF == 1 && $exif ) {\n\t\t//turn exif into a table\n\t\t$exiflines = explode( \"\\n\", $exif );\n\t\t$exif      = \"<table class=\\\"exif\\\" id=\\\"exif$tim\\\">\";\n\t\tforeach( $exiflines as $exifline ) {\n\t\t\tlist( $exiftag, $exifvalue ) = explode( ': ', $exifline );\n\t\t\tif( $exifvalue != '' )\n\t\t\t\t$exif .= \"<tr><td>$exiftag</td><td>$exifvalue</td></tr>\";\n\t\t\telse\n\t\t\t\t$exif .= \"<tr><td colspan=\\\"2\\\"><b>$exiftag</b></td></tr>\";\n\t\t}\n\t\t$exif .= '</table>';\n\t\t$exiftext .= '<br><br><span class=\"abbr\">' . sprintf(S_EXIF_TOGGLE, $tim) . '</span><br>';\n\t\t$exiftext .= \"$exif\";\n\t}",
+  "ordering": {
+    "extraction": 147872,
+    "table": 153182,
+    "capcode_cleanup": 159453,
+    "append": 162975,
+    "wordfilter": 164348
+  },
+  "styles": {
+    "yotsubanew": {
+      "sha256": "05d61b9a886aca60bd418b63a5b86d2ef3050d1d90c640da64f2206dda740db9",
+      "rules": [
+        "table.exif { display: none; min-width: 450px; }",
+        "table.exif td { color: #707070; min-width: 150px; font-size: 8pt; }",
+        "table.exif td b { text-decoration: underline; }"
+      ]
+    },
+    "yotsubluenew": {
+      "sha256": "d6abc7c9fb8c2d9c168554b39a54b4569f68243aa4bcb972b8452264cbdd1a65",
+      "rules": [
+        "table.exif { display: none; min-width: 450px; }",
+        "table.exif td { color: #070707; min-width: 150px; font-size: 8pt; }",
+        "table.exif td b { text-decoration: underline; }"
+      ]
+    },
+    "futabanew": {
+      "sha256": "8beb159cfcf83d042a68b1037997511c7b0bb959289eb1b5757036cdd7aa0945",
+      "rules": [
+        "table.exif { display: none; min-width: 450px; }",
+        "table.exif td { color: #707070; min-width: 150px; font-size: 8pt; }",
+        "table.exif td b { text-decoration: underline; }"
+      ]
+    },
+    "burichannew": {
+      "sha256": "71a5a5b8362aa78269c19e89cacc249cda48f2af2393fda7d3638fa518307b18",
+      "rules": [
+        "table.exif { display: none; min-width: 450px; }",
+        "table.exif td { color: #070707; min-width: 150px; font-size: 8pt; }",
+        "table.exif td b { text-decoration: underline; }"
+      ]
+    },
+    "photon": {
+      "sha256": "a4741759760d959b4a2e29d9622ab63a91d1cdc49f10679335b71f5b16e9575d",
+      "rules": [
+        "table.exif { display: none; min-width: 450px; }",
+        "table.exif td { color: #707070; min-width: 150px; font-size: 8pt; }",
+        "table.exif td b { text-decoration: underline; }"
+      ]
+    },
+    "tomorrow": {
+      "sha256": "40b4c474a93e87737811c77a50cce9af4fadc9b025a3863e126ca418a8f33a4a",
+      "rules": [
+        "table.exif { display: none; min-width: 450px; }",
+        "table.exif td { color: #999; min-width: 150px; font-size: 8pt; }",
+        "table.exif td b { text-decoration: underline; }"
+      ]
+    },
+    "yotsubamobile": {
+      "sha256": "872810133bc5dff715746b30127d531e7cd6d93d8405781af23dc7c4760eb023",
+      "rules": [
+        "table.exif { display: none; min-width: 450px; }",
+        "table.exif td { color: #707070; min-width: 150px; font-size: 8pt; }",
+        "table.exif td b { text-decoration: underline; }"
+      ]
+    },
+    "yotsubluemobile": {
+      "sha256": "3cb6eb4ec8fcb261b2f0496390484fa613d27ec1bad26fc97127b7dcb848d6ff",
+      "rules": [
+        "table.exif { display: none; min-width: 450px; }",
+        "table.exif td { color: #070707; min-width: 150px; font-size: 8pt; }",
+        "table.exif td b { text-decoration: underline; }"
+      ]
+    }
+  }
+}

@@ -819,3 +819,18 @@ test('staff notices stay bounded escaped text inside comment-only strong wrapper
     `<strong class="post-notice">${'x'.repeat(4099)}</strong>`,
   ]) assert.equal(parse(snapshot(fragment)).status, 'invalid-snapshot');
 });
+
+test('EXIF tables and inert toggles survive worker recipes without script authority', () => {
+  const body = '<span class="abbr">[EXIF data available. Click <a href="#exif1730000000000" data-exif-toggle="exif1730000000000" aria-expanded="false">here</a> to show/hide.]</span><br><table class="exif" id="exif1730000000000" data-exif-table="exif1730000000000"><tr><td>Equipment</td><td>Synthetic &lt;script&gt;</td></tr><tr><td colspan="2"><b>Camera</b></td></tr></table>';
+  const result = parse(snapshot(body));
+  assert.equal(result.status, "ok");
+  assert.equal(result.snapshot.posts.length, 2);
+  for (const bad of [
+    body.replace('aria-expanded="false"', 'onclick="alert(1)"'),
+    body.replace('href="#exif1730000000000"', 'href="javascript:alert(1)"'),
+    body.replace('data-exif-toggle="exif1730000000000"', 'data-exif-toggle="exif1730000000001"'),
+    body.replace('colspan="2"', 'colspan="999999"'),
+    body.replace('class="exif"', 'class="exif" style="position:fixed"'),
+    body.replace('</table>', '</table><table class="exif" id="exif1730000000000" data-exif-table="exif1730000000000"></table>'),
+  ]) assert.equal(parse(snapshot(bad)).status, "invalid-snapshot");
+});
