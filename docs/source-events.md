@@ -60,3 +60,59 @@ historical production PHP version is unknown. Stock valuation is supplied as
 a scalar, and the score-read boundary retains the source's unconditional zero.
 These tests do not establish an active scoring, market or emote workflow.
 Optional activation, persistent state and browser qualification remain open.
+
+## Dormant market model
+
+The pure Rust model preserves the 18 symbols, 1,000-point starting balance,
+1,000-unit order ceiling, ten-second cooldown, stale-price refusal and public
+balance projection. A separate corpus executes 108 cases through the original
+buy/sell functions against an owned in-memory ledger. It covers scalar coercion,
+validation order, zero holdings, insufficient funds and exact cooldown edges.
+No historical account or quote data is used.
+
+The model returns a complete next account rather than changing half a trade.
+Overflow and unsupported symbols are rejected. A future persistent controller
+must authenticate the actor and lock the account and quote in one transaction;
+the pure arithmetic does not provide those guarantees by itself. The HTTP
+endpoint remains closed. None of this code connects to financial services or
+handles real money.
+
+## Dormant emote model
+
+The actual source roster has 166 entries: 58 Unicode choices, 82 ordinary
+images and 26 rare images. Its nearby comments give older pool counts; the
+literal arrays, not those comments, define lookup and selection. Image choices
+use their eight-digit asset identifiers, while Unicode choices use their names.
+The generated Rust roster is checked against 172 source lookups and 24 balance
+cases. No downloaded image is implied by an entry in that roster.
+
+The model retains 20 points per completed five-minute interval, stored balances
+that exclude those elapsed-time credits, 3/10-roll charges, duplicate recycling
+and the 50/150/300-point purchase prices. A 393-case corpus executes the original
+buy and seeded-roll functions against an owned ledger. Rust replays their
+recorded results, including duplicate ownership, insufficient points, refunds
+and successful acquisitions. Future-time and overflow states are rejected.
+
+A persistent implementation must authenticate the session, serialize each
+account update and generate every random draw on the server. Callers must not
+accept lottery results from a browser. The source's posting-emote hook and
+client script include are commented out, and its referenced
+`april_process_post_emotes` implementation is absent from the archive. The
+public emote endpoint remains closed; storage, activation and that missing
+posting contract have not been reconstructed yet.
+
+## Credential boundary
+
+The optional account models have a separate credential primitive, not yet wired
+to the closed endpoints. Cookies bind one event kind and run, expire after at
+most 48 hours and cannot outlive the configured run. Key changes, altered
+payloads, future issue times and noncanonical encodings invalidate them.
+
+Same-address recovery uses the verified transport peer with a new, separately
+derived HMAC key. IPv4 and its mapped IPv6 form identify the same peer. A
+separate derivation produces the private storage capability; it is not the
+cookie payload or a public poster/rate-limit identifier. No historical source
+secret is reused. Runtime code must keep credentials in HttpOnly cookies,
+keep storage capabilities out of responses and logs, and check current operator
+activation before every operation. These primitives do not grant persistent
+database access or enable an event by themselves.

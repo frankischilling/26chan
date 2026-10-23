@@ -1,6 +1,10 @@
 //! Pure event presentation rules from the supplied source. These helpers do not
 //! activate dormant endpoints, grant perks, or treat event balances as money.
 
+pub mod credentials;
+pub mod emotes;
+pub mod market;
+
 pub const STOCKS: [&str; 18] = [
     "PEPE", "WOJK", "ANIME", "CHAD", "CLOWN", "LOL", "SICP", "AUTSM", "BANE", "CIA", "BOOB",
     "RDDT", "DESU", "JANNY", "GME", "CHUCK", "YTSB", "GACHI",

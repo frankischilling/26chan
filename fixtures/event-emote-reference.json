@@ -1,0 +1,2562 @@
+{
+  "source_sha256": "8322e1123561001ab624da00932ebe94e2779839a1ae5d15c9c8413408310138",
+  "scope": "Capture the dormant event's emote roster and scalar lookup/balance helpers.\n\nOnly literal metadata and the two pure helpers are evaluated. The source's\nclosed entry point, account bootstrap and historical signing key are excluded.\n",
+  "metadata": "$emotes = [\n  // Image emotes (type 2, 3): [ type, filename prefix, width, height ]\n  // 81 emotes\n  'AngryWojak' => [ 2, '03d18964', 27, 32 ],\n  'Aquacry' => [ 2, '83cf2699', 30, 30 ],\n  'AWOOOO' => [ 2, 'e2ad2cb7', 28, 32 ],\n  'AYAYA' => [ 2, 'f93f9e5a', 32, 31 ],\n  'AYAYAHyper' => [ 2, 'bc1ff2b8', 32, 32 ],\n  'BOOBA' => [ 2, 'fb56168f', 32, 32 ],\n  'BOOMER' => [ 2, '51ca59c2', 32, 32 ],\n  'Bruh' => [ 2, '67905c4f', 32, 32 ],\n  'Catcry' => [ 2, '967f06c9', 28, 28 ],\n  'ChadYes' => [ 2, 'c7375c9d', 31, 32 ],\n  'COPIUM' => [ 2, '4dfb5c71', 32, 31 ],\n  'DontBully' => [ 2, '199f7d0e', 31, 32 ],\n  'EZY' => [ 2, 'adf2d2f0', 28, 26 ],\n  'FeelsBadMan' => [ 2, '59b6bba6', 30, 29 ],\n  'FeelsGoodMan' => [ 2, 'cda7b2fb', 32, 24 ],\n  'FeelsOkayMan' => [ 2, '08b66b75', 28, 27 ],\n  'FeelsSpecialMan' => [ 2, '25086889', 28, 25 ],\n  'FeelsStrongMan' => [ 2, '0ee6ba1c', 32, 31 ],\n  'FeelsWeirdMan' => [ 2, 'ad2977e6', 28, 27 ],\n  'gachiGASM' => [ 2, 'c291d202', 24, 28 ],\n  'gachiHYPER' => [ 2, '634a21ba', 24, 28 ],\n  'Gigachad' => [ 2, '7a95728b', 29, 32 ],\n  'GoodNight' => [ 2, 'a6d16707', 31, 32 ],\n  'Hahaa' => [ 2, 'af528e56', 28, 28 ],\n  'HeavyBreathing' => [ 2, '4623886c', 32, 32 ],\n  'KannaNom' => [ 2, '5de4addd', 32, 32 ],\n  'KannaPolice' => [ 2, '98cf0be7', 32, 32 ],\n  'KEKW' => [ 2, 'e54792d7', 32, 32 ],\n  'KEKWait' => [ 2, 'c2cfb2e3', 32, 32 ],\n  'MarisaFace' => [ 2, '857a9ea0', 24, 24 ],\n  'MeguminHappy' => [ 2, 'a19762fc', 32, 32 ],\n  'MikuStare' => [ 2, 'b674048b', 32, 32 ],\n  'monkaChrist' => [ 2, '48c107b3', 28, 28 ],\n  'monkaGIGA' => [ 2, 'de27847b', 28, 28 ],\n  'monkaH' => [ 2, 'acb11630', 28, 28 ],\n  'monkaHmm' => [ 2, 'd3c674ba', 32, 32 ],\n  'monkaMEGA' => [ 2, '0b3318e4', 28, 28 ],\n  'monkaOMEGA' => [ 2, 'bb299b4d', 32, 32 ],\n  'monkaS' => [ 2, 'ed1cc57f', 28, 28 ],\n  'monkaSpeed' => [ 2, '87c89650', 32, 30 ],\n  'monkaW' => [ 2, 'b05923f5', 32, 32 ],\n  'nepSmug' => [ 2, '57b01648', 32, 32 ],\n  'OMEGALUL' => [ 2, 'c4035570', 31, 32 ],\n  'peepoBlanket' => [ 2, '099390a2', 31, 32 ],\n  'peepoClown' => [ 2, '8ea2d160', 32, 32 ],\n  'peepoHappy' => [ 2, '68104e2a', 28, 20 ],\n  'peepoWTF' => [ 2, '3d8675e9', 28, 19 ],\n  'Pepega' => [ 2, '1ee7c5a1', 32, 25 ],\n  'PepeHands' => [ 2, 'f2ecf801', 32, 32 ],\n  'PepeLaugh' => [ 2, '51cbf903', 30, 29 ],\n  'PepeLmao' => [ 2, '25908e08', 28, 28 ],\n  'pepePoint' => [ 2, '90786369', 32, 32 ],\n  'PepoG' => [ 2, '4459d60b', 32, 26 ],\n  'pepoRope' => [ 2, '6ec0dd2c', 32, 31 ],\n  'PepoThink' => [ 2, '9ecd704b', 32, 31 ],\n  'pikachuS' => [ 2, '42faedcc', 32, 32 ],\n  'PillowNo' => [ 2, '1e4d8dfa', 32, 32 ],\n  'PillowYes' => [ 2, '6f5bc7e5', 32, 32 ],\n  'Pog' => [ 2, 'fad6951c', 28, 28 ],\n  'POGGERS' => [ 2, '6f0d4e37', 32, 32 ],\n  'PressF' => [ 2, 'f0a256b9', 32, 30 ],\n  'REEeee' => [ 2, 'b06b1566', 32, 32 ],\n  'REEEEE' => [ 2, 'ba70c4d9', 32, 28 ],\n  'ReimuGlare' => [ 2, 'bdf28159', 32, 32 ],\n  'ReimuPalm' => [ 2, '41a37aa0', 32, 32 ],\n  'SadCatW' => [ 2, 'd8f61d71', 32, 32 ],\n  'Sadge' => [ 2, 'e024965e', 28, 22 ],\n  'SeetheWojak' => [ 2, 'a9f848d3', 28, 32 ],\n  'Stonks' => [ 2, '53478ca5', 31, 32 ],\n  'ThisIsFine' => [ 2, 'd9bf8456', 28, 31 ],\n  'Thonk' => [ 2, 'ec538b5c', 32, 27 ],\n  'TooLewd' => [ 2, 'ddc55766', 32, 32 ],\n  'Tuturu' => [ 2, 'c72e8e84', 32, 32 ],\n  'umaruCry' => [ 2, '7242c342', 28, 28 ],\n  'WanWan' => [ 2, '8a527ac8', 32, 31 ],\n  'WeirdChamp' => [ 2, '3021a426', 31, 32 ],\n  'weSmart' => [ 2, '6476e57d', 27, 28 ],\n  'wojakNPC' => [ 2, '24edafcc', 32, 32 ],\n  'wojakWithered' => [ 2, 'ed7d4c3a', 32, 30 ],\n  'WTFF' => [ 2, '8b7cc3e0', 32, 32 ],\n  'YEP' => [ 2, 'e1899bbe', 32, 31 ],\n  'YesHoney' => [ 2, '2b414cf1', 31, 25 ],\n  // 28 emotes\n  'bane' => [ 3, 'c458ef22', 32, 32 ],\n  'bog' => [ 3, 'c2e2602a', 32, 32 ],\n  'cia' => [ 3, 'c69a1ef1', 32, 32 ],\n  'cockmongler' => [ 3, 'eda6f332', 22, 32 ],\n  'desu' => [ 3, '80692b94', 28, 32 ],\n  'desusmirk' => [ 3, '72694e0e', 41, 32 ],\n  'frodo' => [ 3, 'e9d526e8', 32, 32 ],\n  'goldface' => [ 3, '7081142e', 32, 32 ],\n  'happycat' => [ 3, '1d3f2a13', 27, 32 ],\n  'happyn' => [ 3, 'afd49202', 25, 32 ],\n  'jannydog' => [ 3, 'f0dcbf8a', 35, 32 ],\n  'koiwai' => [ 3, '1d7e369a', 44, 32 ],\n  'koiwaiwave' => [ 3, '0e313986', 31, 32 ],\n  'konata' => [ 3, 'eb07a2c8', 32, 32 ],\n  'laughingw' => [ 3, '6e6217c7', 32, 32 ],\n  'longcat' => [ 3, '0ee48fb4', 37, 32 ],\n  'longcata' => [ 3, '95c37417', 37, 30 ],\n  'longcatb' => [ 3, 'e77bc341', 37, 32 ],\n  'moetron' => [ 3, 'cf1d4b8d', 32, 32 ],\n  'mudkip' => [ 3, 'a4b23eff', 31, 32 ],\n  'shoopdw' => [ 3, '11339e7b', 23, 32 ],\n  'shoopdw2' => [ 3, '49bde730', 100, 32 ],\n  'troll' => [ 3, 'd89a0070', 37, 32 ],\n  'trollface' => [ 3, '7b4acfbf', 32, 26 ],\n  'yaranaika' => [ 3, 'a6955123', 32, 32 ],\n  'yaranaika2' => [ 3, '4d00227b', 32, 32 ],\n  \n  // Unicode emojis (type 1): [ type, html entity ]\n  // 58 emojis\n  'happy' => [ 1, '&#x1F600;' ],\n  'grin' => [ 1, '&#x1F604;' ],\n  'xd' => [ 1, '&#x1F606;' ],\n  'grinsweat' => [ 1, '&#x1F605;' ],\n  'rofl' => [ 1, '&#x1F923;' ],\n  'lmao' => [ 1, '&#x1F602;' ],\n  'smile' => [ 1, '&#x1F642;' ],\n  'wink' => [ 1, '&#x1F609;' ],\n  'glad' => [ 1, '&#x1F60A;' ],\n  'kiss' => [ 1, '&#x1F619;' ],\n  'crazy' => [ 1, '&#x1F92A;' ],\n  'think' => [ 1, '&#x1F914;' ],\n  'wot' => [ 1, '&#x1F928;' ],\n  'kay' => [ 1, '&#x1F610;' ],\n  'yikes' => [ 1, '&#x1F612;' ],\n  'eyeroll' => [ 1, '&#x1F644;' ],\n  'confused' => [ 1, '&#x1F615;' ],\n  'pensive' => [ 1, '&#x1F614;' ],\n  'disgust' => [ 1, '&#x1F922;' ],\n  'vomit' => [ 1, '&#x1F92E;' ],\n  'dizzy' => [ 1, '&#x1F635;' ],\n  'nerd' => [ 1, '&#x1F913;' ],\n  'worry' => [ 1, '&#x1F61F;' ],\n  'sad' => [ 1, '&#x1F641;' ],\n  'frown' => [ 1, '&#x2639;&#xFE0F;' ],\n  'wow' => [ 1, '&#x1F632;' ],\n  'blush' => [ 1, '&#x1F633;' ],\n  'cry' => [ 1, '&#x1F622;' ],\n  'plead' => [ 1, '&#x1F97A;' ],\n  'baw' => [ 1, '&#x1F62D;' ],\n  'shock' => [ 1, '&#x1F631;' ],\n  'anguish' => [ 1, '&#x1F627;' ],\n  'devil' => [ 1, '&#x1F608;' ],\n  'angry' => [ 1, '&#x1F620;' ],\n  'struggle' => [ 1, '&#x1F623;' ],\n  'proud' => [ 1, '&#x1F624;' ],\n  'smirk' => [ 1, '&#x1F60F;' ],\n  'drool' => [ 1, '&#x1F924;' ],\n  'love' => [ 1, '&#x1F60D;' ],\n  'skull' => [ 1, '&#x1F480;' ],\n  'clown' => [ 1, '&#x1F921;' ],\n  'alien' => [ 1, '&#x1F47D;' ],\n  'robot' => [ 1, '&#x1F916;' ],\n  'ok' => [ 1, '&#x1F44C;' ],\n  'fu' => [ 1, '&#x1F595;' ],\n  'thup' => [ 1, '&#x1F44D;' ],\n  'thdown' => [ 1, '&#x1F44E;' ],\n  'punch' => [ 1, '&#x1F44A;' ],\n  'pray' => [ 1, '&#x1F64F;' ],\n  'flex' => [ 1, '&#x1F4AA;' ],\n  'eyes' => [ 1, '&#x1F440;' ],\n  'drip' => [ 1, '&#x1F4A6;' ],\n  'wind' => [ 1, '&#x1F4A8;' ],\n  'fire' => [ 1, '&#x1F525;' ],\n  'clover' => [ 1, '&#x1F340;' ],\n  'anger' => [ 1, '&#x1F4A2;' ],\n  'perfect' => [ 1, '&#x1F4AF;' ],\n  'zzz' => [ 1, '&#x1F4A4;' ]\n];\n\n$emote_pools = [\n  // 58\n  ['happy','grin','xd','grinsweat','rofl','lmao','smile','wink','glad','kiss',\n  'crazy','think','wot','kay','yikes','eyeroll','confused','pensive','disgust',\n  'vomit','dizzy','nerd','worry','sad','frown','wow','blush','cry','plead','baw',\n  'shock','anguish','devil','angry','struggle','proud','smirk','drool','love',\n  'skull','clown','alien','robot','ok','fu','thup','thdown','punch','pray',\n  'flex','eyes','drip','wind','fire','clover','anger','perfect','zzz'],\n  \n  // 81\n  ['03d18964','83cf2699','e2ad2cb7','f93f9e5a','bc1ff2b8','fb56168f','51ca59c2',\n  '67905c4f','967f06c9','c7375c9d','4dfb5c71','199f7d0e','adf2d2f0','59b6bba6',\n  'cda7b2fb','08b66b75','25086889','0ee6ba1c','ad2977e6','c291d202','634a21ba',\n  '7a95728b','a6d16707','af528e56','4623886c','5de4addd','98cf0be7','e54792d7',\n  'c2cfb2e3','857a9ea0','a19762fc','b674048b','48c107b3','de27847b','acb11630',\n  'd3c674ba','0b3318e4','bb299b4d','ed1cc57f','87c89650','b05923f5','57b01648',\n  'c4035570','099390a2','8ea2d160','68104e2a','3d8675e9','1ee7c5a1','f2ecf801',\n  '51cbf903','25908e08','90786369','4459d60b','6ec0dd2c','9ecd704b','42faedcc',\n  '1e4d8dfa','6f5bc7e5','fad6951c','6f0d4e37','f0a256b9','b06b1566','ba70c4d9',\n  'bdf28159','41a37aa0','d8f61d71','e024965e','a9f848d3','53478ca5','d9bf8456',\n  'ec538b5c','ddc55766','c72e8e84','7242c342','8a527ac8','3021a426','6476e57d',\n  '24edafcc','ed7d4c3a','8b7cc3e0','e1899bbe','2b414cf1'],\n  \n  // 28\n  ['c458ef22','c2e2602a','c69a1ef1','eda6f332','80692b94','72694e0e','e9d526e8',\n  '7081142e','1d3f2a13','afd49202','f0dcbf8a','1d7e369a','0e313986','eb07a2c8',\n  '6e6217c7','0ee48fb4','95c37417','e77bc341','cf1d4b8d','a4b23eff','11339e7b',\n  '49bde730','d89a0070','7b4acfbf','a6955123','4d00227b']\n];\n\n// ------------",
+  "functions": "function xa_get_full_balance($data) {\n  $now = $_SERVER['REQUEST_TIME'];\n  $start_ts = (int)$data['start_ts'];\n  $tick_balance = floor(($now - $start_ts) / XA_TICK_INTERVAL) * XA_TICK_POINTS;\n  return $tick_balance + $data['balance'];\n}\n\nfunction xa_get_emote_by_id($id) {\n  global $emotes;\n  \n  foreach ($emotes as $key => $meta) {\n    $_kind = $meta[0];\n    $_arg = $meta[1];\n    \n    // Emoji (type 1)\n    if ($_kind === 1) {\n      if ($key === $id) {\n        return [$key, $_kind, $_arg];\n      }\n    }\n    // Image emotes\n    else {\n      if ($_arg === $id) {\n        return [$key, $_kind, $_arg];\n      }\n    }\n  }\n  \n  return null;\n}",
+  "emotes": {
+    "AngryWojak": [
+      2,
+      "03d18964",
+      27,
+      32
+    ],
+    "Aquacry": [
+      2,
+      "83cf2699",
+      30,
+      30
+    ],
+    "AWOOOO": [
+      2,
+      "e2ad2cb7",
+      28,
+      32
+    ],
+    "AYAYA": [
+      2,
+      "f93f9e5a",
+      32,
+      31
+    ],
+    "AYAYAHyper": [
+      2,
+      "bc1ff2b8",
+      32,
+      32
+    ],
+    "BOOBA": [
+      2,
+      "fb56168f",
+      32,
+      32
+    ],
+    "BOOMER": [
+      2,
+      "51ca59c2",
+      32,
+      32
+    ],
+    "Bruh": [
+      2,
+      "67905c4f",
+      32,
+      32
+    ],
+    "Catcry": [
+      2,
+      "967f06c9",
+      28,
+      28
+    ],
+    "ChadYes": [
+      2,
+      "c7375c9d",
+      31,
+      32
+    ],
+    "COPIUM": [
+      2,
+      "4dfb5c71",
+      32,
+      31
+    ],
+    "DontBully": [
+      2,
+      "199f7d0e",
+      31,
+      32
+    ],
+    "EZY": [
+      2,
+      "adf2d2f0",
+      28,
+      26
+    ],
+    "FeelsBadMan": [
+      2,
+      "59b6bba6",
+      30,
+      29
+    ],
+    "FeelsGoodMan": [
+      2,
+      "cda7b2fb",
+      32,
+      24
+    ],
+    "FeelsOkayMan": [
+      2,
+      "08b66b75",
+      28,
+      27
+    ],
+    "FeelsSpecialMan": [
+      2,
+      "25086889",
+      28,
+      25
+    ],
+    "FeelsStrongMan": [
+      2,
+      "0ee6ba1c",
+      32,
+      31
+    ],
+    "FeelsWeirdMan": [
+      2,
+      "ad2977e6",
+      28,
+      27
+    ],
+    "gachiGASM": [
+      2,
+      "c291d202",
+      24,
+      28
+    ],
+    "gachiHYPER": [
+      2,
+      "634a21ba",
+      24,
+      28
+    ],
+    "Gigachad": [
+      2,
+      "7a95728b",
+      29,
+      32
+    ],
+    "GoodNight": [
+      2,
+      "a6d16707",
+      31,
+      32
+    ],
+    "Hahaa": [
+      2,
+      "af528e56",
+      28,
+      28
+    ],
+    "HeavyBreathing": [
+      2,
+      "4623886c",
+      32,
+      32
+    ],
+    "KannaNom": [
+      2,
+      "5de4addd",
+      32,
+      32
+    ],
+    "KannaPolice": [
+      2,
+      "98cf0be7",
+      32,
+      32
+    ],
+    "KEKW": [
+      2,
+      "e54792d7",
+      32,
+      32
+    ],
+    "KEKWait": [
+      2,
+      "c2cfb2e3",
+      32,
+      32
+    ],
+    "MarisaFace": [
+      2,
+      "857a9ea0",
+      24,
+      24
+    ],
+    "MeguminHappy": [
+      2,
+      "a19762fc",
+      32,
+      32
+    ],
+    "MikuStare": [
+      2,
+      "b674048b",
+      32,
+      32
+    ],
+    "monkaChrist": [
+      2,
+      "48c107b3",
+      28,
+      28
+    ],
+    "monkaGIGA": [
+      2,
+      "de27847b",
+      28,
+      28
+    ],
+    "monkaH": [
+      2,
+      "acb11630",
+      28,
+      28
+    ],
+    "monkaHmm": [
+      2,
+      "d3c674ba",
+      32,
+      32
+    ],
+    "monkaMEGA": [
+      2,
+      "0b3318e4",
+      28,
+      28
+    ],
+    "monkaOMEGA": [
+      2,
+      "bb299b4d",
+      32,
+      32
+    ],
+    "monkaS": [
+      2,
+      "ed1cc57f",
+      28,
+      28
+    ],
+    "monkaSpeed": [
+      2,
+      "87c89650",
+      32,
+      30
+    ],
+    "monkaW": [
+      2,
+      "b05923f5",
+      32,
+      32
+    ],
+    "nepSmug": [
+      2,
+      "57b01648",
+      32,
+      32
+    ],
+    "OMEGALUL": [
+      2,
+      "c4035570",
+      31,
+      32
+    ],
+    "peepoBlanket": [
+      2,
+      "099390a2",
+      31,
+      32
+    ],
+    "peepoClown": [
+      2,
+      "8ea2d160",
+      32,
+      32
+    ],
+    "peepoHappy": [
+      2,
+      "68104e2a",
+      28,
+      20
+    ],
+    "peepoWTF": [
+      2,
+      "3d8675e9",
+      28,
+      19
+    ],
+    "Pepega": [
+      2,
+      "1ee7c5a1",
+      32,
+      25
+    ],
+    "PepeHands": [
+      2,
+      "f2ecf801",
+      32,
+      32
+    ],
+    "PepeLaugh": [
+      2,
+      "51cbf903",
+      30,
+      29
+    ],
+    "PepeLmao": [
+      2,
+      "25908e08",
+      28,
+      28
+    ],
+    "pepePoint": [
+      2,
+      "90786369",
+      32,
+      32
+    ],
+    "PepoG": [
+      2,
+      "4459d60b",
+      32,
+      26
+    ],
+    "pepoRope": [
+      2,
+      "6ec0dd2c",
+      32,
+      31
+    ],
+    "PepoThink": [
+      2,
+      "9ecd704b",
+      32,
+      31
+    ],
+    "pikachuS": [
+      2,
+      "42faedcc",
+      32,
+      32
+    ],
+    "PillowNo": [
+      2,
+      "1e4d8dfa",
+      32,
+      32
+    ],
+    "PillowYes": [
+      2,
+      "6f5bc7e5",
+      32,
+      32
+    ],
+    "Pog": [
+      2,
+      "fad6951c",
+      28,
+      28
+    ],
+    "POGGERS": [
+      2,
+      "6f0d4e37",
+      32,
+      32
+    ],
+    "PressF": [
+      2,
+      "f0a256b9",
+      32,
+      30
+    ],
+    "REEeee": [
+      2,
+      "b06b1566",
+      32,
+      32
+    ],
+    "REEEEE": [
+      2,
+      "ba70c4d9",
+      32,
+      28
+    ],
+    "ReimuGlare": [
+      2,
+      "bdf28159",
+      32,
+      32
+    ],
+    "ReimuPalm": [
+      2,
+      "41a37aa0",
+      32,
+      32
+    ],
+    "SadCatW": [
+      2,
+      "d8f61d71",
+      32,
+      32
+    ],
+    "Sadge": [
+      2,
+      "e024965e",
+      28,
+      22
+    ],
+    "SeetheWojak": [
+      2,
+      "a9f848d3",
+      28,
+      32
+    ],
+    "Stonks": [
+      2,
+      "53478ca5",
+      31,
+      32
+    ],
+    "ThisIsFine": [
+      2,
+      "d9bf8456",
+      28,
+      31
+    ],
+    "Thonk": [
+      2,
+      "ec538b5c",
+      32,
+      27
+    ],
+    "TooLewd": [
+      2,
+      "ddc55766",
+      32,
+      32
+    ],
+    "Tuturu": [
+      2,
+      "c72e8e84",
+      32,
+      32
+    ],
+    "umaruCry": [
+      2,
+      "7242c342",
+      28,
+      28
+    ],
+    "WanWan": [
+      2,
+      "8a527ac8",
+      32,
+      31
+    ],
+    "WeirdChamp": [
+      2,
+      "3021a426",
+      31,
+      32
+    ],
+    "weSmart": [
+      2,
+      "6476e57d",
+      27,
+      28
+    ],
+    "wojakNPC": [
+      2,
+      "24edafcc",
+      32,
+      32
+    ],
+    "wojakWithered": [
+      2,
+      "ed7d4c3a",
+      32,
+      30
+    ],
+    "WTFF": [
+      2,
+      "8b7cc3e0",
+      32,
+      32
+    ],
+    "YEP": [
+      2,
+      "e1899bbe",
+      32,
+      31
+    ],
+    "YesHoney": [
+      2,
+      "2b414cf1",
+      31,
+      25
+    ],
+    "bane": [
+      3,
+      "c458ef22",
+      32,
+      32
+    ],
+    "bog": [
+      3,
+      "c2e2602a",
+      32,
+      32
+    ],
+    "cia": [
+      3,
+      "c69a1ef1",
+      32,
+      32
+    ],
+    "cockmongler": [
+      3,
+      "eda6f332",
+      22,
+      32
+    ],
+    "desu": [
+      3,
+      "80692b94",
+      28,
+      32
+    ],
+    "desusmirk": [
+      3,
+      "72694e0e",
+      41,
+      32
+    ],
+    "frodo": [
+      3,
+      "e9d526e8",
+      32,
+      32
+    ],
+    "goldface": [
+      3,
+      "7081142e",
+      32,
+      32
+    ],
+    "happycat": [
+      3,
+      "1d3f2a13",
+      27,
+      32
+    ],
+    "happyn": [
+      3,
+      "afd49202",
+      25,
+      32
+    ],
+    "jannydog": [
+      3,
+      "f0dcbf8a",
+      35,
+      32
+    ],
+    "koiwai": [
+      3,
+      "1d7e369a",
+      44,
+      32
+    ],
+    "koiwaiwave": [
+      3,
+      "0e313986",
+      31,
+      32
+    ],
+    "konata": [
+      3,
+      "eb07a2c8",
+      32,
+      32
+    ],
+    "laughingw": [
+      3,
+      "6e6217c7",
+      32,
+      32
+    ],
+    "longcat": [
+      3,
+      "0ee48fb4",
+      37,
+      32
+    ],
+    "longcata": [
+      3,
+      "95c37417",
+      37,
+      30
+    ],
+    "longcatb": [
+      3,
+      "e77bc341",
+      37,
+      32
+    ],
+    "moetron": [
+      3,
+      "cf1d4b8d",
+      32,
+      32
+    ],
+    "mudkip": [
+      3,
+      "a4b23eff",
+      31,
+      32
+    ],
+    "shoopdw": [
+      3,
+      "11339e7b",
+      23,
+      32
+    ],
+    "shoopdw2": [
+      3,
+      "49bde730",
+      100,
+      32
+    ],
+    "troll": [
+      3,
+      "d89a0070",
+      37,
+      32
+    ],
+    "trollface": [
+      3,
+      "7b4acfbf",
+      32,
+      26
+    ],
+    "yaranaika": [
+      3,
+      "a6955123",
+      32,
+      32
+    ],
+    "yaranaika2": [
+      3,
+      "4d00227b",
+      32,
+      32
+    ],
+    "happy": [
+      1,
+      "&#x1F600;"
+    ],
+    "grin": [
+      1,
+      "&#x1F604;"
+    ],
+    "xd": [
+      1,
+      "&#x1F606;"
+    ],
+    "grinsweat": [
+      1,
+      "&#x1F605;"
+    ],
+    "rofl": [
+      1,
+      "&#x1F923;"
+    ],
+    "lmao": [
+      1,
+      "&#x1F602;"
+    ],
+    "smile": [
+      1,
+      "&#x1F642;"
+    ],
+    "wink": [
+      1,
+      "&#x1F609;"
+    ],
+    "glad": [
+      1,
+      "&#x1F60A;"
+    ],
+    "kiss": [
+      1,
+      "&#x1F619;"
+    ],
+    "crazy": [
+      1,
+      "&#x1F92A;"
+    ],
+    "think": [
+      1,
+      "&#x1F914;"
+    ],
+    "wot": [
+      1,
+      "&#x1F928;"
+    ],
+    "kay": [
+      1,
+      "&#x1F610;"
+    ],
+    "yikes": [
+      1,
+      "&#x1F612;"
+    ],
+    "eyeroll": [
+      1,
+      "&#x1F644;"
+    ],
+    "confused": [
+      1,
+      "&#x1F615;"
+    ],
+    "pensive": [
+      1,
+      "&#x1F614;"
+    ],
+    "disgust": [
+      1,
+      "&#x1F922;"
+    ],
+    "vomit": [
+      1,
+      "&#x1F92E;"
+    ],
+    "dizzy": [
+      1,
+      "&#x1F635;"
+    ],
+    "nerd": [
+      1,
+      "&#x1F913;"
+    ],
+    "worry": [
+      1,
+      "&#x1F61F;"
+    ],
+    "sad": [
+      1,
+      "&#x1F641;"
+    ],
+    "frown": [
+      1,
+      "&#x2639;&#xFE0F;"
+    ],
+    "wow": [
+      1,
+      "&#x1F632;"
+    ],
+    "blush": [
+      1,
+      "&#x1F633;"
+    ],
+    "cry": [
+      1,
+      "&#x1F622;"
+    ],
+    "plead": [
+      1,
+      "&#x1F97A;"
+    ],
+    "baw": [
+      1,
+      "&#x1F62D;"
+    ],
+    "shock": [
+      1,
+      "&#x1F631;"
+    ],
+    "anguish": [
+      1,
+      "&#x1F627;"
+    ],
+    "devil": [
+      1,
+      "&#x1F608;"
+    ],
+    "angry": [
+      1,
+      "&#x1F620;"
+    ],
+    "struggle": [
+      1,
+      "&#x1F623;"
+    ],
+    "proud": [
+      1,
+      "&#x1F624;"
+    ],
+    "smirk": [
+      1,
+      "&#x1F60F;"
+    ],
+    "drool": [
+      1,
+      "&#x1F924;"
+    ],
+    "love": [
+      1,
+      "&#x1F60D;"
+    ],
+    "skull": [
+      1,
+      "&#x1F480;"
+    ],
+    "clown": [
+      1,
+      "&#x1F921;"
+    ],
+    "alien": [
+      1,
+      "&#x1F47D;"
+    ],
+    "robot": [
+      1,
+      "&#x1F916;"
+    ],
+    "ok": [
+      1,
+      "&#x1F44C;"
+    ],
+    "fu": [
+      1,
+      "&#x1F595;"
+    ],
+    "thup": [
+      1,
+      "&#x1F44D;"
+    ],
+    "thdown": [
+      1,
+      "&#x1F44E;"
+    ],
+    "punch": [
+      1,
+      "&#x1F44A;"
+    ],
+    "pray": [
+      1,
+      "&#x1F64F;"
+    ],
+    "flex": [
+      1,
+      "&#x1F4AA;"
+    ],
+    "eyes": [
+      1,
+      "&#x1F440;"
+    ],
+    "drip": [
+      1,
+      "&#x1F4A6;"
+    ],
+    "wind": [
+      1,
+      "&#x1F4A8;"
+    ],
+    "fire": [
+      1,
+      "&#x1F525;"
+    ],
+    "clover": [
+      1,
+      "&#x1F340;"
+    ],
+    "anger": [
+      1,
+      "&#x1F4A2;"
+    ],
+    "perfect": [
+      1,
+      "&#x1F4AF;"
+    ],
+    "zzz": [
+      1,
+      "&#x1F4A4;"
+    ]
+  },
+  "pools": [
+    [
+      "happy",
+      "grin",
+      "xd",
+      "grinsweat",
+      "rofl",
+      "lmao",
+      "smile",
+      "wink",
+      "glad",
+      "kiss",
+      "crazy",
+      "think",
+      "wot",
+      "kay",
+      "yikes",
+      "eyeroll",
+      "confused",
+      "pensive",
+      "disgust",
+      "vomit",
+      "dizzy",
+      "nerd",
+      "worry",
+      "sad",
+      "frown",
+      "wow",
+      "blush",
+      "cry",
+      "plead",
+      "baw",
+      "shock",
+      "anguish",
+      "devil",
+      "angry",
+      "struggle",
+      "proud",
+      "smirk",
+      "drool",
+      "love",
+      "skull",
+      "clown",
+      "alien",
+      "robot",
+      "ok",
+      "fu",
+      "thup",
+      "thdown",
+      "punch",
+      "pray",
+      "flex",
+      "eyes",
+      "drip",
+      "wind",
+      "fire",
+      "clover",
+      "anger",
+      "perfect",
+      "zzz"
+    ],
+    [
+      "03d18964",
+      "83cf2699",
+      "e2ad2cb7",
+      "f93f9e5a",
+      "bc1ff2b8",
+      "fb56168f",
+      "51ca59c2",
+      "67905c4f",
+      "967f06c9",
+      "c7375c9d",
+      "4dfb5c71",
+      "199f7d0e",
+      "adf2d2f0",
+      "59b6bba6",
+      "cda7b2fb",
+      "08b66b75",
+      "25086889",
+      "0ee6ba1c",
+      "ad2977e6",
+      "c291d202",
+      "634a21ba",
+      "7a95728b",
+      "a6d16707",
+      "af528e56",
+      "4623886c",
+      "5de4addd",
+      "98cf0be7",
+      "e54792d7",
+      "c2cfb2e3",
+      "857a9ea0",
+      "a19762fc",
+      "b674048b",
+      "48c107b3",
+      "de27847b",
+      "acb11630",
+      "d3c674ba",
+      "0b3318e4",
+      "bb299b4d",
+      "ed1cc57f",
+      "87c89650",
+      "b05923f5",
+      "57b01648",
+      "c4035570",
+      "099390a2",
+      "8ea2d160",
+      "68104e2a",
+      "3d8675e9",
+      "1ee7c5a1",
+      "f2ecf801",
+      "51cbf903",
+      "25908e08",
+      "90786369",
+      "4459d60b",
+      "6ec0dd2c",
+      "9ecd704b",
+      "42faedcc",
+      "1e4d8dfa",
+      "6f5bc7e5",
+      "fad6951c",
+      "6f0d4e37",
+      "f0a256b9",
+      "b06b1566",
+      "ba70c4d9",
+      "bdf28159",
+      "41a37aa0",
+      "d8f61d71",
+      "e024965e",
+      "a9f848d3",
+      "53478ca5",
+      "d9bf8456",
+      "ec538b5c",
+      "ddc55766",
+      "c72e8e84",
+      "7242c342",
+      "8a527ac8",
+      "3021a426",
+      "6476e57d",
+      "24edafcc",
+      "ed7d4c3a",
+      "8b7cc3e0",
+      "e1899bbe",
+      "2b414cf1"
+    ],
+    [
+      "c458ef22",
+      "c2e2602a",
+      "c69a1ef1",
+      "eda6f332",
+      "80692b94",
+      "72694e0e",
+      "e9d526e8",
+      "7081142e",
+      "1d3f2a13",
+      "afd49202",
+      "f0dcbf8a",
+      "1d7e369a",
+      "0e313986",
+      "eb07a2c8",
+      "6e6217c7",
+      "0ee48fb4",
+      "95c37417",
+      "e77bc341",
+      "cf1d4b8d",
+      "a4b23eff",
+      "11339e7b",
+      "49bde730",
+      "d89a0070",
+      "7b4acfbf",
+      "a6955123",
+      "4d00227b"
+    ]
+  ],
+  "lookups": [
+    {
+      "id": "03d18964",
+      "expected": [
+        "AngryWojak",
+        2,
+        "03d18964"
+      ]
+    },
+    {
+      "id": "83cf2699",
+      "expected": [
+        "Aquacry",
+        2,
+        "83cf2699"
+      ]
+    },
+    {
+      "id": "e2ad2cb7",
+      "expected": [
+        "AWOOOO",
+        2,
+        "e2ad2cb7"
+      ]
+    },
+    {
+      "id": "f93f9e5a",
+      "expected": [
+        "AYAYA",
+        2,
+        "f93f9e5a"
+      ]
+    },
+    {
+      "id": "bc1ff2b8",
+      "expected": [
+        "AYAYAHyper",
+        2,
+        "bc1ff2b8"
+      ]
+    },
+    {
+      "id": "fb56168f",
+      "expected": [
+        "BOOBA",
+        2,
+        "fb56168f"
+      ]
+    },
+    {
+      "id": "51ca59c2",
+      "expected": [
+        "BOOMER",
+        2,
+        "51ca59c2"
+      ]
+    },
+    {
+      "id": "67905c4f",
+      "expected": [
+        "Bruh",
+        2,
+        "67905c4f"
+      ]
+    },
+    {
+      "id": "967f06c9",
+      "expected": [
+        "Catcry",
+        2,
+        "967f06c9"
+      ]
+    },
+    {
+      "id": "c7375c9d",
+      "expected": [
+        "ChadYes",
+        2,
+        "c7375c9d"
+      ]
+    },
+    {
+      "id": "4dfb5c71",
+      "expected": [
+        "COPIUM",
+        2,
+        "4dfb5c71"
+      ]
+    },
+    {
+      "id": "199f7d0e",
+      "expected": [
+        "DontBully",
+        2,
+        "199f7d0e"
+      ]
+    },
+    {
+      "id": "adf2d2f0",
+      "expected": [
+        "EZY",
+        2,
+        "adf2d2f0"
+      ]
+    },
+    {
+      "id": "59b6bba6",
+      "expected": [
+        "FeelsBadMan",
+        2,
+        "59b6bba6"
+      ]
+    },
+    {
+      "id": "cda7b2fb",
+      "expected": [
+        "FeelsGoodMan",
+        2,
+        "cda7b2fb"
+      ]
+    },
+    {
+      "id": "08b66b75",
+      "expected": [
+        "FeelsOkayMan",
+        2,
+        "08b66b75"
+      ]
+    },
+    {
+      "id": "25086889",
+      "expected": [
+        "FeelsSpecialMan",
+        2,
+        "25086889"
+      ]
+    },
+    {
+      "id": "0ee6ba1c",
+      "expected": [
+        "FeelsStrongMan",
+        2,
+        "0ee6ba1c"
+      ]
+    },
+    {
+      "id": "ad2977e6",
+      "expected": [
+        "FeelsWeirdMan",
+        2,
+        "ad2977e6"
+      ]
+    },
+    {
+      "id": "c291d202",
+      "expected": [
+        "gachiGASM",
+        2,
+        "c291d202"
+      ]
+    },
+    {
+      "id": "634a21ba",
+      "expected": [
+        "gachiHYPER",
+        2,
+        "634a21ba"
+      ]
+    },
+    {
+      "id": "7a95728b",
+      "expected": [
+        "Gigachad",
+        2,
+        "7a95728b"
+      ]
+    },
+    {
+      "id": "a6d16707",
+      "expected": [
+        "GoodNight",
+        2,
+        "a6d16707"
+      ]
+    },
+    {
+      "id": "af528e56",
+      "expected": [
+        "Hahaa",
+        2,
+        "af528e56"
+      ]
+    },
+    {
+      "id": "4623886c",
+      "expected": [
+        "HeavyBreathing",
+        2,
+        "4623886c"
+      ]
+    },
+    {
+      "id": "5de4addd",
+      "expected": [
+        "KannaNom",
+        2,
+        "5de4addd"
+      ]
+    },
+    {
+      "id": "98cf0be7",
+      "expected": [
+        "KannaPolice",
+        2,
+        "98cf0be7"
+      ]
+    },
+    {
+      "id": "e54792d7",
+      "expected": [
+        "KEKW",
+        2,
+        "e54792d7"
+      ]
+    },
+    {
+      "id": "c2cfb2e3",
+      "expected": [
+        "KEKWait",
+        2,
+        "c2cfb2e3"
+      ]
+    },
+    {
+      "id": "857a9ea0",
+      "expected": [
+        "MarisaFace",
+        2,
+        "857a9ea0"
+      ]
+    },
+    {
+      "id": "a19762fc",
+      "expected": [
+        "MeguminHappy",
+        2,
+        "a19762fc"
+      ]
+    },
+    {
+      "id": "b674048b",
+      "expected": [
+        "MikuStare",
+        2,
+        "b674048b"
+      ]
+    },
+    {
+      "id": "48c107b3",
+      "expected": [
+        "monkaChrist",
+        2,
+        "48c107b3"
+      ]
+    },
+    {
+      "id": "de27847b",
+      "expected": [
+        "monkaGIGA",
+        2,
+        "de27847b"
+      ]
+    },
+    {
+      "id": "acb11630",
+      "expected": [
+        "monkaH",
+        2,
+        "acb11630"
+      ]
+    },
+    {
+      "id": "d3c674ba",
+      "expected": [
+        "monkaHmm",
+        2,
+        "d3c674ba"
+      ]
+    },
+    {
+      "id": "0b3318e4",
+      "expected": [
+        "monkaMEGA",
+        2,
+        "0b3318e4"
+      ]
+    },
+    {
+      "id": "bb299b4d",
+      "expected": [
+        "monkaOMEGA",
+        2,
+        "bb299b4d"
+      ]
+    },
+    {
+      "id": "ed1cc57f",
+      "expected": [
+        "monkaS",
+        2,
+        "ed1cc57f"
+      ]
+    },
+    {
+      "id": "87c89650",
+      "expected": [
+        "monkaSpeed",
+        2,
+        "87c89650"
+      ]
+    },
+    {
+      "id": "b05923f5",
+      "expected": [
+        "monkaW",
+        2,
+        "b05923f5"
+      ]
+    },
+    {
+      "id": "57b01648",
+      "expected": [
+        "nepSmug",
+        2,
+        "57b01648"
+      ]
+    },
+    {
+      "id": "c4035570",
+      "expected": [
+        "OMEGALUL",
+        2,
+        "c4035570"
+      ]
+    },
+    {
+      "id": "099390a2",
+      "expected": [
+        "peepoBlanket",
+        2,
+        "099390a2"
+      ]
+    },
+    {
+      "id": "8ea2d160",
+      "expected": [
+        "peepoClown",
+        2,
+        "8ea2d160"
+      ]
+    },
+    {
+      "id": "68104e2a",
+      "expected": [
+        "peepoHappy",
+        2,
+        "68104e2a"
+      ]
+    },
+    {
+      "id": "3d8675e9",
+      "expected": [
+        "peepoWTF",
+        2,
+        "3d8675e9"
+      ]
+    },
+    {
+      "id": "1ee7c5a1",
+      "expected": [
+        "Pepega",
+        2,
+        "1ee7c5a1"
+      ]
+    },
+    {
+      "id": "f2ecf801",
+      "expected": [
+        "PepeHands",
+        2,
+        "f2ecf801"
+      ]
+    },
+    {
+      "id": "51cbf903",
+      "expected": [
+        "PepeLaugh",
+        2,
+        "51cbf903"
+      ]
+    },
+    {
+      "id": "25908e08",
+      "expected": [
+        "PepeLmao",
+        2,
+        "25908e08"
+      ]
+    },
+    {
+      "id": "90786369",
+      "expected": [
+        "pepePoint",
+        2,
+        "90786369"
+      ]
+    },
+    {
+      "id": "4459d60b",
+      "expected": [
+        "PepoG",
+        2,
+        "4459d60b"
+      ]
+    },
+    {
+      "id": "6ec0dd2c",
+      "expected": [
+        "pepoRope",
+        2,
+        "6ec0dd2c"
+      ]
+    },
+    {
+      "id": "9ecd704b",
+      "expected": [
+        "PepoThink",
+        2,
+        "9ecd704b"
+      ]
+    },
+    {
+      "id": "42faedcc",
+      "expected": [
+        "pikachuS",
+        2,
+        "42faedcc"
+      ]
+    },
+    {
+      "id": "1e4d8dfa",
+      "expected": [
+        "PillowNo",
+        2,
+        "1e4d8dfa"
+      ]
+    },
+    {
+      "id": "6f5bc7e5",
+      "expected": [
+        "PillowYes",
+        2,
+        "6f5bc7e5"
+      ]
+    },
+    {
+      "id": "fad6951c",
+      "expected": [
+        "Pog",
+        2,
+        "fad6951c"
+      ]
+    },
+    {
+      "id": "6f0d4e37",
+      "expected": [
+        "POGGERS",
+        2,
+        "6f0d4e37"
+      ]
+    },
+    {
+      "id": "f0a256b9",
+      "expected": [
+        "PressF",
+        2,
+        "f0a256b9"
+      ]
+    },
+    {
+      "id": "b06b1566",
+      "expected": [
+        "REEeee",
+        2,
+        "b06b1566"
+      ]
+    },
+    {
+      "id": "ba70c4d9",
+      "expected": [
+        "REEEEE",
+        2,
+        "ba70c4d9"
+      ]
+    },
+    {
+      "id": "bdf28159",
+      "expected": [
+        "ReimuGlare",
+        2,
+        "bdf28159"
+      ]
+    },
+    {
+      "id": "41a37aa0",
+      "expected": [
+        "ReimuPalm",
+        2,
+        "41a37aa0"
+      ]
+    },
+    {
+      "id": "d8f61d71",
+      "expected": [
+        "SadCatW",
+        2,
+        "d8f61d71"
+      ]
+    },
+    {
+      "id": "e024965e",
+      "expected": [
+        "Sadge",
+        2,
+        "e024965e"
+      ]
+    },
+    {
+      "id": "a9f848d3",
+      "expected": [
+        "SeetheWojak",
+        2,
+        "a9f848d3"
+      ]
+    },
+    {
+      "id": "53478ca5",
+      "expected": [
+        "Stonks",
+        2,
+        "53478ca5"
+      ]
+    },
+    {
+      "id": "d9bf8456",
+      "expected": [
+        "ThisIsFine",
+        2,
+        "d9bf8456"
+      ]
+    },
+    {
+      "id": "ec538b5c",
+      "expected": [
+        "Thonk",
+        2,
+        "ec538b5c"
+      ]
+    },
+    {
+      "id": "ddc55766",
+      "expected": [
+        "TooLewd",
+        2,
+        "ddc55766"
+      ]
+    },
+    {
+      "id": "c72e8e84",
+      "expected": [
+        "Tuturu",
+        2,
+        "c72e8e84"
+      ]
+    },
+    {
+      "id": "7242c342",
+      "expected": [
+        "umaruCry",
+        2,
+        "7242c342"
+      ]
+    },
+    {
+      "id": "8a527ac8",
+      "expected": [
+        "WanWan",
+        2,
+        "8a527ac8"
+      ]
+    },
+    {
+      "id": "3021a426",
+      "expected": [
+        "WeirdChamp",
+        2,
+        "3021a426"
+      ]
+    },
+    {
+      "id": "6476e57d",
+      "expected": [
+        "weSmart",
+        2,
+        "6476e57d"
+      ]
+    },
+    {
+      "id": "24edafcc",
+      "expected": [
+        "wojakNPC",
+        2,
+        "24edafcc"
+      ]
+    },
+    {
+      "id": "ed7d4c3a",
+      "expected": [
+        "wojakWithered",
+        2,
+        "ed7d4c3a"
+      ]
+    },
+    {
+      "id": "8b7cc3e0",
+      "expected": [
+        "WTFF",
+        2,
+        "8b7cc3e0"
+      ]
+    },
+    {
+      "id": "e1899bbe",
+      "expected": [
+        "YEP",
+        2,
+        "e1899bbe"
+      ]
+    },
+    {
+      "id": "2b414cf1",
+      "expected": [
+        "YesHoney",
+        2,
+        "2b414cf1"
+      ]
+    },
+    {
+      "id": "c458ef22",
+      "expected": [
+        "bane",
+        3,
+        "c458ef22"
+      ]
+    },
+    {
+      "id": "c2e2602a",
+      "expected": [
+        "bog",
+        3,
+        "c2e2602a"
+      ]
+    },
+    {
+      "id": "c69a1ef1",
+      "expected": [
+        "cia",
+        3,
+        "c69a1ef1"
+      ]
+    },
+    {
+      "id": "eda6f332",
+      "expected": [
+        "cockmongler",
+        3,
+        "eda6f332"
+      ]
+    },
+    {
+      "id": "80692b94",
+      "expected": [
+        "desu",
+        3,
+        "80692b94"
+      ]
+    },
+    {
+      "id": "72694e0e",
+      "expected": [
+        "desusmirk",
+        3,
+        "72694e0e"
+      ]
+    },
+    {
+      "id": "e9d526e8",
+      "expected": [
+        "frodo",
+        3,
+        "e9d526e8"
+      ]
+    },
+    {
+      "id": "7081142e",
+      "expected": [
+        "goldface",
+        3,
+        "7081142e"
+      ]
+    },
+    {
+      "id": "1d3f2a13",
+      "expected": [
+        "happycat",
+        3,
+        "1d3f2a13"
+      ]
+    },
+    {
+      "id": "afd49202",
+      "expected": [
+        "happyn",
+        3,
+        "afd49202"
+      ]
+    },
+    {
+      "id": "f0dcbf8a",
+      "expected": [
+        "jannydog",
+        3,
+        "f0dcbf8a"
+      ]
+    },
+    {
+      "id": "1d7e369a",
+      "expected": [
+        "koiwai",
+        3,
+        "1d7e369a"
+      ]
+    },
+    {
+      "id": "0e313986",
+      "expected": [
+        "koiwaiwave",
+        3,
+        "0e313986"
+      ]
+    },
+    {
+      "id": "eb07a2c8",
+      "expected": [
+        "konata",
+        3,
+        "eb07a2c8"
+      ]
+    },
+    {
+      "id": "6e6217c7",
+      "expected": [
+        "laughingw",
+        3,
+        "6e6217c7"
+      ]
+    },
+    {
+      "id": "0ee48fb4",
+      "expected": [
+        "longcat",
+        3,
+        "0ee48fb4"
+      ]
+    },
+    {
+      "id": "95c37417",
+      "expected": [
+        "longcata",
+        3,
+        "95c37417"
+      ]
+    },
+    {
+      "id": "e77bc341",
+      "expected": [
+        "longcatb",
+        3,
+        "e77bc341"
+      ]
+    },
+    {
+      "id": "cf1d4b8d",
+      "expected": [
+        "moetron",
+        3,
+        "cf1d4b8d"
+      ]
+    },
+    {
+      "id": "a4b23eff",
+      "expected": [
+        "mudkip",
+        3,
+        "a4b23eff"
+      ]
+    },
+    {
+      "id": "11339e7b",
+      "expected": [
+        "shoopdw",
+        3,
+        "11339e7b"
+      ]
+    },
+    {
+      "id": "49bde730",
+      "expected": [
+        "shoopdw2",
+        3,
+        "49bde730"
+      ]
+    },
+    {
+      "id": "d89a0070",
+      "expected": [
+        "troll",
+        3,
+        "d89a0070"
+      ]
+    },
+    {
+      "id": "7b4acfbf",
+      "expected": [
+        "trollface",
+        3,
+        "7b4acfbf"
+      ]
+    },
+    {
+      "id": "a6955123",
+      "expected": [
+        "yaranaika",
+        3,
+        "a6955123"
+      ]
+    },
+    {
+      "id": "4d00227b",
+      "expected": [
+        "yaranaika2",
+        3,
+        "4d00227b"
+      ]
+    },
+    {
+      "id": "happy",
+      "expected": [
+        "happy",
+        1,
+        "&#x1F600;"
+      ]
+    },
+    {
+      "id": "grin",
+      "expected": [
+        "grin",
+        1,
+        "&#x1F604;"
+      ]
+    },
+    {
+      "id": "xd",
+      "expected": [
+        "xd",
+        1,
+        "&#x1F606;"
+      ]
+    },
+    {
+      "id": "grinsweat",
+      "expected": [
+        "grinsweat",
+        1,
+        "&#x1F605;"
+      ]
+    },
+    {
+      "id": "rofl",
+      "expected": [
+        "rofl",
+        1,
+        "&#x1F923;"
+      ]
+    },
+    {
+      "id": "lmao",
+      "expected": [
+        "lmao",
+        1,
+        "&#x1F602;"
+      ]
+    },
+    {
+      "id": "smile",
+      "expected": [
+        "smile",
+        1,
+        "&#x1F642;"
+      ]
+    },
+    {
+      "id": "wink",
+      "expected": [
+        "wink",
+        1,
+        "&#x1F609;"
+      ]
+    },
+    {
+      "id": "glad",
+      "expected": [
+        "glad",
+        1,
+        "&#x1F60A;"
+      ]
+    },
+    {
+      "id": "kiss",
+      "expected": [
+        "kiss",
+        1,
+        "&#x1F619;"
+      ]
+    },
+    {
+      "id": "crazy",
+      "expected": [
+        "crazy",
+        1,
+        "&#x1F92A;"
+      ]
+    },
+    {
+      "id": "think",
+      "expected": [
+        "think",
+        1,
+        "&#x1F914;"
+      ]
+    },
+    {
+      "id": "wot",
+      "expected": [
+        "wot",
+        1,
+        "&#x1F928;"
+      ]
+    },
+    {
+      "id": "kay",
+      "expected": [
+        "kay",
+        1,
+        "&#x1F610;"
+      ]
+    },
+    {
+      "id": "yikes",
+      "expected": [
+        "yikes",
+        1,
+        "&#x1F612;"
+      ]
+    },
+    {
+      "id": "eyeroll",
+      "expected": [
+        "eyeroll",
+        1,
+        "&#x1F644;"
+      ]
+    },
+    {
+      "id": "confused",
+      "expected": [
+        "confused",
+        1,
+        "&#x1F615;"
+      ]
+    },
+    {
+      "id": "pensive",
+      "expected": [
+        "pensive",
+        1,
+        "&#x1F614;"
+      ]
+    },
+    {
+      "id": "disgust",
+      "expected": [
+        "disgust",
+        1,
+        "&#x1F922;"
+      ]
+    },
+    {
+      "id": "vomit",
+      "expected": [
+        "vomit",
+        1,
+        "&#x1F92E;"
+      ]
+    },
+    {
+      "id": "dizzy",
+      "expected": [
+        "dizzy",
+        1,
+        "&#x1F635;"
+      ]
+    },
+    {
+      "id": "nerd",
+      "expected": [
+        "nerd",
+        1,
+        "&#x1F913;"
+      ]
+    },
+    {
+      "id": "worry",
+      "expected": [
+        "worry",
+        1,
+        "&#x1F61F;"
+      ]
+    },
+    {
+      "id": "sad",
+      "expected": [
+        "sad",
+        1,
+        "&#x1F641;"
+      ]
+    },
+    {
+      "id": "frown",
+      "expected": [
+        "frown",
+        1,
+        "&#x2639;&#xFE0F;"
+      ]
+    },
+    {
+      "id": "wow",
+      "expected": [
+        "wow",
+        1,
+        "&#x1F632;"
+      ]
+    },
+    {
+      "id": "blush",
+      "expected": [
+        "blush",
+        1,
+        "&#x1F633;"
+      ]
+    },
+    {
+      "id": "cry",
+      "expected": [
+        "cry",
+        1,
+        "&#x1F622;"
+      ]
+    },
+    {
+      "id": "plead",
+      "expected": [
+        "plead",
+        1,
+        "&#x1F97A;"
+      ]
+    },
+    {
+      "id": "baw",
+      "expected": [
+        "baw",
+        1,
+        "&#x1F62D;"
+      ]
+    },
+    {
+      "id": "shock",
+      "expected": [
+        "shock",
+        1,
+        "&#x1F631;"
+      ]
+    },
+    {
+      "id": "anguish",
+      "expected": [
+        "anguish",
+        1,
+        "&#x1F627;"
+      ]
+    },
+    {
+      "id": "devil",
+      "expected": [
+        "devil",
+        1,
+        "&#x1F608;"
+      ]
+    },
+    {
+      "id": "angry",
+      "expected": [
+        "angry",
+        1,
+        "&#x1F620;"
+      ]
+    },
+    {
+      "id": "struggle",
+      "expected": [
+        "struggle",
+        1,
+        "&#x1F623;"
+      ]
+    },
+    {
+      "id": "proud",
+      "expected": [
+        "proud",
+        1,
+        "&#x1F624;"
+      ]
+    },
+    {
+      "id": "smirk",
+      "expected": [
+        "smirk",
+        1,
+        "&#x1F60F;"
+      ]
+    },
+    {
+      "id": "drool",
+      "expected": [
+        "drool",
+        1,
+        "&#x1F924;"
+      ]
+    },
+    {
+      "id": "love",
+      "expected": [
+        "love",
+        1,
+        "&#x1F60D;"
+      ]
+    },
+    {
+      "id": "skull",
+      "expected": [
+        "skull",
+        1,
+        "&#x1F480;"
+      ]
+    },
+    {
+      "id": "clown",
+      "expected": [
+        "clown",
+        1,
+        "&#x1F921;"
+      ]
+    },
+    {
+      "id": "alien",
+      "expected": [
+        "alien",
+        1,
+        "&#x1F47D;"
+      ]
+    },
+    {
+      "id": "robot",
+      "expected": [
+        "robot",
+        1,
+        "&#x1F916;"
+      ]
+    },
+    {
+      "id": "ok",
+      "expected": [
+        "ok",
+        1,
+        "&#x1F44C;"
+      ]
+    },
+    {
+      "id": "fu",
+      "expected": [
+        "fu",
+        1,
+        "&#x1F595;"
+      ]
+    },
+    {
+      "id": "thup",
+      "expected": [
+        "thup",
+        1,
+        "&#x1F44D;"
+      ]
+    },
+    {
+      "id": "thdown",
+      "expected": [
+        "thdown",
+        1,
+        "&#x1F44E;"
+      ]
+    },
+    {
+      "id": "punch",
+      "expected": [
+        "punch",
+        1,
+        "&#x1F44A;"
+      ]
+    },
+    {
+      "id": "pray",
+      "expected": [
+        "pray",
+        1,
+        "&#x1F64F;"
+      ]
+    },
+    {
+      "id": "flex",
+      "expected": [
+        "flex",
+        1,
+        "&#x1F4AA;"
+      ]
+    },
+    {
+      "id": "eyes",
+      "expected": [
+        "eyes",
+        1,
+        "&#x1F440;"
+      ]
+    },
+    {
+      "id": "drip",
+      "expected": [
+        "drip",
+        1,
+        "&#x1F4A6;"
+      ]
+    },
+    {
+      "id": "wind",
+      "expected": [
+        "wind",
+        1,
+        "&#x1F4A8;"
+      ]
+    },
+    {
+      "id": "fire",
+      "expected": [
+        "fire",
+        1,
+        "&#x1F525;"
+      ]
+    },
+    {
+      "id": "clover",
+      "expected": [
+        "clover",
+        1,
+        "&#x1F340;"
+      ]
+    },
+    {
+      "id": "anger",
+      "expected": [
+        "anger",
+        1,
+        "&#x1F4A2;"
+      ]
+    },
+    {
+      "id": "perfect",
+      "expected": [
+        "perfect",
+        1,
+        "&#x1F4AF;"
+      ]
+    },
+    {
+      "id": "zzz",
+      "expected": [
+        "zzz",
+        1,
+        "&#x1F4A4;"
+      ]
+    },
+    {
+      "id": "",
+      "expected": null
+    },
+    {
+      "id": "HAPPY",
+      "expected": null
+    },
+    {
+      "id": "AngryWojak",
+      "expected": null
+    },
+    {
+      "id": "<img>",
+      "expected": null
+    },
+    {
+      "id": "../x",
+      "expected": null
+    },
+    {
+      "id": "03D18964",
+      "expected": null
+    }
+  ],
+  "balances": [
+    {
+      "start_ts": 1000,
+      "balance": 0,
+      "now": 1000,
+      "expected": 0
+    },
+    {
+      "start_ts": 1000,
+      "balance": 0,
+      "now": 1299,
+      "expected": 0
+    },
+    {
+      "start_ts": 1000,
+      "balance": 0,
+      "now": 1300,
+      "expected": 20
+    },
+    {
+      "start_ts": 1000,
+      "balance": 0,
+      "now": 1301,
+      "expected": 20
+    },
+    {
+      "start_ts": 1000,
+      "balance": 0,
+      "now": 1600,
+      "expected": 40
+    },
+    {
+      "start_ts": 1000,
+      "balance": 0,
+      "now": 173800,
+      "expected": 11520
+    },
+    {
+      "start_ts": 1000,
+      "balance": 100,
+      "now": 1000,
+      "expected": 100
+    },
+    {
+      "start_ts": 1000,
+      "balance": 100,
+      "now": 1299,
+      "expected": 100
+    },
+    {
+      "start_ts": 1000,
+      "balance": 100,
+      "now": 1300,
+      "expected": 120
+    },
+    {
+      "start_ts": 1000,
+      "balance": 100,
+      "now": 1301,
+      "expected": 120
+    },
+    {
+      "start_ts": 1000,
+      "balance": 100,
+      "now": 1600,
+      "expected": 140
+    },
+    {
+      "start_ts": 1000,
+      "balance": 100,
+      "now": 173800,
+      "expected": 11620
+    },
+    {
+      "start_ts": 1000,
+      "balance": -30,
+      "now": 1000,
+      "expected": -30
+    },
+    {
+      "start_ts": 1000,
+      "balance": -30,
+      "now": 1299,
+      "expected": -30
+    },
+    {
+      "start_ts": 1000,
+      "balance": -30,
+      "now": 1300,
+      "expected": -10
+    },
+    {
+      "start_ts": 1000,
+      "balance": -30,
+      "now": 1301,
+      "expected": -10
+    },
+    {
+      "start_ts": 1000,
+      "balance": -30,
+      "now": 1600,
+      "expected": 10
+    },
+    {
+      "start_ts": 1000,
+      "balance": -30,
+      "now": 173800,
+      "expected": 11490
+    },
+    {
+      "start_ts": 1000,
+      "balance": -300,
+      "now": 1000,
+      "expected": -300
+    },
+    {
+      "start_ts": 1000,
+      "balance": -300,
+      "now": 1299,
+      "expected": -300
+    },
+    {
+      "start_ts": 1000,
+      "balance": -300,
+      "now": 1300,
+      "expected": -280
+    },
+    {
+      "start_ts": 1000,
+      "balance": -300,
+      "now": 1301,
+      "expected": -280
+    },
+    {
+      "start_ts": 1000,
+      "balance": -300,
+      "now": 1600,
+      "expected": -260
+    },
+    {
+      "start_ts": 1000,
+      "balance": -300,
+      "now": 173800,
+      "expected": 11220
+    }
+  ]
+}
