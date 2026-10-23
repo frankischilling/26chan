@@ -15,6 +15,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tower::ServiceExt;
+#[path = "site_feedback/browser.rs"]
+mod browser;
 const ORIGIN: &str = "http://localhost:3000";
 fn request(path: &str, fields: Option<&[(&str, &str)]>, cookie: &str) -> Request<Body> {
     let mut body = String::new();
@@ -118,7 +120,7 @@ async fn source_feedback_form_has_bound_single_use_writes_and_read_only_redirect
     .0;
     let sessions = Arc::new(Mutex::new(Vec::<[u8; 32]>::new()));
     let peer = key.network_identity("192.0.2.225".parse().unwrap());
-    let work=tokio::spawn({let owner=owner.clone();let sessions=sessions.clone();async move {
+    let work=tokio::spawn({let owner=owner.clone();let public=public.clone();let sessions=sessions.clone();async move {
         let closed=web.clone().oneshot(request("/feedback",None,"")).await.unwrap();
         assert_eq!(closed.status(),StatusCode::OK);assert!(!closed.headers().contains_key(header::SET_COOKIE));
         assert!(!body(closed).await.contains("name=\"challenge\""));
@@ -149,6 +151,9 @@ async fn source_feedback_form_has_bound_single_use_writes_and_read_only_redirect
         for _ in 0..2 {let done=web.clone().oneshot(request("/feedback?sent=1",None,&cookie)).await.unwrap();assert_eq!(done.status(),StatusCode::OK);assert!(!done.headers().contains_key(header::SET_COOKIE));}
         let rows:Vec<(String,String)>=sqlx::query_as("SELECT subject,message FROM submission_private.feedback WHERE profile_id=$1").bind(id).fetch_all(&owner).await.unwrap();
         assert_eq!(rows,vec![("Owned <subject>".into(),"<script>literal</script>\nsecond".into())]);
+        if std::env::var("RUN_FEEDBACK_BROWSER").as_deref()==Ok("1") {
+            browser::run(browser::Fixture {owner:&owner,public:&public,endpoint,key:&key,profile:id,sessions}).await;
+        }
     }}).await;
     server.abort();
     let _ = server.await;

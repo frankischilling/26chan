@@ -73,7 +73,7 @@ rust_checks() {
     cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture
     cargo test -p board-store -p board-verification --all-features --locked
     RUN_SCORE_BROWSER=1 cargo test -p board-public --all-features --locked --test event_likes -- --ignored --nocapture
-    cargo test -p board-public --all-features --locked --test site_feedback -- --ignored --nocapture
+    RUN_FEEDBACK_BROWSER=1 cargo test -p board-public --all-features --locked --test site_feedback -- --ignored --nocapture
     cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact
     cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact
     cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact

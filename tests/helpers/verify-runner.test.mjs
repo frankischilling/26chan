@@ -163,7 +163,7 @@ name=\${0##*/}
 command="$name $*"
 printf '%s\\n' "$command" >> "$VERIFY_TEST_LOG"
 printf '%s\\t%s\\t%s\\t%s\\n' "$command" "\${AZURE_CONFIG_DIR-}" "\${SSH_AUTH_SOCK-}" "\${EXTRA_DATABASE_URL-}" >> "$VERIFY_TEST_ENV_LOG"
-printf '%s\\t%s\\t%s\\t%s\\n' "$command" "\${TEST_VERIFICATION_DATABASE_URL-}" "\${TEST_VERIFICATION_MAIL_DATABASE_URL-}" "\${RUN_SCORE_BROWSER-}" >> "$VERIFY_TEST_VERIFICATION_LOG"
+printf '%s\\t%s\\t%s\\t%s\\t%s\\n' "$command" "\${TEST_VERIFICATION_DATABASE_URL-}" "\${TEST_VERIFICATION_MAIL_DATABASE_URL-}" "\${RUN_SCORE_BROWSER-}" "\${RUN_FEEDBACK_BROWSER-}" >> "$VERIFY_TEST_VERIFICATION_LOG"
 if [[ "$command" == "$VERIFY_TEST_FAIL" ]]; then exit 73; fi
 if [[ "$name" == timeout ]]; then
   shift
@@ -403,6 +403,18 @@ test('the score browser gate is enabled only for its explicit verifier fixture',
     const result = runRunner(t, { args: [suite] });
     assert.equal(result.status, 0, result.stderr);
     for (const [invocation, , , flag] of result.verificationEnvironments) {
+      assert.equal(flag, invocation === command ? '1' : '', invocation);
+    }
+  }
+});
+
+
+test('the feedback browser gate is enabled only for its explicit verifier fixture', options, t => {
+  const command = 'cargo test -p board-public --all-features --locked --test site_feedback -- --ignored --nocapture';
+  for (const suite of ['all', ...suites]) {
+    const result = runRunner(t, { args: [suite] });
+    assert.equal(result.status, 0, result.stderr);
+    for (const [invocation, , , , flag] of result.verificationEnvironments) {
       assert.equal(flag, invocation === command ? '1' : '', invocation);
     }
   }

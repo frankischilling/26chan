@@ -1,5 +1,6 @@
 //! Narrow configuration readers for native site submissions. Personal records
 //! never pass through these readers. Mutations have separate proof boundaries.
+pub mod admin;
 pub mod feedback;
 use crate::{PgPool, StoreError};
 use board_domain::site_submissions::{applications, contests, feedback as feedback_domain};

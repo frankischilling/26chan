@@ -167,3 +167,57 @@ async fn profiles(public: &PgPool, owner: &PgPool, id: i64) {
             .is_none()
     );
 }
+
+#[tokio::test]
+async fn operator_feedback_profiles_require_real_migrator_and_retain_history() {
+    use board_store::site_submissions::{self as store, admin};
+    use std::sync::{Arc, Mutex};
+    let owner = login("MIGRATION_DATABASE_URL", "board_migrator").await;
+    let public = login("TEST_PUBLIC_DATABASE_URL", "board_public").await;
+    let mut lock = owner.acquire().await.unwrap();
+    sqlx::query("SELECT pg_advisory_lock(2250258)")
+        .execute(&mut *lock)
+        .await
+        .unwrap();
+    let ids = Arc::new(Mutex::new(Vec::new()));
+    let result=tokio::spawn({let owner=owner.clone();let public=public.clone();let ids=ids.clone();async move {
+        let profile=admin::read_feedback(br#"{"version":1,"subject_limit":150,"message_limit":2000,"capacity":100,"cooldown_seconds":60,"categories":[{"id":1,"label":"Owned","short_label":"Owned"}]}"#.as_slice()).unwrap();
+        let mut denied=public.acquire().await.unwrap();
+        assert!(matches!(admin::start_feedback(&mut denied,&profile).await,Err(admin::Error::Role)));
+        drop(denied);
+        let mut connection=owner.acquire().await.unwrap();
+        let first=admin::start_feedback(&mut connection,&profile).await.unwrap();ids.lock().unwrap().push(first);
+        assert_eq!(store::feedback_profile(&public).await.unwrap().unwrap().id,first);
+        assert!(matches!(admin::start_feedback(&mut connection,&profile).await,Err(admin::Error::Active)));
+        sqlx::query("INSERT INTO submission_private.feedback(profile_id,category,subject,message,actor_hash,peer,user_agent,language,created_at,updated_at) VALUES($1,1,'Owned','Retained',decode(repeat('ab',32),'hex'),'192.0.2.225','Owned','en',1,1)").bind(first).execute(&owner).await.unwrap();
+        assert!(admin::close_feedback(&mut connection,first).await.unwrap());
+        assert!(!admin::close_feedback(&mut connection,first).await.unwrap());
+        assert!(store::feedback_profile(&public).await.unwrap().is_none());
+        let retained:i64=sqlx::query_scalar("SELECT count(*) FROM submission_private.feedback WHERE profile_id=$1").bind(first).fetch_one(&owner).await.unwrap();assert_eq!(retained,1);
+        drop(connection);
+        let mut left=owner.acquire().await.unwrap();let mut right=owner.acquire().await.unwrap();
+        let (a,b)=tokio::join!(admin::start_feedback(&mut left,&profile),admin::start_feedback(&mut right,&profile));
+        assert_ne!(a.is_ok(),b.is_ok());
+        let (next,refused)=match (a,b){(Ok(id),Err(error))|(Err(error),Ok(id))=>(id,error),_=>panic!("Exactly one operator start must win")};
+        assert!(matches!(refused,admin::Error::Active));assert_ne!(next,first);ids.lock().unwrap().push(next);
+        assert!(admin::close_feedback(&mut left,next).await.unwrap());
+    }}).await;
+    let saved = ids.lock().unwrap().clone();
+    for id in saved {
+        for query in [
+            "DELETE FROM submission_private.feedback WHERE profile_id=$1",
+            "DELETE FROM submission_private.feedback_categories WHERE profile_id=$1",
+            "DELETE FROM submission_private.feedback_profiles WHERE id=$1",
+        ] {
+            sqlx::query(query).bind(id).execute(&owner).await.unwrap();
+        }
+    }
+    sqlx::query("SELECT pg_advisory_unlock(2250258)")
+        .execute(&mut *lock)
+        .await
+        .unwrap();
+    drop(lock);
+    public.close().await;
+    owner.close().await;
+    result.unwrap();
+}

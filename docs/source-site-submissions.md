@@ -152,8 +152,7 @@ bounded capacity are native safety controls, not recovered source constants.
 The `/feedback` form keeps the source multipart encoding and category, subject,
 message, verification, and submit controls. It requires an explicitly enabled
 profile with operator-provided categories and limits. Without one, GET retains
-the existing informational page and POST refuses submission. Operator tooling
-for these profiles is still unfinished.
+the existing informational page and POST refuses submission. The migrator-only commands below configure these profiles.
 
 The native form bounds the whole body to 128 KiB and rejects files, duplicate or
 unknown fields, invalid UTF-8, wrong CSRF values, and mismatched profile IDs.
@@ -171,3 +170,36 @@ consumption; the transaction restores both the receipt and the capacity count.
 HTTP tests exercise the real isolated verifier, multipart submission, escaped
 category labels, cross-origin and CSRF rejection, replay, and read-only success
 refreshes. Browser execution and screenshots remain to be qualified.
+
+
+### Configure feedback
+
+Choose categories and limits for the installation. This example is synthetic;
+it is not a recovered source configuration:
+
+```json
+{
+  "version": 1,
+  "subject_limit": 150,
+  "message_limit": 2000,
+  "capacity": 10000,
+  "cooldown_seconds": 60,
+  "categories": [
+    {"id": 1, "label": "Example category", "short_label": "Example"}
+  ]
+}
+```
+
+```sh
+cargo run -p board-store --bin board-submissions -- validate-feedback feedback.json
+cargo run -p board-store --bin board-submissions -- open-feedback feedback.json
+cargo run -p board-store --bin board-submissions -- close-feedback 1
+```
+
+Use the profile ID printed by `open-feedback` in the close command. Validation
+is offline. Opening and closing require `MIGRATION_DATABASE_URL` with the actual
+`board_migrator` login; assuming that role from another login is not sufficient.
+An enabled profile must be explicitly closed before another is opened. Closing
+retains submissions and categories. New profiles have new IDs, so forms for an
+old profile cannot submit into its replacement. Concurrent opens admit exactly
+one profile. At most 10,000 profiles can be retained through this tool.
