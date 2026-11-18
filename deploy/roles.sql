@@ -91,3 +91,15 @@ ALTER ROLE board_checkout SET search_path=pg_catalog;
 -- Bootstrap before 0251. Event state has no runtime table grants or login owner.
 CREATE ROLE board_event_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT board_event_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+-- Bootstrap before 0258. Submission identities remain outside public/staff reads.
+CREATE ROLE board_submission_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_submission_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+-- Bootstrap before 0262. Feedback review has no public write authority.
+CREATE ROLE board_submission_review_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_submission_review_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+-- Bootstrap before 0263. Applicant identity is isolated from feedback review.
+CREATE ROLE board_application_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_application_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+-- Bootstrap before 0264. Contest operations cannot read private contact email.
+CREATE ROLE board_contest_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_contest_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;

@@ -27,6 +27,7 @@ pub mod poster_id;
 pub mod preview;
 pub mod public_deletion;
 pub mod semantic_context;
+pub mod site_submissions;
 pub mod source_events;
 pub mod still_image_policy;
 pub mod word_break;

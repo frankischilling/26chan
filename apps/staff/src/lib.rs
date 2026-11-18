@@ -1,10 +1,12 @@
 #![forbid(unsafe_code)]
 pub mod access;
+mod applications;
 mod audit_snapshot;
 pub mod auth;
 pub mod cleared_report_queue;
 pub mod config;
 mod discussion;
+mod feedback;
 mod handlers;
 mod janitor_requests;
 mod latest;
@@ -205,6 +207,19 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
         .route("/messages", get(staff_messages::show))
+        .route(
+            "/feedback",
+            get(feedback::page)
+                .post(feedback::action)
+                .layer(DefaultBodyLimit::max(8192)),
+        )
+        .route("/feedback-native.css", get(feedback::stylesheet))
+        .route(
+            "/applications",
+            get(applications::page)
+                .post(applications::action)
+                .layer(DefaultBodyLimit::max(8192)),
+        )
         .route("/ban-requests", get(request_review::queue))
         .route("/ban-requests/history/{id}", get(request_history::show))
         .route(

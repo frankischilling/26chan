@@ -93,3 +93,25 @@ test('a Pass presentation cookie requests verified advice but never grants its o
     api.dispose();
   }
 });
+
+
+test('native Pass submission waits for delayed issuer advice even with an existing form nonce', async () => {
+  let finish;
+  const e = environment(() => new Promise(resolve => { finish = resolve; }));
+  e.win.document = e.doc; e.doc.cookie = 'pass_enabled=1';
+  const form = e.doc.createElement('form');
+  const root = createPostingCaptcha(form, { board: 'b', target: '0', purpose: 'thread' }, e.doc);
+  root.querySelector('[name="captcha-csrf"]').value = nonce;
+  const api = mountPostingCaptcha(root, { win: e.win });
+  await settle();
+  assert.equal(root.querySelector('[name="captcha-csrf"]').value, nonce);
+  assert.equal(root.querySelector('button[id$="t-load"]').disabled, true);
+  assert.equal(form.emit('submit').defaultPrevented, true);
+  finish(response(reply({ state: 'disabled' })));
+  await settle();
+  assert.equal(root.querySelector('.captchaMessage').textContent, '');
+  assert.equal(root.querySelector('button[id$="t-load"]').disabled, false);
+  assert.equal(root.hidden, true);
+  assert.equal(form.emit('submit').defaultPrevented, false);
+  api.dispose();
+});

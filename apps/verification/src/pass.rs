@@ -241,6 +241,9 @@ pub(crate) async fn write_receipt(
     State(state): State<AppState>,
     Json(input): Json<protocol::PassWriteRequest>,
 ) -> Response {
+    if input.context.purpose == protocol::Purpose::SiteContestVote {
+        return crate::pass_site_vote::issue(state, input).await;
+    }
     let context = &input.context;
     if context.session.minted || context.email_token.is_some() {
         return error(StatusCode::BAD_REQUEST);

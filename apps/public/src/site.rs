@@ -40,13 +40,13 @@ struct News {
 pub(crate) fn routes() -> Router<AppState> {
     let mut router = Router::new()
         .route("/news", get(news))
-        .route("/stats", get(statistics));
+        .route("/stats", get(statistics))
+        .merge(crate::site_submissions::routes());
     for (path, key, title) in [
         ("/about", "about", "About"),
         ("/faq", "faq", "Frequently Asked Questions"),
         ("/rules", "rules", "Rules"),
         ("/contact", "contact", "Contact"),
-        ("/feedback", "feedback", "Feedback"),
         ("/legal", "legal", "Legal information"),
         ("/press", "press", "Press"),
         ("/advertise", "advertise", "Advertising"),
@@ -61,7 +61,7 @@ pub(crate) fn routes() -> Router<AppState> {
     }
     router
 }
-async fn info(
+pub(crate) async fn info(
     state: AppState,
     key: &'static str,
     title: &'static str,

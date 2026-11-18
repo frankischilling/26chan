@@ -245,6 +245,20 @@ fn headers(
     page: Option<InteractivePage>,
     posting: Option<&str>,
 ) -> Response {
+    let application_page = response
+        .extensions()
+        .get::<crate::site_submissions::applications::ApplicationPage>()
+        .is_some();
+    let application_script = response
+        .extensions()
+        .get::<crate::site_submissions::applications::ApplicationPage>()
+        .is_some_and(|page| page.0)
+        && response.status().is_success()
+        && response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.starts_with("text/html"));
     let captcha_page = response
         .extensions()
         .get::<crate::posting_challenge::page::CaptchaPage>()
@@ -585,6 +599,20 @@ fn headers(
     } else {
         script
     };
+    let script = if application_script {
+        let application = format!(
+            "{}{}",
+            state.origin,
+            crate::site_submissions::applications::SCRIPT
+        );
+        if script == "'none'" {
+            application
+        } else {
+            format!("{script} {application}")
+        }
+    } else {
+        script
+    };
     let connect = if captcha_page {
         if connect == "'none'" {
             format!("{}/captcha", state.origin)
@@ -643,11 +671,13 @@ fn headers(
     // same-origin signal while withholding referrers from external destinations.
     headers.insert(
         "referrer-policy",
-        HeaderValue::from_static(if verification_page || recovery_page || checkout_page {
-            "strict-origin"
-        } else {
-            "same-origin"
-        }),
+        HeaderValue::from_static(
+            if verification_page || recovery_page || checkout_page || application_page {
+                "strict-origin"
+            } else {
+                "same-origin"
+            },
+        ),
     );
     headers.insert(
         "permissions-policy",
@@ -1678,6 +1708,56 @@ mod verification_policy_tests {
             );
             assert!(!policy.contains("img-src 'self'"));
             assert!(policy.contains("script-src-attr 'none'"));
+        }
+    }
+    #[tokio::test]
+    async fn application_script_is_limited_to_marked_successful_form_html() {
+        let state = AppState {
+            event_workflows: false,
+            asn_database: None,
+            browser_hint_key: None,
+            posting_browser_compat_key: None,
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+                .unwrap(),
+            origin: "https://board.example".into(),
+            production: false,
+            limits: std::sync::Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+            media: None,
+            verification: None,
+            proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
+            country_database: None,
+        };
+        for (marker, status, kind, allowed) in [
+            (None, StatusCode::OK, "text/html", false),
+            (Some(false), StatusCode::OK, "text/html", false),
+            (Some(true), StatusCode::OK, "text/html", true),
+            (Some(true), StatusCode::BAD_REQUEST, "text/html", false),
+            (Some(true), StatusCode::OK, "application/json", false),
+        ] {
+            let mut response = (status, [("content-type", kind)], "owned").into_response();
+            if let Some(script) = marker {
+                response.extensions_mut().insert(
+                    crate::site_submissions::applications::ApplicationPage(script),
+                );
+            }
+            let response = headers(response, &state, None, None);
+            let policy = response.headers()["content-security-policy"]
+                .to_str()
+                .unwrap();
+            assert_eq!(policy.contains("/static/application-form.v1.js"), allowed);
+            assert!(!policy.contains(" data:"));
+            assert!(!policy.contains("'unsafe-inline'"));
+            assert_eq!(
+                response.headers()["referrer-policy"],
+                if marker.is_some() {
+                    "strict-origin"
+                } else {
+                    "same-origin"
+                }
+            );
         }
     }
 }

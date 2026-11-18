@@ -29,7 +29,31 @@ pub struct WriteRequest<'a> {
     pub board: &'a str,
     pub target: i64,
 }
+pub struct SiteVoteRequest<'a> {
+    pub pass_session: &'a [u8; 32],
+    pub receipt: &'a [u8; 32],
+    pub peer: &'a [u8; 32],
+    pub anonymous: &'a [u8; 32],
+    pub context: &'a [u8; 32],
+    pub entry: i64,
+}
 impl VerificationStore {
+    pub async fn pass_site_vote_receipt(
+        &self,
+        input: &SiteVoteRequest<'_>,
+    ) -> Result<State, StoreError> {
+        Ok(
+            sqlx::query_as("SELECT * FROM content.pass_site_vote_receipt($1,$2,$3,$4,$5,$6)")
+                .bind(input.pass_session.as_slice())
+                .bind(input.receipt.as_slice())
+                .bind(input.peer.as_slice())
+                .bind(input.anonymous.as_slice())
+                .bind(input.context.as_slice())
+                .bind(input.entry)
+                .fetch_one(&self.pool)
+                .await?,
+        )
+    }
     pub async fn pass_write_receipt(&self, input: &WriteRequest<'_>) -> Result<State, StoreError> {
         Ok(sqlx::query_as(
             "SELECT * FROM content.pass_write_receipt($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",

@@ -949,6 +949,12 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 .siteNews h3 { font-size: 14px; }
 .siteFaq h3 { margin-top: 22px; }
 .siteHomeHeader a { color: inherit; }
+.siteHome .contestDirectory article, .siteHome .contestDirectory nav, .siteHome .contestResult { padding: 12px; }
+.contestEntries { list-style: none; margin: 12px; padding: 0; }
+.contestEntries li + li { border-top: 1px solid #d9bfb7; margin-top: 12px; padding-top: 12px; }
+.contestEntries img { display: block; max-width: 100%; height: auto; margin-bottom: 8px; }
+.contestEntries + nav { margin: 12px; }
+.agreement-terms { max-width: 75ch; white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 1rem; }
 
 /* Homepage projections contain bounded, escaped public excerpts. */
 .siteHome .homeCards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }

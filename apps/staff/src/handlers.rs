@@ -353,6 +353,12 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     }
     auth::check_identity(&state.auth, "board_auth").await?;
     auth::check_identity(&state.staff, "board_staff").await?;
+    if !sqlx::query_scalar::<_, bool>("SELECT submission_api.ready()")
+        .fetch_one(&state.auth)
+        .await?
+    {
+        return Err(AppError::Internal);
+    }
     sqlx::query("SELECT token_hash,last_activity_at FROM staff_identity.sessions LIMIT 0")
         .execute(&state.auth)
         .await?;

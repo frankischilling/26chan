@@ -60,6 +60,12 @@ pub enum ChallengePurpose {
     Reply,
     Report,
     Like,
+    SiteFeedback,
+    SiteApplication,
+    SiteApplicationAuth,
+    SiteApplicationEdit,
+    SiteContestSubmit,
+    SiteContestDelete,
     EmailRequest,
     EmailVerify,
     Ticket,
@@ -71,6 +77,12 @@ impl ChallengePurpose {
             Self::Reply => "reply",
             Self::Report => "report",
             Self::Like => "like",
+            Self::SiteFeedback => "site_feedback",
+            Self::SiteApplication => "site_application",
+            Self::SiteApplicationAuth => "site_application_auth",
+            Self::SiteApplicationEdit => "site_application_edit",
+            Self::SiteContestSubmit => "site_contest_submit",
+            Self::SiteContestDelete => "site_contest_delete",
             Self::EmailRequest => "email_request",
             Self::EmailVerify => "email_verify",
             Self::Ticket => "ticket",
@@ -166,6 +178,32 @@ pub struct EmailAcceptance<'a> {
 }
 
 impl VerificationStore {
+    pub async fn site_submission_open(
+        &self,
+        purpose: ChallengePurpose,
+        target: i64,
+    ) -> Result<bool, StoreError> {
+        if target <= 0
+            || !matches!(
+                purpose,
+                ChallengePurpose::SiteFeedback
+                    | ChallengePurpose::SiteApplication
+                    | ChallengePurpose::SiteApplicationAuth
+                    | ChallengePurpose::SiteApplicationEdit
+                    | ChallengePurpose::SiteContestSubmit
+                    | ChallengePurpose::SiteContestDelete
+            )
+        {
+            return Ok(false);
+        }
+        Ok(
+            sqlx::query_scalar("SELECT submission_api.challenge_open($1,$2)")
+                .bind(purpose.value())
+                .bind(target)
+                .fetch_one(&self.pool)
+                .await?,
+        )
+    }
     pub async fn connect(url: &str) -> Result<Self, StoreError> {
         let pool = PgPoolOptions::new()
             .max_connections(8)

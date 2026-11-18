@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/static/board.css">
+  <title>Janitor agreement</title>
+</head>
+<body>
+<main>
+  <h1>Janitor agreement</h1>
+  {% match self %}
+  {% when Page::Enter { csrf } %}
+  <form method="post" action="/janitorapp/agreement" autocomplete="off">
+    <label for="invitation">Invitation code</label>
+    <input id="invitation" name="code" type="password" autocomplete="one-time-code" maxlength="64" required>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button>Review agreement</button>
+  </form>
+  {% when Page::Review { terms, code, csrf } %}
+  <div class="agreement-terms">{{ terms }}</div>
+  <form method="post" action="/janitorapp/agreement">
+    <input type="hidden" name="code" value="{{ code }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label><input type="checkbox" name="accept" value="yes" required> I accept these terms</label>
+    <button>Record acceptance</button>
+  </form>
+  {% when Page::Accepted %}
+  <p>Your acceptance was recorded.</p>
+  {% endmatch %}
+</main>
+</body>
+</html>

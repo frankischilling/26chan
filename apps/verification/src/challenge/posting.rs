@@ -44,6 +44,9 @@ pub(crate) async fn challenge(
     State(state): State<AppState>,
     Json(input): Json<protocol::PostingChallengeRequest>,
 ) -> Response {
+    if super::site_submissions::scope(input.context.purpose).is_some() {
+        return super::site_submissions::challenge(state, input).await;
+    }
     if matches!(input.context.purpose, protocol::Purpose::Like) {
         return super::likes::challenge(state, input).await;
     }

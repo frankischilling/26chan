@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Contest vote · 26chan{% endblock %}
+{% block body_attributes %} class="siteHome"{% endblock %}
+{% block board_navigation %}{% endblock %}
+{% block content %}
+<section class="homePanel siteInfo contestResult">
+  {% if accepted %}<h1>Vote recorded</h1>{% else %}<h1>You already voted for this board in this campaign</h1>{% endif %}
+  <p><a href="{{ return_to }}">Back to the entries</a></p>
+</section>
+{% endblock %}
+{% block page_footer %}{% endblock %}

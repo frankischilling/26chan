@@ -146,6 +146,7 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
         .install_thumbnail(asset.id.parse().unwrap(), &output)
         .unwrap();
     let path = format!("/media/{}.png", asset.id);
+    let image_path = format!("/media/{}.image", asset.id);
     let thumbnail_path = format!("/media/{}.thumb.png", asset.id);
     assert_eq!(
         send(&app, "GET", &thumbnail_path).await.status(),
@@ -156,6 +157,10 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
     safe(&pending);
     assert_eq!(pending.headers()["cache-control"], "no-store");
     drop(pending);
+    assert_eq!(
+        send(&app, "GET", &image_path).await.status(),
+        StatusCode::NOT_FOUND
+    );
     queue
         .approve_output(&job.id, &token, &asset.id)
         .await
@@ -163,6 +168,11 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
     drop(guard);
     let disk = root.join(format!("{}.png", asset.id));
     let png = std::fs::read(&disk).unwrap();
+    let image = send(&app, "GET", &image_path).await;
+    assert_eq!(image.status(), StatusCode::OK);
+    safe(&image);
+    assert_eq!(image.headers()["content-type"], "image/png");
+    assert_eq!(to_bytes(image.into_body(), 5_242_880).await.unwrap(), png);
     let response = send(&app, "GET", &path).await;
     assert_eq!(response.status(), StatusCode::OK);
     safe(&response);
@@ -358,6 +368,10 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
         .unwrap();
     assert_eq!(removed.status(), StatusCode::NOT_FOUND);
     assert!(!removed.headers().contains_key("etag"));
+    assert_eq!(
+        send(&app, "GET", &image_path).await.status(),
+        StatusCode::NOT_FOUND
+    );
     assert_eq!(
         send(&app, "GET", &thumbnail_path).await.status(),
         StatusCode::NOT_FOUND

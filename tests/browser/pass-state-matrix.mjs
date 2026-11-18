@@ -89,7 +89,31 @@ async function browserCases() {
           await expect(page.locator('.msg-error')).toBeVisible();
           await context.addCookies([{ name: 'pass_enabled', value: '1', url: fixture.origin }]);
         }
+        // The native submit guard rejects a click while Pass advice is loading.
+        // Observing the layout or the server nonce does not mean that this
+        // asynchronous request has finished, especially on a busy CI runner.
+        const advice = row.active && mode !== 'noscript'
+          ? page.waitForResponse(response => {
+            const request = response.request();
+            if (response.url() !== `${fixture.origin}/captcha` || request.method() !== 'POST') return false;
+            const fields = new URLSearchParams(request.postData() ?? '');
+            return fields.get('board') === fixture.board && fields.get('target') === '0' && fields.get('purpose') === 'thread';
+          }, { timeout: 12000 }) : null;
+        // Keep navigation failures from leaving a rejected observer unhandled.
+        advice?.catch(() => {});
         await page.goto(`${fixture.origin}/${fixture.board}/`);
+        if (advice) {
+          const response = await advice;
+          assert.equal(response.status(), 200);
+          const result = await response.json();
+          assert.equal(result.challenge.state, 'disabled');
+          assert.equal(result.report_exempt, false);
+          const captcha = page.locator('form.postEditor [data-posting-captcha]').first();
+          await expect(captcha.locator('[name="captcha-csrf"]')).toHaveValue(result.csrf);
+          await expect(captcha.locator('.captchaMessage')).toHaveText('');
+          await expect(captcha.locator('button[id$="t-load"]')).toBeEnabled();
+          await expect(captcha).toBeHidden();
+        }
         if (!row.active) {
           // A presentation cookie cannot authorize a native or JSON write.
           const csrf = await page.locator('form.postEditor [name="captcha-csrf"]').first().inputValue();
