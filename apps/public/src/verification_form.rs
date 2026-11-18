@@ -12,8 +12,16 @@ pub(crate) type PassSecret = BrowserSecret<2>;
 pub(crate) type RecoverySecret = BrowserSecret<3>;
 pub(crate) type CheckoutSecret = BrowserSecret<4>;
 pub(crate) type ContestVoteSecret = BrowserSecret<5>;
+pub(crate) type AgreementSecret = BrowserSecret<6>;
 
 fn name<const PURPOSE: u8>(production: bool) -> &'static str {
+    if PURPOSE == 6 {
+        return if production {
+            "__Host-board-agreement"
+        } else {
+            "board-agreement"
+        };
+    }
     if PURPOSE == 5 {
         return if production {
             "__Host-board-contest-vote"
@@ -114,11 +122,17 @@ impl<const PURPOSE: u8> BrowserSecret<PURPOSE> {
         Ok(found)
     }
     pub(crate) fn nonce(&self) -> String {
+        self.nonce_for(&[])
+    }
+
+    pub(crate) fn nonce_for(&self, binding: &[u8]) -> String {
         let mut hash = Sha256::new();
         if PURPOSE == 1 {
             hash.update(b"26chan:posting-form:v1\0");
         } else if PURPOSE == 5 {
             hash.update(b"26chan:contest-vote-form:v1\0");
+        } else if PURPOSE == 6 {
+            hash.update(b"26chan:agreement-form:v1\0");
         } else if PURPOSE == 4 {
             hash.update(b"26chan:checkout-form:v1\0");
         } else if PURPOSE == 3 {
@@ -129,15 +143,20 @@ impl<const PURPOSE: u8> BrowserSecret<PURPOSE> {
             hash.update(b"26chan:verification-form:v1\0");
         }
         hash.update(self.0);
+        hash.update(binding);
         hex(&hash.finalize())
     }
     pub(crate) fn matches(&self, supplied: &str) -> bool {
+        self.matches_for(supplied, &[])
+    }
+
+    pub(crate) fn matches_for(&self, supplied: &str, binding: &[u8]) -> bool {
         // This is a public form nonce, not the cookie secret. A fixed-length
         // comparison also avoids accepting alternate encodings.
         let Some(supplied) = decode(supplied) else {
             return false;
         };
-        let expected = decode(&self.nonce()).expect("canonical form nonce");
+        let expected = decode(&self.nonce_for(binding)).expect("canonical form nonce");
         supplied
             .iter()
             .zip(expected)

@@ -1,6 +1,7 @@
 //! Narrow configuration readers for native site submissions. Personal records
 //! never pass through these readers. Mutations have separate proof boundaries.
 pub mod admin;
+pub mod agreements;
 pub mod applications;
 pub mod contests;
 pub mod feedback;

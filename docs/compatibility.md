@@ -17,9 +17,9 @@ controller contract is reconstructed explicitly; exact original poll styling
 remains unqualified. Existing polls stay closed until an operator enables voting.
 
 [Site submissions](source-site-submissions.md) add public feedback and
-janitor applications with protected review, plus banner campaign listings and
-Pass voting. Contest intake, entry review, owner withdrawal, prize claims,
-and applicant onboarding remain open under
+janitor applications with protected review and agreement acceptance, plus
+banner campaign listings and Pass voting. Contest intake, entry review, owner
+withdrawal, prize claims, and staff provisioning remain open under
 [#225](https://github.com/frankischilling/26chan/issues/225).
 
 [Bans and warnings](source-bans.md) add private board/global restrictions, staff

@@ -11,12 +11,14 @@ use ring::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
     Application,
+    ApplicationAgreement,
     ContestEntry,
 }
 impl Kind {
     fn prefix(self) -> &'static str {
         match self {
             Self::Application => "app1.",
+            Self::ApplicationAgreement => "agree1.",
             Self::ContestEntry => "entry1.",
         }
     }
@@ -77,7 +79,11 @@ mod tests {
     use super::*;
     #[test]
     fn capabilities_are_canonical_and_do_not_cross_workflows() {
-        for kind in [Kind::Application, Kind::ContestEntry] {
+        for kind in [
+            Kind::Application,
+            Kind::ApplicationAgreement,
+            Kind::ContestEntry,
+        ] {
             let cap = Capability::from_bytes(kind, [7; 32]);
             let parsed = Capability::parse(kind, cap.token()).unwrap();
             assert_eq!(parsed.kind(), kind);

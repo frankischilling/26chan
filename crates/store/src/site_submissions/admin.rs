@@ -1,4 +1,5 @@
 //! Explicit migrator-only configuration. Closing retains submissions.
+pub mod agreements;
 pub mod applications;
 pub mod contests;
 use board_domain::site_submissions::feedback::{Category, Profile as FormProfile};
@@ -19,6 +20,12 @@ pub enum Error {
     ApplicationActive,
     #[error("The retained application campaign budget is full.")]
     ApplicationFull,
+    #[error("Expected nonempty UTF-8 agreement text of at most 16,000 UTF-16 units.")]
+    AgreementInput,
+    #[error("Only an application awaiting an agreement can receive an invitation.")]
+    AgreementUnavailable,
+    #[error("Could not create a private agreement code.")]
+    AgreementRandomness,
     #[error("Expected bounded version-1 contest JSON with valid kind, boards, dates and limits.")]
     ContestInput,
     #[error("An enabled contest for this kind and board overlaps the requested schedule.")]
@@ -102,6 +109,16 @@ async fn transaction<'a>(
     connection: &'a mut PgConnection,
     lock: &'static str,
 ) -> Result<Transaction<'a, Postgres>, Error> {
+    let mut tx = verified_transaction(connection).await?;
+    // Conflict with row-lock acquisition too, so a writer cannot hold the row
+    // while waiting to obtain the table lock needed for its counter update.
+    sqlx::query(lock).execute(&mut *tx).await?;
+    Ok(tx)
+}
+
+async fn verified_transaction(
+    connection: &mut PgConnection,
+) -> Result<Transaction<'_, Postgres>, Error> {
     let mut tx = connection.begin().await?;
     let allowed: bool = sqlx::query_scalar(
         "SELECT current_user='board_migrator' AND session_user='board_migrator'",
@@ -129,9 +146,6 @@ async fn transaction<'a>(
         tx.rollback().await?;
         return Err(Error::Authority);
     }
-    // Conflict with row-lock acquisition too, so a writer cannot hold the row
-    // while waiting to obtain the table lock needed for its counter update.
-    sqlx::query(lock).execute(&mut *tx).await?;
     Ok(tx)
 }
 pub async fn start_feedback(

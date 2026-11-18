@@ -99,8 +99,8 @@ grep -q 'Submission authority drifted' "$cluster/review-rejected.log" || { cat "
 "${migrator[@]}" <<'SQL'
 INSERT INTO submission_private.application_campaigns(id,starts_at,ends_at,boards,questions,field_limit,answer_limit,capacity)
 VALUES(777,100,200,ARRAY['g'],ARRAY['Owned one','Owned two','Owned three','Owned four'],150,2000,100);
-INSERT INTO submission_private.applications(campaign_id,age,timezone,hours,times,board1,answers,created_at,updated_at)
-VALUES(777,25,-4,3,'16:00-19:00','g',ARRAY['one','two','three','four'],100,100);
+INSERT INTO submission_private.applications(campaign_id,state,age,timezone,hours,times,board1,answers,created_at,updated_at)
+VALUES(777,4,25,-4,3,'16:00-19:00','g',ARRAY['one','two','three','four'],100,100);
 INSERT INTO submission_private.application_identity(application_id,campaign_id,ownership_hash,actor_hash,firstname,handle,email,email_identity)
 SELECT id,777,decode(repeat('a1',32),'hex'),decode(repeat('b2',32),'hex'),'Owned','Owned handle','owned@example.test','owned@example.test'
 FROM submission_private.applications WHERE campaign_id=777;
@@ -153,6 +153,20 @@ grep -q 'Submission authority drifted' "$cluster/application-review-rejected.log
 "${migrator[@]}" -c BEGIN -f migrations/0265_application_review.sql -c ROLLBACK >"$cluster/application-review-rollback.log" 2>&1 || { cat "$cluster/application-review-rollback.log" >&2; exit 1; }
 "${migrator[@]}" -c "DO \$\$ BEGIN IF to_regclass('submission_private.application_review_log') IS NOT NULL OR to_regprocedure('submission_api.application_review_action(bytea,bytea,integer,bigint,integer,text)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained application review'; END IF; END \$\$;" >/dev/null
 "${migrator[@]}" --single-transaction -f migrations/0265_application_review.sql >"$cluster/application-review-accepted.log" 2>&1 || { cat "$cluster/application-review-accepted.log" >&2; exit 1; }
+if "${migrator[@]}" --single-transaction -c 'GRANT SELECT(email) ON submission_private.application_identity TO board_submission_review_owner;' \
+ -f migrations/0266_application_agreements.sql >"$cluster/application-agreement-rejected.log" 2>&1; then
+ echo 'Application agreement migration accepted identity authority drift' >&2; exit 1
+fi
+grep -q 'Submission authority drifted' "$cluster/application-agreement-rejected.log" || { cat "$cluster/application-agreement-rejected.log" >&2; exit 1; }
+"${migrator[@]}" -c BEGIN -f migrations/0266_application_agreements.sql -c ROLLBACK >"$cluster/application-agreement-rollback.log" 2>&1 || { cat "$cluster/application-agreement-rollback.log" >&2; exit 1; }
+"${migrator[@]}" -c "DO \$\$ BEGIN IF to_regclass('submission_private.application_agreements') IS NOT NULL OR to_regprocedure('submission_api.accept_application_agreement(bytea)') IS NOT NULL THEN RAISE EXCEPTION 'Rollback retained application agreements'; END IF; END \$\$;" >/dev/null
+"${migrator[@]}" --single-transaction -f migrations/0266_application_agreements.sql >"$cluster/application-agreement-applied.log" 2>&1 || { cat "$cluster/application-agreement-applied.log" >&2; exit 1; }
+"${migrator[@]}" <<'SQL'
+INSERT INTO submission_private.application_agreements (application_id,revision,invite_hash,terms,issued_at,expires_at,accepted_at)
+SELECT id,revision,decode(repeat('a8',32),'hex'),'Owned accepted terms',to_timestamp(100),to_timestamp(200),to_timestamp(125)
+FROM submission_private.applications WHERE campaign_id=777;
+CREATE TABLE public.owned_agreement_before AS SELECT * FROM submission_private.application_agreements;
+SQL
 cat >"$cluster/check.sql" <<'SQL'
 DO $$ BEGIN
  IF (SELECT boards FROM public.owned_submissions_before) IS DISTINCT FROM
@@ -170,6 +184,8 @@ DO $$ BEGIN
  OR (SELECT campaigns FROM public.owned_contest_before) IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM submission_private.contest_campaigns c)
  OR (SELECT entries FROM public.owned_contest_before) IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM submission_private.contest_entries e)
  OR (SELECT votes FROM public.owned_contest_before) IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(v) ORDER BY entry_id) FROM submission_private.contest_votes v)
+ OR EXISTS((SELECT * FROM submission_private.application_agreements EXCEPT SELECT * FROM public.owned_agreement_before)
+  UNION ALL (SELECT * FROM public.owned_agreement_before EXCEPT SELECT * FROM submission_private.application_agreements))
  THEN RAISE EXCEPTION 'Submission migration or restore changed retained data'; END IF;
 END $$;
 SQL

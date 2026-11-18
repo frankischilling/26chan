@@ -1,4 +1,5 @@
 //! Source site forms use their own purpose-bound verification receipts.
+mod agreements;
 pub(crate) mod applications;
 mod contests;
 mod forms;
@@ -26,6 +27,7 @@ use board_verification_client::protocol;
 
 pub(crate) fn routes() -> Router<AppState> {
     Router::new()
+        .merge(agreements::routes())
         .merge(contests::routes())
         .route("/feedback", get(page).post(page))
         .route(

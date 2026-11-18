@@ -3,7 +3,7 @@
 Polls have their own pages and voting flow. This work adds public feedback
 and applications, protected staff review, and banner contest listings and
 voting. Contest submissions, staff review of contest entries, prize claims,
-and application onboarding after selection remain open under issue #225.
+and staff account provisioning after agreement acceptance remain open under issue #225.
 
 ## What the supplied source establishes
 
@@ -77,7 +77,7 @@ On an existing installation, bootstrap the NOLOGIN owner with
 all campaigns closed and adds no historical submissions.
 
 Remaining implementation includes contest submission and withdrawal, private
-image processing and review, and application onboarding after selection.
+image processing and review, and account provisioning after agreement acceptance.
 Public application forms and blind staff review are implemented; browser
 qualification and the missing visual assets remain separate checks. No application automatically grants staff access. No contest
 entry automatically earns a Pass. Missing original styles and artwork remain
@@ -497,5 +497,22 @@ remain private and non-cacheable.
 
 The review uses a native layout and works without JavaScript. Chromium tests
 cover selection, decline, reload, and the separate contact view on desktop
-and mobile, with scripts enabled and disabled. Agreement onboarding remains
-unfinished.
+and mobile, with scripts enabled and disabled.
+
+## Applicant agreements
+
+After staff select an applicant, an operator can issue an invitation using a
+UTF-8 text file containing the terms. The command requires the migrator login
+and prints a private code. Give the applicant the code and the path
+`/janitorapp/agreement` through a private channel.
+
+```sh
+cargo run -p board-store --bin board-submissions -- issue-agreement 42 terms.txt
+cargo run -p board-store --bin board-submissions -- revoke-agreement 42
+```
+
+Codes expire after seven days. Issuing a replacement invalidates the old code.
+The applicant enters the code, reviews the terms, and confirms acceptance in a
+separate step. Accepted records retain the terms, revision, and acceptance
+time. Staff see the application in state 4. Account creation and staff access
+remain separate operator actions.

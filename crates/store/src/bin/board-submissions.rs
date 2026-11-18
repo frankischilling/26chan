@@ -2,7 +2,7 @@
 use board_store::site_submissions::admin;
 use sqlx::{Connection, PgConnection, postgres::PgConnectOptions};
 use std::{ffi::OsString, fs::File, process::ExitCode, str::FromStr};
-const HELP: &str = "Usage: board-submissions validate-feedback <profile.json>\n       board-submissions open-feedback <profile.json>\n       board-submissions close-feedback <profile-id>\n       board-submissions validate-applications <campaign.json>\n       board-submissions open-applications <campaign.json>\n       board-submissions close-applications <campaign-id>\n       board-submissions validate-contest <contest.json>\n       board-submissions open-contest <contest.json>\n       board-submissions close-contest <campaign-id>\n\nValidation is offline. Writes require MIGRATION_DATABASE_URL and the actual\nboard_migrator login. Closing retains submissions. See docs/source-site-submissions.md.";
+const HELP: &str = "Usage: board-submissions validate-feedback <profile.json>\n       board-submissions open-feedback <profile.json>\n       board-submissions close-feedback <profile-id>\n       board-submissions validate-applications <campaign.json>\n       board-submissions open-applications <campaign.json>\n       board-submissions close-applications <campaign-id>\n       board-submissions issue-agreement <application-id> <terms.txt>\n       board-submissions revoke-agreement <application-id>\n       board-submissions validate-contest <contest.json>\n       board-submissions open-contest <contest.json>\n       board-submissions close-contest <campaign-id>\n\nValidation is offline. Writes require MIGRATION_DATABASE_URL and the actual\nboard_migrator login. Closing retains submissions. See docs/source-site-submissions.md.";
 fn id(value: &std::ffi::OsStr) -> Result<i64, String> {
     value
         .to_str()
@@ -71,6 +71,29 @@ async fn run(args: Vec<OsString>) -> Result<(), String> {
                     "Applications closed; records retained."
                 } else {
                     "No enabled matching campaign."
+                }
+            );
+        }
+        [command, value, path] if command == "issue-agreement" => {
+            let application = id(value)?;
+            let file = File::open(path).map_err(|_| "Cannot open agreement terms.")?;
+            let terms = admin::agreements::read_terms(file).map_err(|error| error.to_string())?;
+            let invite = admin::agreements::issue(&mut database().await?, application, &terms)
+                .await
+                .map_err(|error| error.to_string())?;
+            println!("{}", invite.token());
+        }
+        [command, value] if command == "revoke-agreement" => {
+            let application = id(value)?;
+            let removed = admin::agreements::revoke(&mut database().await?, application)
+                .await
+                .map_err(|error| error.to_string())?;
+            println!(
+                "{}",
+                if removed {
+                    "Invitation revoked."
+                } else {
+                    "No outstanding invitation."
                 }
             );
         }
