@@ -23,6 +23,36 @@ pub async fn image(
     method: Method,
     headers: HeaderMap,
 ) -> Response {
+    if let Some(id) = name.strip_suffix(".image") {
+        let Ok(id) = id.parse::<ObjectId>() else {
+            return error(StatusCode::NOT_FOUND);
+        };
+        if uri.path() != format!("/media/{id}.image") {
+            return error(StatusCode::NOT_FOUND);
+        }
+        let asset = match state.reader.get(&id.to_string()).await {
+            Ok(asset) => asset,
+            Err(StoreError::NotFound) => return error(StatusCode::NOT_FOUND),
+            Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE),
+        };
+        let format = asset.output_format;
+        if !matches!(
+            format,
+            MediaFormat::Png | MediaFormat::Jpeg | MediaFormat::Gif
+        ) {
+            return error(StatusCode::NOT_FOUND);
+        }
+        return serve(
+            state,
+            Ok(asset),
+            Variant::Primary,
+            format,
+            headers,
+            false,
+            method,
+        )
+        .await;
+    }
     let (suffix, format, variant) = if name.ends_with(".thumb.png") {
         (".thumb.png", MediaFormat::Png, Variant::Thumbnail)
     } else if name.ends_with(".thumb.jpg") {

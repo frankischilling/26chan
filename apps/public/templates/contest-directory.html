@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ title() }} · 26chan{% endblock %}
+{% block body_attributes %} class="siteHome"{% endblock %}
+{% block board_navigation %}{% endblock %}
+{% block content %}
+<header class="siteHomeHeader"><h1>{{ title() }}</h1></header>
+<nav class="homeLinks" aria-label="Contests">
+  <a href="/">Home</a>
+  <a href="/contests/banners">Board banners</a>
+  <a href="/contests/vtubers">VTuber banners</a>
+</nav>
+<section class="homePanel siteInfo contestDirectory" aria-label="Contest schedule">
+  {% if directory.campaigns.is_empty() %}<p>No campaigns are scheduled.</p>{% endif %}
+  {% for campaign in directory.campaigns %}
+  <article>
+    <h2>Campaign {{ campaign.id }}</h2>
+    <p>Voting runs from {{ date(campaign.voting_starts) }} to {{ date(campaign.voting_ends) }}.</p>
+    {% if campaign.submission_starts > directory.current_time %}
+    <p>Scheduled for {{ date(campaign.submission_starts) }}.</p>
+    {% else %}
+    <ul>
+      {% for board in campaign.boards %}
+      <li><a href="/contests/{{ kind_slug() }}/{{ campaign.id }}/{{ board }}">{% if board == "all" %}All entries{% else %}/{{ board }}/{% endif %}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </article>
+  {% endfor %}
+  {% if let Some(next) = directory.next %}<nav aria-label="Campaign pages"><a rel="next" href="?before={{ next }}">Older campaigns</a></nav>{% endif %}
+</section>
+{% endblock %}
+{% block page_footer %}{% endblock %}

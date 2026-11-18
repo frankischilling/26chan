@@ -1,10 +1,9 @@
 # Feedback, applications, and contests
 
-This work covers the remaining submission workflows in issue #225. Poll pages
-and voting already have separate implementations. Feedback submission and protected staff review have native forms. Janitor
-applications and banner contests are still being built; their domain models
-and source-template checks do not make those routes functional. Feedback
-search shortcuts, original client assets, and visual qualification remain open.
+Polls have their own pages and voting flow. This work adds public feedback
+and applications, protected staff review, and banner contest listings and
+voting. Contest submissions, staff review of contest entries, prize claims,
+and application onboarding after selection remain open under issue #225.
 
 ## What the supplied source establishes
 
@@ -155,8 +154,9 @@ bounded capacity are native safety controls, not recovered source constants.
 
 The `/feedback` form keeps the source multipart encoding and category, subject,
 message, verification, and submit controls. It requires an explicitly enabled
-profile with operator-provided categories and limits. Without one, GET retains
-the existing informational page and POST refuses submission. The migrator-only commands below configure these profiles.
+profile with operator-provided categories and limits. Without one, GET and
+HEAD serve the informational page. POST returns 405 with `Allow: GET, HEAD`.
+The migrator-only commands below configure these profiles.
 
 The native form bounds the whole body to 128 KiB and rejects files, duplicate or
 unknown fields, invalid UTF-8, wrong CSRF values, and mismatched profile IDs.
@@ -173,7 +173,7 @@ category removed while a writer waits forces a foreign-key failure after proof
 consumption; the transaction restores both the receipt and the capacity count.
 HTTP tests exercise the real isolated verifier, multipart submission, escaped
 category labels, cross-origin and CSRF rejection, replay, and read-only success
-refreshes. Browser execution and screenshots remain to be qualified.
+refreshes. The Chromium tests submit the form with scripts enabled and disabled.
 
 
 ### Configure feedback
@@ -391,8 +391,8 @@ controller was not supplied. Only approved entries appear. Scores are absent
 while voting is open. Normal banners can show results after voting; the Vtuber
 listing is hidden outside voting, matching its reachable source template. No
 listing includes the contact email, credit name, ownership digest, peer identity,
-or private voter key. Image intake, review/approval, delivery, owner withdrawal,
-prize claims, and public contest pages are not wired to these readers yet.
+or private voter key. Image intake, contest entry approval, owner withdrawal,
+and prize claims still need their own workflows.
 
 A vote requires a purpose-bound Pass receipt from the verifier, a live anonymous
 session and Pass session, the current credential version, an approved entry,
@@ -416,6 +416,23 @@ proof retention, private-field exclusion, score visibility, directory and entry
 pagination, and Vtuber visibility. Upgrade tests preserve existing campaigns,
 entries, votes, applications, and feedback; reject authority drift; roll back the
 new functions and index change; and verify restored authority without resealing.
+
+### Public pages
+
+Open `/contests` to browse board banner campaigns or switch to VTuber
+banners. Each open or past campaign links to its board listings. Board banner
+results show vote totals after voting ends. VTuber listings are visible only
+during voting. Both pages hide scores while votes are still open.
+
+The vote form runs without JavaScript. It uses a fresh check of the visitor's
+Pass and a contest-specific CSRF cookie. The verifier checks the Pass again
+when the browser submits a vote. The database accepts one vote per Pass,
+board, and campaign. Voting requires the local media and verifier profiles.
+
+The page loads images from the configured media origin. The reader accepts
+PNG, JPEG, and GIF through `/media/{id}.image` and derives the type from
+approved output metadata. It checks approval and stored bytes on every
+request, including conditional requests.
 
 ### Contest campaign commands
 
@@ -478,8 +495,7 @@ existing application owner supplies that narrow read for selected or signed
 records only; it never returns ownership or actor hashes. All staff responses
 remain private and non-cacheable.
 
-The review layout is a native fallback because an application-review template
-was not supplied. Native forms require no JavaScript. CI includes desktop/mobile
-runs with scripts enabled and disabled, including selection, decline, reload,
-and the separate contact view. Those browser checks cannot run in this local
-environment. Agreement onboarding remains unfinished.
+The review uses a native layout and works without JavaScript. Chromium tests
+cover selection, decline, reload, and the separate contact view on desktop
+and mobile, with scripts enabled and disabled. Agreement onboarding remains
+unfinished.

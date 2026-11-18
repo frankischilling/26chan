@@ -221,6 +221,7 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>, board: &str
         format!("/media/{}.png", approved.id),
         format!("/media/{}.jpg", approved.id),
         format!("/media/{}.PDF", approved.id),
+        format!("/media/{}.image", approved.id),
         format!("/media/{}.thumb.pdf", approved.id),
         format!(
             "/media/%{:02x}{}.pdf",

@@ -16,6 +16,12 @@ credentials, expiring forms and atomic duplicate protection. The missing
 controller contract is reconstructed explicitly; exact original poll styling
 remains unqualified. Existing polls stay closed until an operator enables voting.
 
+[Site submissions](source-site-submissions.md) add public feedback and
+janitor applications with protected review, plus banner campaign listings and
+Pass voting. Contest intake, entry review, owner withdrawal, prize claims,
+and applicant onboarding remain open under
+[#225](https://github.com/frankischilling/26chan/issues/225).
+
 [Bans and warnings](source-bans.md) add private board/global restrictions, staff
 issuance/unban, atomic OP/distinct-address global thread-ban batches,
 transactional posting/report refusal and a native public status/viewing flow.

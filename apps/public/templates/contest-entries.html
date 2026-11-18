@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Contest entries · 26chan{% endblock %}
+{% block body_attributes %} class="siteHome"{% endblock %}
+{% block board_navigation %}{% endblock %}
+{% block content %}
+<header class="siteHomeHeader"><h1>{% if listing.board == "all" %}VTuber banner entries{% else %}Banner entries for /{{ listing.board }}/{% endif %}</h1></header>
+<nav class="homeLinks" aria-label="Campaign boards">
+  <a href="/contests/{{ kind_slug() }}">Campaigns</a>
+  {% for board in profile.campaign.boards %}
+  {% if !is_selected(board) %}
+  <a href="/contests/{{ kind_slug() }}/{{ listing.campaign }}/{{ board }}">/{{ board }}/</a>
+  {% endif %}
+  {% endfor %}
+</nav>
+<section class="homePanel siteInfo" aria-label="Entries">
+  {% if !listing.visible %}
+  <p>Entries are visible while voting is open.</p>
+  {% else if listing.entries.is_empty() %}
+  <p>No entries on this page.</p>
+  {% else %}
+    {% if listing.voting %}
+      {% if !voting_configured %}<p>Voting is temporarily unavailable.</p>
+      {% else if csrf.is_none() %}<p><a href="/auth">Sign in with a Pass</a> to vote.</p>
+      {% else %}<p>You can vote once for this board in this campaign.</p>{% endif %}
+    {% endif %}
+    <ul class="contestEntries">
+    {% for entry in listing.entries %}
+      <li>
+        <h2>Entry {{ entry.id }}</h2>
+        {% if let Some(origin) = media_origin %}
+        <img src="{{ origin }}/media/{{ entry.media_id }}.image" alt="Banner for entry {{ entry.id }}" loading="lazy">
+        {% endif %}
+        {% if let Some(score) = entry.score %}<p>Votes received {{ score }}</p>{% endif %}
+        {% if let Some(token) = csrf %}
+        <form method="post">
+          <input type="hidden" name="csrf" value="{{ token }}">
+          <button name="entry" value="{{ entry.id }}">Vote for entry {{ entry.id }}</button>
+        </form>
+        {% endif %}
+      </li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+  <nav aria-label="Entry pages">
+    {% if listing.offset > 0 %}<a href="/contests/{{ kind_slug() }}/{{ listing.campaign }}/{{ listing.board }}">First page</a>{% endif %}
+    {% if let Some(next) = listing.next %}<a rel="next" href="?offset={{ next }}">More entries</a>{% endif %}
+  </nav>
+</section>
+{% endblock %}
+{% block page_footer %}{% endblock %}

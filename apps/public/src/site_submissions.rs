@@ -1,5 +1,6 @@
 //! Source site forms use their own purpose-bound verification receipts.
 pub(crate) mod applications;
+mod contests;
 mod forms;
 use crate::{
     AppState, anonymous_session::Session, handlers::AppError, security::RequestPeer,
@@ -25,6 +26,7 @@ use board_verification_client::protocol;
 
 pub(crate) fn routes() -> Router<AppState> {
     Router::new()
+        .merge(contests::routes())
         .route("/feedback", get(page).post(page))
         .route(
             "/janitorapp",
@@ -97,7 +99,15 @@ async fn render(state: &AppState, request: Request) -> Result<Response, AppError
     }
     let Some(profile) = store::feedback_profile(&state.pool).await? else {
         if request.method() == Method::POST {
-            return Err(AppError(StatusCode::CONFLICT, "Feedback is closed."));
+            return Ok((
+                StatusCode::METHOD_NOT_ALLOWED,
+                [
+                    (header::ALLOW, "GET, HEAD"),
+                    (header::CACHE_CONTROL, "no-store"),
+                ],
+                "Feedback is closed.",
+            )
+                .into_response());
         }
         return crate::site::info(state.clone(), "feedback", "Feedback").await;
     };

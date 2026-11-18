@@ -11,8 +11,16 @@ pub(crate) type PostingSecret = BrowserSecret<1>;
 pub(crate) type PassSecret = BrowserSecret<2>;
 pub(crate) type RecoverySecret = BrowserSecret<3>;
 pub(crate) type CheckoutSecret = BrowserSecret<4>;
+pub(crate) type ContestVoteSecret = BrowserSecret<5>;
 
 fn name<const PURPOSE: u8>(production: bool) -> &'static str {
+    if PURPOSE == 5 {
+        return if production {
+            "__Host-board-contest-vote"
+        } else {
+            "board-contest-vote"
+        };
+    }
     if PURPOSE == 4 {
         return if production {
             "__Host-board-checkout-form"
@@ -109,6 +117,8 @@ impl<const PURPOSE: u8> BrowserSecret<PURPOSE> {
         let mut hash = Sha256::new();
         if PURPOSE == 1 {
             hash.update(b"26chan:posting-form:v1\0");
+        } else if PURPOSE == 5 {
+            hash.update(b"26chan:contest-vote-form:v1\0");
         } else if PURPOSE == 4 {
             hash.update(b"26chan:checkout-form:v1\0");
         } else if PURPOSE == 3 {

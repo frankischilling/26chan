@@ -124,6 +124,11 @@ async fn source_feedback_form_has_bound_single_use_writes_and_read_only_redirect
         let closed=web.clone().oneshot(request("/feedback",None,"")).await.unwrap();
         assert_eq!(closed.status(),StatusCode::OK);assert!(!closed.headers().contains_key(header::SET_COOKIE));
         assert!(!body(closed).await.contains("name=\"challenge\""));
+        let closed_post=web.clone().oneshot(request("/feedback",Some(&[("action","submit")]),"")).await.unwrap();
+        assert_eq!(closed_post.status(),StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(closed_post.headers()[header::ALLOW],"GET, HEAD");
+        assert_eq!(closed_post.headers()[header::CACHE_CONTROL],"no-store");
+        assert!(!closed_post.headers().contains_key(header::SET_COOKIE));
         sqlx::query("INSERT INTO submission_private.feedback_profiles(id,enabled,subject_limit,message_limit,capacity,cooldown_seconds) VALUES($1,true,150,2000,100,0)").bind(id).execute(&owner).await.unwrap();
         sqlx::query("INSERT INTO submission_private.feedback_categories VALUES($1,1,0,'<Owned>','Owned')").bind(id).execute(&owner).await.unwrap();
         let response=web.clone().oneshot(request("/feedback",None,"")).await.unwrap();
