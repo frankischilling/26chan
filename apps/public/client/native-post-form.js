@@ -10,23 +10,32 @@ export function mountNativePostForm({ source, thread, openQuickReply }) {
     desktop.firstElementChild.setAttribute('aria-expanded', String(expanded));
     for (const link of links) link.setAttribute('aria-expanded', String(!table.classList.contains('hideMobile')));
   }
-  function show(event) {
-    event?.preventDefault(); source.classList.add('postFormOpen'); desktop.hidden = true;
-    const quote = new URLSearchParams(location.search).get('quote');
-    if (mobile.matches && /^[1-9][0-9]{0,18}$/.test(quote ?? '')) {
-      table.classList.remove('hideMobile');
-      top.classList.remove('hidden'); top.classList.add('shown'); top.textContent = 'Close Post Form';
-    }
+  function showDesktop() {
+    source.classList.add('postFormOpen');
+    desktop.hidden = true;
+  }
+  function showMobile(expanded) {
+    table.classList.toggle('hideMobile', !expanded);
+    top.classList.toggle('hidden', !expanded);
+    top.classList.toggle('shown', expanded);
+    top.textContent = expanded ? 'Close Post Form' : thread ? 'Post Reply' : 'Start New Thread';
+  }
+  function showFromHash() {
+    if (location.hash !== '#reply') return;
+    showDesktop();
+    showMobile(true);
     sync();
   }
-  desktop.firstElementChild.addEventListener('click', show);
+  desktop.firstElementChild.addEventListener('click', event => {
+    event.preventDefault();
+    showDesktop();
+    sync();
+  });
   for (const link of links) {
     link.addEventListener('click', event => {
       event.preventDefault();
       if (openQuickReply()) return;
-      const expanded = table.classList.toggle('hideMobile') === false;
-      top.classList.toggle('hidden', !expanded); top.classList.toggle('shown', expanded);
-      top.textContent = expanded ? 'Close Post Form' : thread ? 'Post Reply' : 'Start New Thread';
+      showMobile(table.classList.contains('hideMobile'));
       sync();
       if (link !== top) top.scrollIntoView();
     });
@@ -34,5 +43,6 @@ export function mountNativePostForm({ source, thread, openQuickReply }) {
   }
   source.classList.add('nativePostForm'); table.classList.add('hideMobile'); desktop.hidden = false;
   mobile.addEventListener('change', sync); sync();
-  if (location.hash === '#reply') show();
+  window.addEventListener('hashchange', showFromHash);
+  showFromHash();
 }

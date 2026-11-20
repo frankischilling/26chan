@@ -4,18 +4,18 @@ import { cooldownSeconds, createQuickReplyCooldown } from '../../apps/public/cli
 
 function fixture({ timestamp = '100000', replySeconds = 3, imageSeconds = 5, denied = false } = {}) {
   let clock = 100000, next = 0, state, submitted = 0;
-  const timers = new Map(), writes = [], values = new Map([['4chan-cd-demo', timestamp]]);
+  const timers = new Map(), deadlines = [], writes = [], values = new Map([['4chan-cd-demo', timestamp]]);
   const storage = {
     getItem(key) { if (denied) throw Error('Denied'); return values.get(key); },
     setItem(key, value) { if (denied) throw Error('Denied'); writes.push([key, value]); values.set(key, value); },
   };
   const controller = createQuickReplyCooldown({ board: 'demo', replySeconds, imageSeconds, storage,
     now: () => clock,
-    schedule: callback => { const id = ++next; timers.set(id, callback); return id; },
+    schedule: (callback, delay) => { const id = ++next; timers.set(id, callback); deadlines.push(clock + delay); return id; },
     cancel: id => timers.delete(id),
     changed: value => { state = value; }, expired: () => { submitted++; },
   });
-  return { controller, storage, writes, timers, get state() { return state; }, get submitted() { return submitted; },
+  return { controller, storage, writes, timers, deadlines, get state() { return state; }, get submitted() { return submitted; },
     time(value) { clock = value; },
     tick(value) { clock = value; const callbacks = [...timers.values()]; timers.clear(); callbacks.forEach(callback => callback()); },
   };
@@ -114,4 +114,31 @@ test('the source bypass halves milliseconds and leaves ordinary timers unchanged
   controller.refresh(true); assert.equal(state.seconds,5);
   bypass=false; controller.refresh(true); assert.equal(state.seconds,9);
   controller.stop();
+});
+
+test('a partial second ticks at the display boundary, even after a readiness refresh', () => {
+  const f = fixture();
+  f.time(100250); f.controller.refresh(); f.controller.toggle();
+  assert.equal(f.deadlines.at(-1), 101000);
+  f.tick(101000); assert.equal(f.state.label, '2s (auto)');
+  f.time(101900); f.controller.refresh();
+  assert.equal(f.deadlines.at(-1), 102000);
+  f.tick(102000); assert.equal(f.state.label, '1s (auto)');
+  f.time(102999); f.controller.refresh();
+  assert.equal(f.deadlines.at(-1), 103000);
+  assert.equal(f.submitted, 0);
+  f.tick(103000); assert.equal(f.submitted, 1);
+  assert.equal(f.timers.size, 0);
+});
+
+test('a half-second policy expires at the exact millisecond', () => {
+  let clock = 100000, callback, delay, submissions = 0;
+  const controller = createQuickReplyCooldown({ board: 'owned', replySeconds: 1,
+    storage: { getItem: () => '100000' }, bypass: () => true, now: () => clock,
+    schedule: (next, wait) => { callback = next; delay = wait; }, cancel() {},
+    expired: () => submissions++ });
+  controller.refresh(); controller.toggle();
+  assert.equal(delay, 500);
+  clock += delay; callback();
+  assert.equal(submissions, 1);
 });
