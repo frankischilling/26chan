@@ -342,3 +342,24 @@ test('Q posts selected text and Ctrl-click works without optional keyboard short
     expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
   }); }
 });
+
+for (const width of [390, 1280]) {
+  test(`ordinary #reply navigation opens the posting form at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/fixture/');
+    const form = page.locator('form.postEditor #postForm');
+    await expect(form).toBeHidden();
+    await page.evaluate(() => { location.hash = '#reply'; });
+    await expect(form).toBeVisible();
+    await expect(page.locator('#quickReply')).toHaveCount(0);
+    await page.reload();
+    await expect(form).toBeVisible();
+    if (width <= 480) {
+      const toggle = page.locator('#mpostform .mobilePostFormToggle');
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      await toggle.click();
+      await expect(form).toBeHidden();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    }
+  });
+}

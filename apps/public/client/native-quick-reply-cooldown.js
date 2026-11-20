@@ -1,10 +1,14 @@
 // Advisory only. The server independently enforces ordinary posting delays.
-export function cooldownSeconds(timestamp, delaySeconds, now = Date.now(), bypass = false) {
+function cooldownMilliseconds(timestamp, delaySeconds, now, bypass) {
   if (!/^[0-9]+$/.test(String(timestamp)) || !/^[0-9]+$/.test(String(delaySeconds))) return 0;
   const posted = Number(timestamp), delay = Number(delaySeconds);
   if (!Number.isSafeInteger(posted) || !Number.isSafeInteger(delay) || delay > 86400 || posted > now) return 0;
   const milliseconds = bypass === true ? Math.ceil(delay * 1000 / 2) : delay * 1000;
-  return Math.max(0, Math.ceil((posted + milliseconds - now) / 1000));
+  return Math.max(0, posted + milliseconds - now);
+}
+
+export function cooldownSeconds(timestamp, delaySeconds, now = Date.now(), bypass = false) {
+  return Math.ceil(cooldownMilliseconds(timestamp, delaySeconds, now, bypass) / 1000);
 }
 
 export function createQuickReplyCooldown({ board, replySeconds, imageSeconds, storage,
@@ -12,31 +16,33 @@ export function createQuickReplyCooldown({ board, replySeconds, imageSeconds, st
   const key = `4chan-cd-${board}`;
   let timestamp = null, timer = null, image = false, armed = false, active = false, generation = 0;
   try { timestamp = storage?.getItem(key); } catch { /* Storage is optional. */ }
-  const seconds = () => cooldownSeconds(timestamp, image ? imageSeconds : replySeconds, now(), bypass());
+  const milliseconds = () => cooldownMilliseconds(timestamp, image ? imageSeconds : replySeconds, now(), bypass());
   const clear = () => { generation++; cancel(timer); timer = null; };
-  function render() {
-    const remaining = seconds();
+  function render(timeLeft = milliseconds()) {
+    const remaining = Math.ceil(timeLeft / 1000);
     changed?.({ seconds: remaining, armed, label: remaining ? `${remaining}s${armed ? ' (auto)' : ''}` : 'Post' });
     return remaining;
   }
   function pulse() {
     clear();
-    const remaining = render();
-    if (!active || (!remaining && !armed)) return;
+    const timeLeft = milliseconds();
+    const remaining = render(timeLeft);
+    if (!active || (!remaining && !armed)) return remaining;
     const token = generation;
     timer = schedule(() => {
       if (!active || token !== generation) return;
-      if (!seconds()) {
+      if (!milliseconds()) {
         // Clear the intent before calling back, including on failure or reentry.
         const submit = armed && Number(timestamp) <= now();
         armed = false; clear(); render();
         if (submit) expired?.();
       } else pulse();
-    }, remaining ? 1000 : 0);
+    }, remaining ? timeLeft - (remaining - 1) * 1000 : 0);
+    return remaining;
   }
   return {
-    refresh(hasImage = false) { image = hasImage; active = true; pulse(); return seconds(); },
-    toggle() { armed = seconds() > 0 && !armed; pulse(); return armed; },
+    refresh(hasImage = false) { image = hasImage; active = true; return pulse(); },
+    toggle() { armed = milliseconds() > 0 && !armed; pulse(); return armed; },
     disarm() { armed = false; render(); },
     success() { timestamp = String(now()); armed = false; try { storage?.setItem(key, timestamp); } catch { /* Keep the local advisory. */ } pulse(); },
     stop() { active = false; armed = false; clear(); },
@@ -44,7 +50,7 @@ export function createQuickReplyCooldown({ board, replySeconds, imageSeconds, st
       if (event.key !== key || !event.newValue || (event.storageArea && event.storageArea !== storage)) return;
       timestamp = event.newValue;
       // A changed timestamp refreshes the advisory, never submits synchronously.
-      if (!seconds()) armed = false;
+      if (!milliseconds()) armed = false;
       if (active) pulse();
     },
   };

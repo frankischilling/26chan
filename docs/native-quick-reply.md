@@ -116,8 +116,9 @@ the advisory; removals, other boards and other storage areas are ignored.
 
 The incoming draft chooses the interval: an approved capability, selected file
 or nonempty inline-upload state selects image timing; otherwise text timing
-applies. Remaining seconds are rounded up with `ceil`, displayed as `Ns`, and
-return to `Post` at zero. Missing, malformed, expired or future timestamps do
+applies. The button rounds the remaining time up to whole seconds, updates
+when the displayed number changes, and returns to `Post` at the deadline.
+Reopening or refreshing the editor does not postpone that deadline. Missing, malformed, expired or future timestamps do
 not impose a countdown. The cooldown alone does not disable the button.
 Clicking it with a valid, ready draft toggles `Ns (auto)`. Expiry clears that
 intent before making at most one posting attempt. A failure never rearms or
@@ -212,6 +213,10 @@ own-post tracking, a reopened text-only reply, rejected capability replay,
 actual normalized-image rendering, file-only deletion and persisted metadata.
 The supervising tests retain the one-use tombstone and physical file cleanup
 assertions. Existing native/no-JavaScript upload cases still run unchanged.
+
+A direct or in-page `#reply` link opens the ordinary posting form on desktop
+and mobile. It does not open Quick Reply or require a quote parameter. The
+regular mobile reply button still prefers Quick Reply when enabled.
 
 ## Verification and remaining work
 
